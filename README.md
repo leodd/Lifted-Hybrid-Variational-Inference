@@ -1,0 +1,1 @@
+Color passing example 'ColorPassingDemo.py' is in the Demo folder. The original graph in the demo is exactly the same as the one in Counting BP paper.
