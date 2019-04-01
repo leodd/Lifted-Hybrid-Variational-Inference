@@ -37,6 +37,16 @@ class MLNPotential(Potential):
         return e ** (self.formula(parameters) * self.w)
 
 
+class MLNLogPotential(Potential):
+    def __init__(self, formula, w=1):
+        Potential.__init__(self, symmetric=False)
+        self.formula = formula
+        self.w = w
+
+    def get(self, parameters):
+        return self.formula(parameters) * self.w
+
+
 class MLNNodePotential(Potential):
     def __init__(self):
         Potential.__init__(self, symmetric=False)
