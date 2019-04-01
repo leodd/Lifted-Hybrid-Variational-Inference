@@ -32,19 +32,21 @@ KB = [
     # (lambda sx, cx: or_op(neg_op(sx), cx), 1.5),
     # (lambda fxy, sx, sy: or_op(or_op(neg_op(fxy), neg_op(sx)), sy), 1.1)
 ]
-log_potential_funs = [MLNLogPotential(*tup) for tup in KB]
+
+# log_potential_funs = [lambda vs: f(vs) * w for (f, w) in KB]    # subtle bug due to linger ref to temp f?
+log_potential_funs = [utils.weighted_feature_fun(f, w) for (f, w) in KB]
 
 # create the MN (ground MLN for constants={A, B})
 N = 8
 nodes = np.arange(N)  # node ids; 0:F(A,A), 1:F(A,B), 2:S(A), 3:C(A), 4:F(B,A), 5:S(B), 6:C(B), 7:F(B,B)
 rvs = [RV(domain=Domain(values=np.array([0, 1]), continuous=False), id=n) for n in nodes]
 factors = [
-    F(log_potential=log_potential_funs[1], nb=[rvs[i] for i in [0, 2, 2]]),
-    F(log_potential=log_potential_funs[0], nb=[rvs[i] for i in [2, 3]]),
-    F(log_potential=log_potential_funs[1], nb=[rvs[i] for i in [1, 2, 5]]),
-    F(log_potential=log_potential_funs[1], nb=[rvs[i] for i in [4, 5, 2]]),
-    F(log_potential=log_potential_funs[0], nb=[rvs[i] for i in [5, 6]]),
-    F(log_potential=log_potential_funs[1], nb=[rvs[i] for i in [7, 5, 5]]),
+    F(log_potential_fun=log_potential_funs[1], nb=[rvs[i] for i in [0, 2, 2]]),
+    F(log_potential_fun=log_potential_funs[0], nb=[rvs[i] for i in [2, 3]]),
+    F(log_potential_fun=log_potential_funs[1], nb=[rvs[i] for i in [1, 2, 5]]),
+    F(log_potential_fun=log_potential_funs[1], nb=[rvs[i] for i in [4, 5, 2]]),
+    F(log_potential_fun=log_potential_funs[0], nb=[rvs[i] for i in [5, 6]]),
+    F(log_potential_fun=log_potential_funs[1], nb=[rvs[i] for i in [7, 5, 5]]),
 ]
 for i, f in enumerate(factors):
     f.id = i

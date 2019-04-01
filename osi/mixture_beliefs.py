@@ -119,8 +119,7 @@ def dfactor_belief_bfe(factor, w):
     """
     belief = eval_dfactor_belief(factor, w)  # V1 x V2 x ... Vn
     axes = [rv.values for rv in factor.nb]
-    axes = utils.expand_dims_for_grid(axes)
-    lpot = factor.log_potential.get(axes)  # should evaluate on the Cartesian product (ndgrid) of axes by broadcasting
+    lpot = utils.eval_fun_grid(factor.log_potential_fun, axes)
     log_belief = tf.log(belief)
     F = - lpot + log_belief
     prod = tf.stop_gradient(belief * F)  # stop_gradient is needed for aux_obj

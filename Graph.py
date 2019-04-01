@@ -60,9 +60,12 @@ class RV:
 
 
 class F:
-    def __init__(self, potential=None, log_potential=None, nb=None, id=None):
+    def __init__(self, potential=None, potential_fun=None, log_potential=None, log_potential_fun=None, nb=None,
+                 id=None):
         self.potential = potential
+        self.potential_fun = potential_fun  # directly callable
         self.log_potential = log_potential
+        self.log_potential_fun = log_potential_fun  # directly callable
         if nb is None:
             self.nb = []
         else:

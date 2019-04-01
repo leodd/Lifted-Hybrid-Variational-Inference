@@ -7,6 +7,14 @@ def set_path():  # to facilitate importing from pardir
     sys.path.append('..')
 
 
+def weighted_feature_fun(feature_fun, weight):
+    # return lambda vs: weight * feature_fun(vs)
+    def wf(args):
+        return weight * feature_fun(args)
+
+    return wf
+
+
 def outer_prod_einsum_equation(ndim, mats=False):
     """
     Get the einsum equation for n-dimensional outer/tensor product
@@ -40,7 +48,7 @@ def expand_dims_for_grid(arrs):
 
 def eval_fun_grid(fun, arrs, sep_args=False):
     """
-
+    Evaluate a function R^n -> R on the tensor (outer) product of vectors [v1, v2, ..., vn]
     :param fun:
     :param arrs: iterable (tuple/list) of tf/np arrays
     :param sep_args: whether fun takes iterable (instead of *args) as arguments, i.e., f(xyz) vs f(x,y,z)
@@ -51,5 +59,5 @@ def eval_fun_grid(fun, arrs, sep_args=False):
     if sep_args:
         res = fun(*expanded_arrs)
     else:
-        res = fun(expanded_arrs)
+        res = fun(expanded_arrs)  # should evaluate on the Cartesian product (ndgrid) of axes by broadcasting
     return res
