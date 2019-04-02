@@ -95,7 +95,7 @@ class RelationalGraph:
                     nb = []
                     for atom in param_f.nb:
                         nb.append(grounded_rvs_table[atom.key(substitution)])
-                    grounded_factors.add(F(param_f.potential, nb))
+                    grounded_factors.add(F(potential=param_f.potential, nb=nb))
 
         grounded_graph = Graph()
         grounded_graph.rvs = set(grounded_rvs_table.values())
