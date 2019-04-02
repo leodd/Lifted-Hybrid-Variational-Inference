@@ -70,10 +70,10 @@ else:
     shared_dstates = -1
 
 if shared_dstates > 0:  # all discrete rvs have the same number of states
-    Rho = tf.Variable(tf.zeros([g.Nd, K, shared_dstates], dtype=dtype), trainable=True,
-                      name='Rho')  # dnode categorical prob logits
-    # Rho = tf.Variable(tf.random_normal([g.Nd, K, shared_dstates], dtype=dtype), trainable=True,
+    # Rho = tf.Variable(tf.zeros([g.Nd, K, shared_dstates], dtype=dtype), trainable=True,
     #                   name='Rho')  # dnode categorical prob logits
+    Rho = tf.Variable(tf.random_normal([g.Nd, K, shared_dstates], dtype=dtype), trainable=True,
+                      name='Rho')  # dnode categorical prob logits
     Pi = tf.nn.softmax(Rho, name='Pi')
 else:  # general case when each dnode can have different num states
     Rho = [tf.Variable(tf.zeros([K, rv.dstates], dtype=dtype), trainable=True, name='Rho_%d' % i) for (i, rv) in
@@ -121,7 +121,7 @@ else:
 
 print('set up training')
 # train
-lr = 0.01
+lr = 0.02
 its = 200
 # optimizer = tf.train.GradientDescentOptimizer(lr)
 optimizer = tf.train.AdamOptimizer(lr)
