@@ -38,15 +38,15 @@ log_potential_funs = [utils.weighted_feature_fun(f, w) for (f, w) in KB]
 
 # create the MN (ground MLN for constants={A, B})
 N = 8
-nodes = np.arange(N)  # node ids; 0:F(A,A), 1:F(A,B), 2:S(A), 3:C(A), 4:F(B,A), 5:S(B), 6:C(B), 7:F(B,B)
+nodes = np.arange(N)  # node ids; 0:F(A,A), 1:F(A,B), 2:S(A), 3:C(A), 4:F(B,B), 5:F(B,A), 6:S(B), 7:C(B)
 rvs = [RV(domain=Domain(values=np.array([0, 1]), continuous=False), id=n) for n in nodes]
 factors = [
     F(log_potential_fun=log_potential_funs[1], nb=[rvs[i] for i in [0, 2, 2]]),
     F(log_potential_fun=log_potential_funs[0], nb=[rvs[i] for i in [2, 3]]),
-    F(log_potential_fun=log_potential_funs[1], nb=[rvs[i] for i in [1, 2, 5]]),
-    F(log_potential_fun=log_potential_funs[1], nb=[rvs[i] for i in [4, 5, 2]]),
-    F(log_potential_fun=log_potential_funs[0], nb=[rvs[i] for i in [5, 6]]),
-    F(log_potential_fun=log_potential_funs[1], nb=[rvs[i] for i in [7, 5, 5]]),
+    F(log_potential_fun=log_potential_funs[1], nb=[rvs[i] for i in [1, 2, 6]]),
+    F(log_potential_fun=log_potential_funs[1], nb=[rvs[i] for i in [5, 6, 2]]),
+    F(log_potential_fun=log_potential_funs[0], nb=[rvs[i] for i in [6, 7]]),
+    F(log_potential_fun=log_potential_funs[1], nb=[rvs[i] for i in [4, 6, 6]]),
 ]
 for i, f in enumerate(factors):
     f.id = i
@@ -72,6 +72,8 @@ else:
 if shared_dstates > 0:  # all discrete rvs have the same number of states
     Rho = tf.Variable(tf.zeros([g.Nd, K, shared_dstates], dtype=dtype), trainable=True,
                       name='Rho')  # dnode categorical prob logits
+    # Rho = tf.Variable(tf.random_normal([g.Nd, K, shared_dstates], dtype=dtype), trainable=True,
+    #                   name='Rho')  # dnode categorical prob logits
     Pi = tf.nn.softmax(Rho, name='Pi')
 else:  # general case when each dnode can have different num states
     Rho = [tf.Variable(tf.zeros([K, rv.dstates], dtype=dtype), trainable=True, name='Rho_%d' % i) for (i, rv) in
@@ -154,7 +156,9 @@ with tf.Session() as sess:
         for key in record:
             record[key].append(it_record[key])
     Pi = sess.run(Pi)
-print(Pi)
+    w = sess.run(w)
+print(np.sum(w[None, :, None] * Pi, axis=1))
+
 import matplotlib.pyplot as plt
 
 plt.figure()
