@@ -11,7 +11,7 @@ P = 3
 w = np.random.rand(K)
 
 Vs = [np.random.rand(P, d) for d in dims]  # P grids
-Mus = [np.random.rand(K, d) for d in dims]  # K centers
+Mus = [np.random.rand(K, 1) for d in dims]  # K centers x N dimension
 
 # loop version
 w_broadcast = w.reshape([K] + [1] * N)
@@ -30,8 +30,8 @@ out1 = np.concatenate(res)  # P x V1 x V2 x V3
 # less-loop version
 comp_vals = []
 for n, v in enumerate(Vs):
-    mu = Mus[n]  # K x Vn
-    mu_deep = mu[:, np.newaxis, ...]  # K x 1 x Vn
+    mu = Mus[n]  # K x 1
+    mu_deep = mu[:, np.newaxis, ...]  # K x 1 x 1
     comp_val = v - mu_deep  # K x P x Vn
     comp_vals.append(comp_val)
 prod = np.einsum('abi,abj,abk->abijk', *comp_vals)  # K x P x V1 x V2 x V3
