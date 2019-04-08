@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 from numpy import linspace
 import numpy as np
+from math import log
 
 
 class Domain:
@@ -27,10 +28,23 @@ class Domain:
 class Potential(ABC):
     def __init__(self, symmetric=False):
         self.symmetric = symmetric
+        self.alpha = 0.001
 
     @abstractmethod
     def get(self, parameters):
         pass
+
+    def gradient(self, parameters, wrt):
+        parameters = np.array(parameters)
+        step = np.array(wrt) * self.alpha
+        parameters_ = parameters + step
+        return (self.get(parameters_) - self.get(parameters)) / self.alpha
+
+    def log_gradient(self, parameters, wrt):
+        parameters = np.array(parameters)
+        step = np.array(wrt) * self.alpha
+        parameters_ = parameters + step
+        return (log(self.get(parameters_)) - log(self.get(parameters))) / self.alpha
 
 
 class RV:
@@ -60,7 +74,7 @@ class RV:
 
 
 class F:
-    def __init__(self, potential=None, potential_fun=None, log_potential=None, log_potential_fun=None, nb=None,
+    def __init__(self, potential=None, nb=None, potential_fun=None, log_potential=None, log_potential_fun=None,
                  id=None):
         self.potential = potential
         self.potential_fun = potential_fun  # directly callable
