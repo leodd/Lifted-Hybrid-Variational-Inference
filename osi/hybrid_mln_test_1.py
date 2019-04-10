@@ -1,6 +1,7 @@
-from utils import set_path
+import utils
 
-set_path()
+utils.set_path()
+utils.set_seed(seed=0)
 
 from RelationalGraph import *
 from MLNPotential import *

@@ -1,9 +1,10 @@
-from utils import set_path
-set_path()
+import utils
+
+utils.set_path()
+utils.set_seed(seed=0)
 
 from RelationalGraph import *
 from MLNPotential import *
-
 
 instance = {
     'Joey',
@@ -62,7 +63,6 @@ T = 8
 osi = OneShot(g=g, K=K, T=T)
 res = osi.run()
 print(res['Pi'])
-
 
 # EPBP inference
 from EPBPLogVersion import EPBP
