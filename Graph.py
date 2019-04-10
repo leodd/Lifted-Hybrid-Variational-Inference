@@ -2,6 +2,7 @@ from abc import ABC, abstractmethod
 from numpy import linspace
 import numpy as np
 from math import log
+import itertools
 
 
 class Domain:
@@ -48,10 +49,12 @@ class Potential(ABC):
 
 
 class RV:
-    def __init__(self, domain, value=None, id=None):
+    id_counter = itertools.count()  # will assign unique numeric ids to instances of the class, auto-incrementing from 0
+
+    def __init__(self, domain, value=None):
         self.domain = domain
         self.value = value
-        self.id = id
+        self.id = next(self.id_counter)
         self.nb = []
         self.belief_params_ = {}  # symbolic, used by tf
         self.belief_params = {}  # np arrs
@@ -72,10 +75,14 @@ class RV:
     def __str__(self):
         return '{}rv #{}'.format(self.domain_type, self.id)
 
+    def __lt__(self, other):
+        return self.id < other.id
+
 
 class F:
-    def __init__(self, potential=None, nb=None, potential_fun=None, log_potential=None, log_potential_fun=None,
-                 id=None):
+    id_counter = itertools.count()  # will assign unique numeric ids to instances of the class, auto-incrementing from 0
+
+    def __init__(self, potential=None, nb=None, potential_fun=None, log_potential=None, log_potential_fun=None):
         self.potential = potential
         self.potential_fun = potential_fun  # directly callable
         self.log_potential = log_potential
@@ -84,7 +91,7 @@ class F:
             self.nb = []
         else:
             self.nb = nb
-        self.id = id
+        self.id = next(self.id_counter)
 
     @property
     def domain_type(self):
@@ -102,34 +109,45 @@ class F:
     def __str__(self):
         return '{}factor #{}'.format(self.domain_type, self.id)
 
+    def __lt__(self, other):
+        return self.id < other.id
+
+
+# for debugging
+RV.__repr__ = RV.__str__
+F.__repr__ = F.__str__
+
 
 class Graph:
     def __init__(self):
         self.rvs = set()
         self.factors = set()
+        self.rvs_list = []
+        self.factors_list = []
 
     def init_nb(self):
         """
-        Should be called after specifying self.factors, to update the neighbors of self.rvs
+        Should be called after specifying self.factors, to update the neighbors of self.rvs.
+        nb attributes of rvs and fs will be sorted based on ids, so they can be uniquely determined by graph topology
         :return:
         """
         for rv in self.rvs:
             rv.nb = []
-        for f in self.factors:
+        for f in sorted(self.factors):
+            f.nb = sorted(f.nb)
             for rv in f.nb:
                 rv.nb.append(f)
 
-        # for convenience
-        # self.rv_neighbors = {rv: rv.nb for rv in self.rvs}
-        # self.factor_neighbors = {f: f.nb for f in self.factors}
-
     def init_rv_indices(self):
         """
-        Get lists of disc/cont rvs, and build index maps.
+        Get lists of disc/cont rvs, and build indices. These (along with the .rb attributes of rv/f) should be the only
+        pieces of information used by OSI.
         :return:
         """
-        Vd = [rv for rv in self.rvs if rv.domain_type == 'd']   # list of of discrete rvs
-        Vc = [rv for rv in self.rvs if rv.domain_type == 'c']   # list of cont rvs
+        self.rvs_list = sorted(self.rvs)
+        self.factors_list = sorted(self.factors)
+        Vd = [rv for rv in self.rvs_list if rv.domain_type == 'd']  # list of of discrete rvs
+        Vc = [rv for rv in self.rvs_list if rv.domain_type == 'c']  # list of cont rvs
         Vd_idx = {n: i for (i, n) in enumerate(Vd)}
         Vc_idx = {n: i for (i, n) in enumerate(Vc)}
 
@@ -141,8 +159,4 @@ class Graph:
         self.Vd_idx = Vd_idx
 
         # optional:
-        # for i, rv in enumerate(self.rvs):
-        #     rv.id = i
-        # for i, f in enumerate(self.factors):
-        #     f.id = i
         # self.rvs_dict = {rv.id: rv for rv in self.rvs}  # in case rv.id isn't the same as its order in self.rvs

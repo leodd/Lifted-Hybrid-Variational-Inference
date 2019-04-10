@@ -39,7 +39,7 @@ log_potential_funs = [utils.weighted_feature_fun(f, w) for (f, w) in KB]
 # create the MN (ground MLN for constants={A, B})
 N = 8
 nodes = np.arange(N)  # node ids; 0:F(A,A), 1:F(A,B), 2:S(A), 3:C(A), 4:F(B,B), 5:F(B,A), 6:S(B), 7:C(B)
-rvs = [RV(domain=Domain(values=np.array([0, 1]), continuous=False), id=n) for n in nodes]
+rvs = [RV(domain=Domain(values=np.array([0, 1]), continuous=False)) for n in nodes]
 factors = [
     F(log_potential_fun=log_potential_funs[1], nb=[rvs[i] for i in [0, 2, 2]]),
     F(log_potential_fun=log_potential_funs[0], nb=[rvs[i] for i in [2, 3]]),
@@ -48,8 +48,6 @@ factors = [
     F(log_potential_fun=log_potential_funs[0], nb=[rvs[i] for i in [6, 7]]),
     F(log_potential_fun=log_potential_funs[1], nb=[rvs[i] for i in [4, 6, 6]]),
 ]
-for i, f in enumerate(factors):
-    f.id = i
 
 g = Graph()
 g.rvs = rvs
