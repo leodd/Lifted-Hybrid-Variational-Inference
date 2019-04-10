@@ -120,18 +120,16 @@ class Graph:
                 rv.nb.append(f)
 
         # for convenience
-        self.rv_neighbors = {rv: rv.nb for rv in self.rvs}
-        self.factor_neighbors = {f: f.nb for f in self.factors}
+        # self.rv_neighbors = {rv: rv.nb for rv in self.rvs}
+        # self.factor_neighbors = {f: f.nb for f in self.factors}
 
     def init_rv_indices(self):
         """
-
+        Get lists of disc/cont rvs, and build index maps.
         :return:
         """
-        # Vd = [rv.id for rv in self.rvs if rv.domain_type == 'd']  # id of discrete rvs
-        # Vc = [rv.id for rv in self.rvs if rv.domain_type == 'c']
-        Vd = [rv for rv in self.rvs if rv.domain_type == 'd']
-        Vc = [rv for rv in self.rvs if rv.domain_type == 'c']
+        Vd = [rv for rv in self.rvs if rv.domain_type == 'd']   # list of of discrete rvs
+        Vc = [rv for rv in self.rvs if rv.domain_type == 'c']   # list of cont rvs
         Vd_idx = {n: i for (i, n) in enumerate(Vd)}
         Vc_idx = {n: i for (i, n) in enumerate(Vc)}
 
@@ -142,4 +140,9 @@ class Graph:
         self.Vc_idx = Vc_idx
         self.Vd_idx = Vd_idx
 
-        self.rvs_dict = {rv.id: rv for rv in self.rvs}  # in case rv.id isn't the same as its order in self.rvs
+        # optional:
+        # for i, rv in enumerate(self.rvs):
+        #     rv.id = i
+        # for i, f in enumerate(self.factors):
+        #     f.id = i
+        # self.rvs_dict = {rv.id: rv for rv in self.rvs}  # in case rv.id isn't the same as its order in self.rvs

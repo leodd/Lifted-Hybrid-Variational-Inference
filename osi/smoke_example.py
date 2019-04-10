@@ -10,7 +10,7 @@ dtype = 'float64'
 import utils
 
 utils.set_path()
-from MLNPotential import and_op, or_op, neg_op, imp_op, bic_op, eq_op, MLNLogPotential
+from MLNPotential import and_op, or_op, neg_op, imp_op, bic_op, eq_op
 from Graph import Domain, Potential, RV, F, Graph
 
 # KB = [
@@ -96,11 +96,11 @@ tau = tf.Variable(tf.zeros(K, dtype=dtype), trainable=True, name='tau')  # mixtu
 # tau = tf.Variable(tf.random_normal([K], dtype=dtype), trainable=True, name='tau')  # mixture weights logits
 w = tf.nn.softmax(tau, name='w')  # mixture weights
 
-from mixture_beliefs import dfactor_belief_bfe, drv_belief_bfe
+from mixture_beliefs import dfactor_bfe_obj, drv_bfe_obj
 
 bfe = aux_obj = 0
 for factor in g.factors:
-    bfe_, aux_obj_ = dfactor_belief_bfe(factor, w)
+    bfe_, aux_obj_ = dfactor_bfe_obj(factor, w)
     bfe += bfe_
     aux_obj += aux_obj_
 
@@ -108,14 +108,13 @@ if shared_dstates > 0:  # all discrete rvs have the same number of states
     w_1K1 = tf.reshape(w, [1, K, 1])
     belief = tf.reduce_sum(w_1K1 * Pi, axis=1)  # Nd x shared_dstates
     log_belief = tf.log(belief)
-    num_nbrs = np.array([len(rv.nb) for rv in g.Vd])[:, np.newaxis]  # Nd x 1
-    F = (1 - num_nbrs) * log_belief  # Nd x shared_dstates
-    prod = tf.stop_gradient(belief * F)  # stop_gradient is needed for aux_obj
-    bfe += tf.reduce_sum(prod)  # we really mean the free energy, which is to be minimized
-    aux_obj += tf.reduce_sum(prod * log_belief)  # only differentiate w.r.t log_belief
+    num_nbrs = np.array([len(rv.nb) for rv in g.Vd])
+    prod = tf.stop_gradient(belief * log_belief)  # Nd x shared_dstates
+    bfe += tf.reduce_sum((1 - num_nbrs) * tf.reduce_sum(prod, axis=1))
+    aux_obj += tf.reduce_sum((1 - num_nbrs) * tf.reduce_sum(prod * log_belief, axis=1))
 else:
     for rv in g.Vd:
-        bfe_, aux_obj_ = drv_belief_bfe(rv, w)
+        bfe_, aux_obj_ = drv_bfe_obj(rv, w)
         bfe += bfe_
         aux_obj += aux_obj_
 

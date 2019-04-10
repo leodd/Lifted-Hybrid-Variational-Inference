@@ -1,6 +1,9 @@
+from utils import set_path
+
+set_path()
+
 from RelationalGraph import *
 from MLNPotential import *
-
 
 instance = {
     'Joey',
@@ -51,7 +54,17 @@ rel_g.init_nb()
 rel_g.data = data
 g, rvs_table = rel_g.grounded_graph()
 
+for k, v in rvs_table.items():  # for debugging
+    v.id = k
 print(rvs_table)
+
+from OneShot import OneShot
+
+K = 3
+T = 8
+osi = OneShot(g=g, K=K, T=T)
+res = osi.run()
+print(res['Pi'])
 
 # EPBP inference
 from EPBPLogVersion import EPBP
