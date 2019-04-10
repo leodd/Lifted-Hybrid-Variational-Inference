@@ -2,6 +2,7 @@ from Graph import *
 import numpy as np
 from numpy.polynomial.hermite import hermgauss
 from math import sqrt, pi, e, log
+from itertools import product
 
 
 class OneShot:
@@ -9,50 +10,42 @@ class OneShot:
         self.g = g
         self.K = num_mixtures
         self.T = num_quadrature_points
-        self.quadrature_points = hermgauss(self.T)
+        self.quad_x, self.quad_w = hermgauss(self.T)
+        self.quad_w /= sqrt(pi)
 
         self.tau = np.zeros(self.K)
         self.w = np.zeros(self.K)
-        self.eta = dict()
+        self.eta = dict()  # continuous eta = (mu, var), discrete eta = [domain vector, value vector]
 
-    @staticmethod
-    def gaussian_product(*gaussian):
-        # input a list of gaussian's mean and variance
-        # output the product distribution's mean and variance
-        mu, var = 0, 0
-        for eta in gaussian:
-            mu_, var_ = eta
-            var += var_ ** -1
-            mu += var_ ** -1 * mu_
-        var = var ** -1
-        mu = var * mu
-        return mu, var
+    def expectation(self, f, *args):  # arg = (is_continuous, eta)
+        xs, ws = list(), list()
 
-    def gaussian_expectation(self, f, *eta):
-        mu, var = eta
-        c = sqrt(2 * var)
+        for is_continuous, eta in args:
+            if is_continuous:
+                xs.append(sqrt(2 * eta[1]) * self.quad_x + eta[0])
+                ws.append(self.quad_w)
+            else:
+                xs.append(eta[:, 0])
+                ws.append(eta[:, 1])
 
         res = 0
+        for x, w in zip(product(*xs), product(*ws)):
+            res += np.prod(w) * f(x)
 
-        x = self.quadrature_points[0]
-        w = self.quadrature_points[1]
-        for t in range(self.T):
-            res = w[t] * f(c * x[t] + mu)
-
-        return res / sqrt(pi)
-
-    def category_expectation(self, f, *p):
-        pass
+        return res
 
     def gradient_tau(self):
-        g_w = np.zeros(self.K)
+        gs = np.zeros(self.K)
 
         for k in range(self.K):
             g = 0
-            for rv in self.g.rvs:
-                if rv.domain.continuous:
+            for f in self.g.factors:
+                rvs = f.nb
+                if len(rvs) == 1:
                     eta = self.eta[rv]
-
+                    g += self.expectation(
+                        lambda x:
+                    )
 
 
     def gradient_mu(self, rv):
@@ -74,7 +67,7 @@ class OneShot:
     def belief(self, rv, ):
         pass
 
-    def edge_belief(self):
+    def factor_belief(self):
         pass
 
     def run(self, iteration=100):
