@@ -108,11 +108,10 @@ if shared_dstates > 0:  # all discrete rvs have the same number of states
     w_1K1 = tf.reshape(w, [1, K, 1])
     belief = tf.reduce_sum(w_1K1 * Pi, axis=1)  # Nd x shared_dstates
     log_belief = tf.log(belief)
-    num_nbrs = np.array([len(rv.nb) for rv in g.Vd])[:, np.newaxis]  # Nd x 1
-    F = (1 - num_nbrs) * log_belief  # Nd x shared_dstates
-    prod = tf.stop_gradient(belief * F)  # stop_gradient is needed for aux_obj
-    bfe += tf.reduce_sum(prod)  # we really mean the free energy, which is to be minimized
-    aux_obj += tf.reduce_sum(prod * log_belief)  # only differentiate w.r.t log_belief
+    num_nbrs = np.array([len(rv.nb) for rv in g.Vd])
+    prod = tf.stop_gradient(belief * log_belief)  # Nd x shared_dstates
+    bfe += tf.reduce_sum((1 - num_nbrs) * tf.reduce_sum(prod, axis=1))
+    aux_obj += tf.reduce_sum((1 - num_nbrs) * tf.reduce_sum(prod * log_belief, axis=1))
 else:
     for rv in g.Vd:
         bfe_, aux_obj_ = drv_belief_bfe(rv, w)
