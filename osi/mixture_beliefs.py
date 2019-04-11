@@ -222,27 +222,27 @@ def crvs_bfe_obj(rvs, T, w, Mu, Var):
     return bfe, aux_obj
 
 
-def eval_crvs_belief(x, w, Mu, Var):
+def eval_crvs_belief(X, w, Mu, Var):
     """
     Evaluate beliefs on arbitrary tensor x, for multiple continuous (Gaussian) rvs simultaneously.
-    :param x: shape N x ..., each nth slice evaluated by the nth cnode, with params Mu[n], Var[n]
+    :param X: shape N x ..., each nth slice evaluated by the nth cnode, with params Mu[n], Var[n]
     :param w: shape K
     :param Mu: shape N x K, mixture means of N cnodes
     :param Var: shape N x K, mixture variances of N cnodes
     :return:
     """
     assert len(Mu.shape) > 1, '1D case to be added later'
-    comp_log_probs = eval_crvs_comp_log_pdf(x, Mu, Var, backend=tf)
-    w_broadcast = tf.reshape(w, [-1] + [1] * len(x.shape))  # K x 1 x 1...
+    comp_log_probs = eval_crvs_comp_log_prob(X, Mu, Var, backend=tf)
+    w_broadcast = tf.reshape(w, [-1] + [1] * len(X.shape))  # K x 1 x 1...
     out = tf.reduce_sum(w_broadcast * tf.exp(comp_log_probs), axis=0)
     return out
 
 
-def eval_crvs_comp_log_pdf(x, Mu, Var, backend=np):
+def eval_crvs_comp_log_prob(X, Mu, Var, backend=np):
     """
     Evaluate component-wise log probabilities on arbitrary tensor x, for multiple continuous (Gaussian) rvs
     simultaneously.
-    :param x: shape N x ..., each nth slice evaluated by the nth cnode, with params Mu[n], Var[n]
+    :param X: shape N x ..., each nth slice evaluated by the nth cnode, with params Mu[n], Var[n]
     :param Mu: shape N x K, mixture means of N cnodes
     :param Var: shape N x K, mixture variances of N cnodes
     :param backend: tf/np, for symbolic/eager computation
@@ -252,25 +252,26 @@ def eval_crvs_comp_log_pdf(x, Mu, Var, backend=np):
     assert len(Mu.shape) > 1, '1D case to be added later'
     bd = backend
     Mu, Var = bd.transpose(Mu), bd.transpose(Var)  # K x N
-    ind = (...,) + (None,) * (len(x.shape) - 1)
+    ind = (...,) + (None,) * (len(X.shape) - 1)
     Mu, Var = Mu[ind], Var[ind]  # K x N x 1 x 1 ... 1, to line up with x for broadcasting
     Var_inv = 1 / Var
-    comp_log_probs = -0.5 * np.log(2 * np.pi) + 0.5 * bd.log(Var_inv) - 0.5 * (x - Mu) ** 2 * Var_inv  # K by x.shape
+    comp_log_probs = -0.5 * np.log(2 * np.pi) + 0.5 * bd.log(Var_inv) - 0.5 * (X - Mu) ** 2 * Var_inv  # K by x.shape
     return comp_log_probs
 
 
-def eval_drvs_comp_pdf(x, Pi):
+def eval_drvs_comp_prob(X, Pi):
     """
     Evaluate component-wise log probabilities on arbitrary tensor x, for multiple discrete rvs simultaneously.
     Currently only supports numpy arrays.
-    :param x: shape N x M, each nth slice evaluated by the nth dnode, with params Pi[n]
+    :param X: shape N x M, each nth slice evaluated by the nth dnode, with params Pi[n]
     :param Pi: probability params, Pi[n] should be K x dstates_of_nth_dnode
     :return: K x N x M, kth slice gives p_k(x)
     """
-    N, M = x.shape
+    N, M = X.shape
     K, _ = Pi[0].shape
-    out = np.empty([K, N, M], dtype=x.dtype)  # maybe work out better shapes
+    out = np.empty([K, N, M], dtype=X.dtype)  # maybe work out better shapes
     for n in range(N):
-        out[:, n, :] = Pi[n][:, x[n]]  # K x M
+        out[:, n, :] = Pi[n][:, X[n]]  # K x M
 
     return out
+
