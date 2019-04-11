@@ -12,6 +12,27 @@ def set_seed(seed=0):
     np.random.seed(seed)
 
 
+try:
+    from scipy.special import logsumexp
+except ImportError:
+    from scipy.misc import logsumexp
+
+
+def softmax(a, axis=None):
+    """
+    Compute exp(a)/sumexp(a); relying on scipy logsumexp implementation.
+    :param a: ndarray/tensor
+    :param axis: axis to sum over; default (None) sums over everything
+    :return:
+    """
+    lse = logsumexp(a, axis=axis)  # this reduces along axis
+    if axis is not None:
+        lse = np.expand_dims(lse, axis)  # restore that axis for subtraction
+    p = a - lse
+    p = np.exp(p)
+    return p
+
+
 def weighted_feature_fun(feature_fun, weight):
     # return lambda vs: weight * feature_fun(vs)
     def wf(args):
