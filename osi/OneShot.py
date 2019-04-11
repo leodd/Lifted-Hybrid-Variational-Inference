@@ -17,7 +17,7 @@ class OneShot:
     also maintains all the local variables/results created along the way.
     """
 
-    def __init__(self, g, K, T):
+    def __init__(self, g, K, T, seed=None):
         """
         Define symbolic BFE and auxiliary objective for tensorflow, given a factor graph.
         We'll use the one default tensorflow computation graph; to make sure we don't redefine it, everytime it'll
@@ -30,11 +30,14 @@ class OneShot:
 
         # pre-process graph to make things easier
         g.init_rv_indices()  # will create attributes like Vc, Vc_idx, etc.
-        for f in g.factors:
+        g.init_nb()  # in case neighbors aren't already sorted
+        for f in g.factors_list:
             assert isinstance(f.potential, MLNPotential), 'currently can only get log_potential_fun from MLNPotential'
             f.log_potential_fun = utils.get_log_potential_fun_from_MLNPotential(f.potential)
 
         tf.reset_default_graph()  # clear existing
+        if seed is not None:  # note that seed that has been set prior to tf.reset_default_graph will be invalidated
+            tf.set_random_seed(seed)  # thus we have to reseed after reset_default_graph
         tau = tf.Variable(tf.zeros(K, dtype=dtype), trainable=True, name='tau')  # mixture weights logits
         # tau = tf.Variable(tf.random_normal([K], dtype=dtype), trainable=True, name='tau')  # mixture weights logits
         w = tf.nn.softmax(tau, name='w')  # mixture weights
@@ -105,7 +108,7 @@ class OneShot:
             aux_obj += delta_aux_obj
 
         # get factors' contribution to the objectives
-        for factor in g.factors:
+        for factor in g.factors_list:
             if factor.domain_type == 'd':
                 delta_bfe, delta_aux_obj = dfactor_bfe_obj(factor, w)
             else:

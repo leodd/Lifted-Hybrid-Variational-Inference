@@ -5,7 +5,7 @@ import numpy as np
 import utils
 
 
-def get_hfactor_expectation_coefs_points(factor, K, T=None, dtype='float64'):
+def get_hfactor_expectation_coefs_points(factor, K, T, dtype='float64'):
     """
     Get the coefficients and evaluation points needed for computing expectation of a scalar-valued function over the
     hybrid factor (for all K mixture components simultaneously)
@@ -22,13 +22,15 @@ def get_hfactor_expectation_coefs_points(factor, K, T=None, dtype='float64'):
     """
     coefs = []
     axes = []
-    if factor.domain_type in ('c', 'h'):  # compute GHQ once (same for all cnodes) if factor is cont/hybrid
-        ghq_points, ghq_weights = roots_hermite(T)  # assuming Gaussian for now
-        ghq_coef = (np.pi) ** (-0.5)  # from change-of-var
-        ghq_weights = ghq_coef * ghq_weights  # let's fold ghq_coef into the quadrature weights, so no need to worry about it later
-        # ghq_weights_KT = np.tile(np.reshape(ghq_weights, [1, -1]), [K, 1])  # K x T (repeat for K identical rows)
-        ghq_weights = tf.constant(ghq_weights, dtype=dtype)
-        ghq_weights_KT = tf.tile(tf.reshape(ghq_weights, [1, -1]), [K, 1])  # K x T (repeat for K identical rows)
+    assert factor.domain_type in ('c', 'h'), \
+        'Must input continuous/hybrid factor; use dfactor_bfe_obj directly for discrete factor'
+    # compute GHQ once (same for all cnodes) if factor is cont/hybrid
+    ghq_points, ghq_weights = roots_hermite(T)  # assuming Gaussian for now
+    ghq_coef = (np.pi) ** (-0.5)  # from change-of-var
+    ghq_weights = ghq_coef * ghq_weights  # let's fold ghq_coef into the quadrature weights, so no need to worry about it later
+    # ghq_weights_KT = np.tile(np.reshape(ghq_weights, [1, -1]), [K, 1])  # K x T (repeat for K identical rows)
+    ghq_weights = tf.constant(ghq_weights, dtype=dtype)
+    ghq_weights_KT = tf.tile(tf.reshape(ghq_weights, [1, -1]), [K, 1])  # K x T (repeat for K identical rows)
 
     for rv in factor.nb:
         if rv.domain_type == 'd':  # discrete
@@ -49,7 +51,7 @@ def get_hfactor_expectation_coefs_points(factor, K, T=None, dtype='float64'):
 
 def eval_hfactor_belief(factor, axes, w):
     """
-
+    Evaluate hybrid/continuous factor's belief on grid(s).
     :param factor:
     :param axes: list of mats [K x V1, K x V2, ..., K x Vn]; we allow the flexibility to evaluate on K > 1 ndgrids
     simultaneously
@@ -57,7 +59,7 @@ def eval_hfactor_belief(factor, axes, w):
     :return: a [K x V1 x V2 x ... x Vn] tensor, whose (k, v1, ..., vn)th coordinate is the mixture belief evaluated on
     the point (axes[0][k,v1], axes[1][k,v2], ..., axes[n][k,vn])
     """
-    einsum_eq = utils.outer_prod_einsum_equation(len(factor.nb), mats=True)
+    einsum_eq = utils.outer_prod_einsum_equation(len(factor.nb), common_first_ndims=1)
 
     res = []
     # TODO: 1. get rid of outer loop; 2. maybe replace multiplication with addition in log-domain? no need?
@@ -100,7 +102,7 @@ def hfactor_bfe_obj(factor, T, w):
     :return:
     """
     K = np.prod(w.shape)
-    einsum_eq = utils.outer_prod_einsum_equation(len(factor.nb), mats=True)
+    einsum_eq = utils.outer_prod_einsum_equation(len(factor.nb), common_first_ndims=1)
 
     coefs, axes = get_hfactor_expectation_coefs_points(factor, K, T)  # [[K, V1], [K, V2], ..., [K, Vn]]
     coefs = tf.einsum(einsum_eq, *coefs)  # K x V1 x V2 x ... Vn; K grids of Hadamard products
@@ -122,7 +124,7 @@ def eval_dfactor_belief(factor, w):
     :param factor:
     :return:
     """
-    einsum_eq = utils.outer_prod_einsum_equation(len(factor.nb), mats=True)
+    einsum_eq = utils.outer_prod_einsum_equation(len(factor.nb), common_first_ndims=1)
     comp_probs = [rv.belief_params_['probs'] for rv in factor.nb]  # [K x V1, K x V2, ..., K x Vn]
     # multiple all dimensions together, all K components at once
     joint_comp_probs = tf.einsum(einsum_eq, *comp_probs)  # K x V1 x V2 x ... Vn
@@ -169,6 +171,7 @@ def drv_bfe_obj(rv, w):
 
 def drvs_bfe_obj(rvs, w, Pi):
     """
+    Get the contribution to the BFE from multiple discrete rvs sharing the same number of states
     :param rvs: list of discrete rvs; must "line up with" Pi; i.e., Pi[i] gives belief params for rvs[i]
     :param w:
     :param Pi: tensor of component belief probabilities, for N drvs sharing the same number of states; N x K x dstates
@@ -187,8 +190,8 @@ def drvs_bfe_obj(rvs, w, Pi):
 
 def eval_crvs_belief(x, w, Mu, Var):
     """
-
-    :param x: shape N x ..., each nth slice evaluated by a different cnode
+    Evaluate beliefs on arbitrary tensor x, for multiple continuous (Gaussian) rvs simultaneously.
+    :param x: shape N x ..., each nth slice evaluated by the nth cnode, with params Mu[n], Var[n]
     :param w: shape K
     :param Mu: shape N x K, mixture means of N cnodes
     :param Var: shape N x K, mixture variances of N cnodes
@@ -205,7 +208,7 @@ def eval_crvs_belief(x, w, Mu, Var):
 
 def crvs_bfe_obj(rvs, T, w, Mu, Var):
     """
-
+    Get the contribution to the BFE from multiple cont (Gaussian) rvs
     :param rvs: rvs: list of cont rvs; must "line up with" params Mu and Var; i.e., Mu[i] and Var[i] give belief params
     for rvs[i]
     :param Mu:

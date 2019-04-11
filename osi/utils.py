@@ -7,6 +7,11 @@ def set_path():  # to facilitate importing from pardir
     sys.path.append('..')
 
 
+def set_seed(seed=0):
+    tf.set_random_seed(seed)
+    np.random.seed(seed)
+
+
 def weighted_feature_fun(feature_fun, weight):
     # return lambda vs: weight * feature_fun(vs)
     def wf(args):
@@ -26,24 +31,27 @@ def get_log_potential_fun_from_MLNPotential(potential):
     return f
 
 
-def outer_prod_einsum_equation(ndim, mats=False):
+def outer_prod_einsum_equation(ndim, common_first_ndims=0):
     """
-    Get the einsum equation for n-dimensional outer/tensor product
-    :param ndim:
-    :param mats: if True, will get the tensor-product of matrices with shared 0th dimension; otherwise will get the
-    tensor product of vectors (default)
+    Get the einsum equation for n-dimensional outer/tensor product, of n vectors v1, v2, ..., vn
+    Extended to handle tensors (thought of as containers of vectors) for efficient simultaneous evaluations; input
+    tensors can differ in shapes only in the last dimension, over which products will be taken, e.g., if arrs have
+    shapes [K x V1, K x V2, ..., K x Vn], common_first_ndims should be set to 1, and the result einsum will be of
+    shape K x V1 x V2 x ... x Vn
+    :param ndim: number of tensors to perform einsum over
+    :param common_first_ndims: default=0, will get the tensor product of vectors; if = 1, will get the tensor-product of
+    matrices with shared 0th dimension; similarly for more than 1 common_first_ndims
     :return:
     """
     # TODO: allow arbitrary number of shared first p dimensions (currently p=1 for mats), like with expand_dims_for_grid
+    prefix_indices = 'abcdefg'
     indices = 'ijklmnopqrstuvwxyz'
-    assert ndim < len(indices)
+    assert ndim < len(indices) and common_first_ndims < len(prefix_indices), "Ran out of letters for einsum indices!"
+    prefix_indices = prefix_indices[:common_first_ndims]  # empty string if common_first_ndims==0
     indices = indices[:ndim]
-    if mats:
-        lhs = ','.join(['a' + c for c in list(indices)])  # "ai,aj,ak,..."
-        rhs = 'a' + indices  # "aijk..."
-    else:
-        lhs = ','.join(indices)  # "i,j,k,..."
-        rhs = indices  # "ijk..."
+
+    lhs = ','.join([prefix_indices + c for c in indices])  # "abi,abj,abk,..."
+    rhs = prefix_indices + indices  # "abijk..."
     return lhs + '->' + rhs
 
 
@@ -58,20 +66,20 @@ def expand_dims_for_grid(arrs, first_ndims_to_keep=0):
     """
     # return [x[(None,) * i + (slice(None),) + (None,) * (len(arrs) - i - 1)] for i, x in enumerate(arrs)]
 
-    shared_first_ndims_slices = (slice(None),) * first_ndims_to_keep  # these dims will not be expanded
-    return [x[shared_first_ndims_slices + (None,) * i + (slice(None),) + (None,) * (len(arrs) - i - 1)] for i, x in
+    first_ndims_slices = (slice(None),) * first_ndims_to_keep  # these dims won't be expanded (will get full slices :)
+    return [x[first_ndims_slices + (None,) * i + (slice(None),) + (None,) * (len(arrs) - i - 1)] for i, x in
             enumerate(arrs)]
 
 
 def eval_fun_grid(fun, arrs, sep_args=False):
     """
     Evaluate a function R^n -> R on the tensor (outer) product of vectors [v1, v2, ..., vn];
-    Extended to tensors (thought of containers of vectors) for efficient simultaneously evaluations, e.g., if arrs have
-    shapes [K x v1, K x v2, ..., K x vn], the result will be of shape K x v1 x v2 x ... x vn, and should be equivalent
-    to concatenating the results of evaluating on K ndgrids each of shape v1 x v2 ... x vn (such that the kth grid is
+    Extended to tensors (thought of as containers of vectors) for efficient simultaneous evaluations, e.g., if arrs have
+    shapes [K x V1, K x V2, ..., K x Vn], the result will be of shape K x V1 x V2 x ... x Vn, and should be equivalent
+    to concatenating the results of evaluating on K ndgrids each of shape V1 x V2 ... x Vn (such that the kth grid is
     formed by taking the kth rows of all the arrs).
-    :param fun:
-    :param arrs: iterable (tuple/list) of tf/np arrays
+    :param fun: scalar fun that takes an iterable of n args
+    :param arrs: iterable (tuple/list) of tf/np arrays, length n
     :param sep_args: whether fun takes iterable (instead of *args) as arguments, i.e., f(xyz) vs f(x,y,z)
     :return:
     """
@@ -79,8 +87,8 @@ def eval_fun_grid(fun, arrs, sep_args=False):
     arrs_shapes_except_last = [tuple(s.as_list()) if isinstance(s, tf.TensorShape) else s
                                for s in arrs_shapes_except_last]  # convert tf tensor shapes (np shapes already tuples)
     assert len(set(arrs_shapes_except_last)) == 1, 'Shapes of input tensors can only differ in the last dimension!'
-    first_ndims_to_keep = len(arrs_shapes_except_last[0])  # form grid based on the last dimension
-    expanded_arrs = expand_dims_for_grid(arrs, first_ndims_to_keep)
+    common_first_ndims = len(arrs_shapes_except_last[0])  # form grid based on the last dimension
+    expanded_arrs = expand_dims_for_grid(arrs, common_first_ndims)
 
     if sep_args:
         res = fun(*expanded_arrs)
