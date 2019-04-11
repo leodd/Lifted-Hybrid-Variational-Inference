@@ -25,6 +25,8 @@ def softmax(a, axis=None):
     :param axis: axis to sum over; default (None) sums over everything
     :return:
     """
+    if axis == 'last':
+        axis = a.ndim - 1
     lse = logsumexp(a, axis=axis)  # this reduces along axis
     if axis is not None:
         lse = np.expand_dims(lse, axis)  # restore that axis for subtraction

@@ -63,7 +63,9 @@ K = 3
 T = 8
 osi = OneShot(g=g, K=K, T=T, seed=seed)
 res = osi.run()
-print(res['Pi'])
+for key, rv in rvs_table.items():
+    if rv.value is None:  # only test non-evidence nodes
+        print(key, osi.map(rv))
 
 # EPBP inference
 from EPBPLogVersion import EPBP
@@ -72,4 +74,5 @@ bp = EPBP(g, n=50, proposal_approximation='simple')
 bp.run(30, log_enable=True)
 
 for key, rv in rvs_table.items():
-    print(key, bp.map(rv))
+    if rv.value is None:  # only test non-evidence nodes
+        print(key, bp.map(rv))

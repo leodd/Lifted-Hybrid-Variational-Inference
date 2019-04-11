@@ -269,9 +269,89 @@ def eval_drvs_comp_prob(X, Pi):
     """
     N, M = X.shape
     K, _ = Pi[0].shape
-    out = np.empty([K, N, M], dtype=X.dtype)  # maybe work out better shapes
+    out = np.empty([K, N, M], dtype=Pi[0].dtype)  # maybe work out better shapes
     for n in range(N):
         out[:, n, :] = Pi[n][:, X[n]]  # K x M
 
     return out
 
+
+def calc_marg_comp_log_prob(g, X, obs_rvs, params):
+    """
+
+    :param g:
+    :param X:
+    :param obs_rvs: length N_o
+    :param params:
+    :return:
+    """
+    single_example = False
+    if len(X.shape) == 1:
+        single_example = True
+        X = X[None, :]  # [1, N_o]
+
+    obs_c = np.array([rv in g.Vc for rv in obs_rvs])  # indicator vec of length N_o
+    obs_d = np.array([rv in g.Vd for rv in obs_rvs])  # indicator vec of length N_o
+
+    obs_crvs_idxs = [g.Vc_idx[rv] for (i, rv) in enumerate(obs_rvs) if obs_c[i]]
+    obs_drvs_idxs = [g.Vd_idx[rv] for (i, rv) in enumerate(obs_rvs) if obs_d[i]]
+
+    C = X[:, obs_c]  # M x (num of cont obs)
+    D = X[:, obs_d]  # M x (num of disc obs)
+
+    comp_log_probs = 0
+
+    if len(obs_crvs_idxs) > 0:
+        Mu = params['Mu'][obs_crvs_idxs]  # N_oc x K
+        Var = params['Var'][obs_crvs_idxs]
+        all_comp_log_probs = eval_crvs_comp_log_prob(np.transpose(C), Mu=Mu, Var=Var, backend=np)  # K x N_oc x M
+        comp_log_probs += np.sum(all_comp_log_probs, axis=1)
+
+    if len(obs_drvs_idxs) > 0:
+        Pi = params['Pi'][obs_drvs_idxs]  # [K x V1, K x V2, ... ], of length N_od
+        all_comp_log_probs = np.log(eval_drvs_comp_prob(np.transpose(D), Pi=Pi))  # K x N_od x M
+        comp_log_probs += np.sum(all_comp_log_probs, axis=1)
+
+    comp_log_probs = comp_log_probs.transpose()  # M x K
+
+    if single_example:
+        comp_log_probs = comp_log_probs[0]  # K
+
+    return comp_log_probs
+
+
+def calc_cond_mixture_weights(g, X, obs_rvs, params):
+    comp_log_probs = calc_marg_comp_log_prob(g, X, obs_rvs, params)  # M x K
+    w = params['w']
+    cond_mixture_weights = utils.softmax(np.log(w) + comp_log_probs, axis='last')  # M x K
+    return cond_mixture_weights
+
+
+def drv_belief_map(w, pi):
+    """
+    Calculate MAP configuration of a discrete node belief.
+    :param w: w is allowed to be a M x K matrix, for simultaneous calculation for M different mixture weights
+    :param pi: K x dstates matrix of params of categorical mixture
+    :return:
+    """
+    state_probs = w @ pi  # M x dstates
+    if state_probs.ndim == 1:  # output will be scalars
+        map_states = np.argmax(state_probs)
+        map_probs = state_probs[map_states]
+    else:
+        map_states = np.argmax(state_probs, axis=1)
+        map_probs = state_probs[:, map_states]
+
+    return map_states, map_probs
+
+
+def crv_belief_map(w, mu, var, bds):
+    from scipy.optimize import fminbound
+    log_w = np.log(w)
+    var_inv = 1 / var
+
+    def neg_gmm_log_prob(x):
+        comp_log_probs = -0.5 * np.log(2 * np.pi) + 0.5 * np.log(var_inv) - 0.5 * (x - mu) ** 2 * var_inv
+        return -utils.logsumexp(log_w + comp_log_probs)
+
+    return fminbound(neg_gmm_log_prob, bds[0], bds[1], disp=False)

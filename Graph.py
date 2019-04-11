@@ -69,7 +69,7 @@ class RV:
             return len(self.domain.values)
 
     @property
-    def values(self):  # numpy arrays for a node's all possible values, not tuple
+    def values(self):  # numpy array version
         return np.array(self.domain.values)
 
     def __str__(self):

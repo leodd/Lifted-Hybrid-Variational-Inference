@@ -4,7 +4,8 @@ import tensorflow as tf
 import numpy as np
 
 dtype = 'float64'
-from mixture_beliefs import hfactor_bfe_obj, dfactor_bfe_obj, drv_bfe_obj, drvs_bfe_obj, crvs_bfe_obj
+from mixture_beliefs import hfactor_bfe_obj, dfactor_bfe_obj, drv_bfe_obj, drvs_bfe_obj, crvs_bfe_obj, \
+    calc_cond_mixture_weights, drv_belief_map, crv_belief_map
 import utils
 
 utils.set_path()
@@ -119,7 +120,7 @@ class OneShot:
 
         self.__dict__.update(**locals())
 
-    def run(self, its=100, lr=1e-2, tf_session=None, optimizer=None, trainable_params=None):
+    def run(self, its=100, lr=5e-2, tf_session=None, optimizer=None, trainable_params=None):
         """
         Launch tf training session and optimize the BFE, to get optimal mixture belief params.
         :param its:
@@ -169,12 +170,8 @@ class OneShot:
             for key in record:
                 record[key].append(it_record[key])
 
-        result = {
-            'w': sess.run(w),
-            'record': record,
-            # time?
-        }
-
+        params = {}
+        params['w'] = sess.run(w)
         if g.Nd > 0:
             Rho, Pi = self.Rho, self.Pi
 
@@ -185,26 +182,53 @@ class OneShot:
                 shared_dstates = -1
 
             if shared_dstates > 0:  # all discrete rvs have the same number of states
-                result['Rho'] = sess.run(Rho)
-                result['Pi'] = sess.run(Pi)
+                params['Rho'] = sess.run(Rho)
+                params['Pi'] = sess.run(Pi)
             else:
-                result['Rho'] = [sess.run(p) for p in Rho]
-                result['Pi'] = [sess.run(p) for p in Pi]
+                params['Rho'] = [sess.run(p) for p in Rho]
+                params['Pi'] = [sess.run(p) for p in Pi]
 
             for rv in g.Vd:
                 i = g.Vd_idx[rv]  # ith disc node
-                rv.belief_params = {'probs': result['Pi'][i]}  # K x dstates[i] matrix
+                rv.belief_params = {'probs': params['Pi'][i]}  # K x dstates[i] matrix
 
         if g.Nc > 0:
             Mu, Var = self.Mu, self.Var
-            result['Mu'] = sess.run(Mu)
-            result['Var'] = sess.run(Var)
+            params['Mu'] = sess.run(Mu)
+            params['Var'] = sess.run(Var)
 
             for rv in g.Vc:
                 i = g.Vc_idx[rv]  # ith cont node
                 rv.belief_params = {
-                    'mean': result['Mu'][i], 'var': result['Var'][i],
+                    'mu': params['Mu'][i], 'var': params['Var'][i],
                 }
 
-        self.result = result  # b/c OOP...
+        self.params = params  # these are numeric values, not tf tensors
+        result = {'record': record, **params}
         return result
+
+    def map(self, rv):
+        """
+        Toy method for testing marginal MAP. Highly inefficient b/c cond_w recomputed every time
+        :param rv:
+        :return:
+        """
+        if rv.value is None:
+            g = self.g
+            params = self.params
+            obs_rvs = [x for x in g.rvs if x.value is not None]
+            X = np.array([x.value for x in obs_rvs])
+
+            cond_w = calc_cond_mixture_weights(g, X, obs_rvs, params)
+            if rv.domain_type == 'd':
+                map_state, map_prob = drv_belief_map(cond_w, rv.belief_params['probs'])
+                print(rv, map_state, map_prob)
+                out = rv.values[map_state]
+            else:
+                assert rv.domain_type == 'c'
+                mu, var = rv.belief_params['mu'], rv.belief_params['var']
+                bds = (rv.values[0], rv.values[1])
+                out = crv_belief_map(cond_w, mu, var, bds)
+        else:
+            out = rv.value
+        return out
