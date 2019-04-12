@@ -357,7 +357,7 @@ class EPBP:
                 p = dict()
                 for x in self.sample[rv]:
                     p[x] = self.belief_rv(x, rv, self.sample)
-
+                # print(p)
                 res = max(p.keys(), key=(lambda k: p[k]))
 
             return res

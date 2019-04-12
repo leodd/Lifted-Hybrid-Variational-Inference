@@ -61,7 +61,7 @@ from OneShot import OneShot
 K = 3
 T = 8
 osi = OneShot(g=g, K=K, T=T, seed=seed)
-res = osi.run(lr=5e-2, its=200)
+res = osi.run(lr=1e-2, its=600)
 for key, rv in rvs_table.items():
     if rv.value is None:  # only test non-evidence nodes
         print(key, osi.map(rv))

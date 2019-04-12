@@ -59,7 +59,7 @@ print(rvs_table)
 
 from OneShot import OneShot
 
-K = 3
+K = 4
 T = 8
 osi = OneShot(g=g, K=K, T=T, seed=seed)
 res = osi.run(lr=1e-1, its=200)

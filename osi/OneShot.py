@@ -20,7 +20,7 @@ class OneShot:
 
     def __init__(self, g, K, T, seed=None):
         """
-        Define symbolic BFE and auxiliary objective for tensorflow, given a factor graph.
+        Define symbolic BFE and auxiliary objective expression to be optimized by tensorflow, given a factor graph.
         We'll use the one default tensorflow computation graph; to make sure we don't redefine it, everytime it'll
         be cleared/reset whenever a new instance of OneShot is created.
         :param g: a grounded graph corresponding to a plain old MLN; its factors must have .log_potential_fun callable
@@ -143,7 +143,7 @@ class OneShot:
         grads_update = optimizer.apply_gradients(grads_and_vars)
 
         vnames = ['g' + v.name.split(':')[0] for v in trainable_params]
-        record = {n: [] for n in vnames + ['bfe', 'aux_obj']}
+        record = {n: [] for n in vnames + ['bfe']}
 
         if not tf_session:
             sess = tf.Session()  # session configs maybe
@@ -152,7 +152,7 @@ class OneShot:
 
         sess.run(tf.global_variables_initializer())
         for it in range(its):
-            bfe_, aux_obj_, grads_and_vars_, _ = sess.run([bfe, aux_obj, grads_and_vars, grads_update])
+            bfe_, grads_and_vars_, _ = sess.run([bfe, grads_and_vars, grads_update])
             sess.run(clip_op)  # does nothing if no cont nodes
             avg_grads = []
             for i in range(len(grads_and_vars_)):
@@ -162,7 +162,6 @@ class OneShot:
                 avg_grads.append(np.mean(np.abs(grad)))
             it_record = dict(zip(vnames, avg_grads))
             it_record['bfe'] = bfe_
-            it_record['aux_obj'] = aux_obj_
             it_record['t'] = it
             for key in sorted(it_record.keys()):
                 print('%s: %g, ' % (key, it_record[key]), end='')
