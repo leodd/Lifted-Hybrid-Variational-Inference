@@ -62,10 +62,19 @@ from OneShot import OneShot
 K = 3
 T = 8
 osi = OneShot(g=g, K=K, T=T, seed=seed)
-res = osi.run()
-for key, rv in rvs_table.items():
+res = osi.run(lr=1e-1, its=200)
+for key, rv in sorted(rvs_table.items()):
     if rv.value is None:  # only test non-evidence nodes
         print(key, osi.map(rv))
+
+import matplotlib.pyplot as plt
+
+record = res['record']
+for key in record:
+    plt.plot(record[key], label=key)
+plt.legend(loc='best')
+save_name = __file__.split('.py')[0]
+plt.savefig('%s.png' % save_name)
 
 # EPBP inference
 from EPBPLogVersion import EPBP
@@ -73,6 +82,6 @@ from EPBPLogVersion import EPBP
 bp = EPBP(g, n=50, proposal_approximation='simple')
 bp.run(30, log_enable=True)
 
-for key, rv in rvs_table.items():
+for key, rv in sorted(rvs_table.items()):
     if rv.value is None:  # only test non-evidence nodes
         print(key, bp.map(rv))
