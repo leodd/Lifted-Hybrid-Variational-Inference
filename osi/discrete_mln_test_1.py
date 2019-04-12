@@ -7,11 +7,11 @@ utils.set_seed(seed=seed)
 from RelationalGraph import *
 from MLNPotential import *
 
-instance = {
+instance = [
     'Joey',
     'Rachel',
     'Tim',
-}
+]
 
 data = {
     ('Friend', 'Joey', 'Rachel'): 1,
