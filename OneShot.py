@@ -6,6 +6,8 @@ from itertools import product
 
 
 class OneShot:
+    var_threshold = 0.1
+
     def __init__(self, g, num_mixtures=5, num_quadrature_points=3):
         self.g = g
         self.init_sharing_count()
@@ -15,10 +17,10 @@ class OneShot:
         self.quad_x, self.quad_w = hermgauss(self.T)
         self.quad_w /= sqrt(pi)
 
-        self.tau = np.zeros(self.K)
+        self.w_tau = np.zeros(self.K)
         self.w = np.zeros(self.K)
-        self.eta = dict()  # key=rv, value=list of eta
-                           # continuous eta = (mu, var), discrete eta = array of values
+        self.eta_tau = dict()
+        self.eta = dict()  # key=rv, value={continuous eta: [, [mu, var]], discrete eta: [k, d]}
 
     def init_sharing_count(self):
         for rv in self.g.rvs:
@@ -35,8 +37,8 @@ class OneShot:
         return y
 
     @staticmethod
-    def softmax(X):
-        res = e ** X
+    def softmax(x):
+        res = e ** x
         return res / np.sum(res)
 
     def expectation(self, f, *args):  # arg = (is_continuous, eta), discrete eta = (domains, values)
@@ -56,62 +58,106 @@ class OneShot:
 
         return res
 
-    def gradient_tau(self):
+    def gradient_w_tau(self):
         g_w = np.zeros(self.K)
 
         for k in range(self.K):
-            g = 0
-
             for f in self.g.factors:
                 if len(f.nb) == 1:
-                    rv = f.nb[0]
-                    g += self.expectation()
+                    def f_w(x): return log(f.potential.get(x)) - (1 - f.nb[0].N) * log(self.rvs_belief(x, f.nb))
                 else:
-                    g += self.expectation(
-                        lambda x:
-                    )
+                    def f_w(x): return log(f.potential.get(x)) - log(self.rvs_belief(x, f.nb))
 
-    def gradient_mu(self, rv):
-        pass
+                args = list()
+                for rv in f.nb:
+                    if rv.domain.continuous:
+                        args.append((True, self.eta[rv][k]))
+                    else:
+                        args.append((False, (rv.domain.values, self.eta[rv][k])))
 
-    def gradient_var(self, rv):
-        pass
+                g_w[k] += self.expectation(f_w, args)
 
-    def gradient_category(self, rv):
-        pass
+        return self.w * (g_w - np.sum(g_w * self.w))
 
-    def update_eta(self):
-        pass
-
-    def belief(self, x, rv):
-        b = 0
+    def gradient_mu_var(self, rv):
+        g_mu_var = np.zeros((self.K, 2))
         eta = self.eta[rv]
 
-        if rv.domain.continuous:
-            for k in range(self.K):
-                b += self.w[k] * self.norm_pdf(x, eta[k])
-        else:
-            idx = rv.domain.values.index(x)
-            for k in range(self.K):
-                b += self.w[k] * eta[k][idx]
+        for k in range(self.K):
+            for f in rv.nb:
+                idx = f.nb.index(rv)
+                if len(f.nb) == 1:
+                    def f_mu(x): return (log(f.potential.get(x)) - (1 - f.nb[0].N) * log(self.rvs_belief(x, f.nb))) * \
+                                        (x[idx] - eta[k][0]) ** 2
 
-        return b
+                    def f_var(x): return (log(f.potential.get(x)) - (1 - f.nb[0].N) * log(self.rvs_belief(x, f.nb))) * \
+                                         ((x[idx] - eta[k][0]) ** 2 / eta[k][1] - 1)
+                else:
+                    def f_mu(x): return (log(f.potential.get(x)) - log(self.rvs_belief(x, f.nb))) * \
+                                        (x[idx] - eta[k][0]) ** 2
 
-    def factor_belief(self, x, f):
+                    def f_var(x): return (log(f.potential.get(x)) - log(self.rvs_belief(x, f.nb))) * \
+                                         ((x[idx] - eta[k][0]) ** 2 / eta[k][1] - 1)
+
+                args = list()
+                for rv_ in f.nb:
+                    if rv.domain.continuous:
+                        args.append((True, self.eta[rv_][k]))
+                    else:
+                        args.append((False, (rv.domain.values, self.eta[rv_][k])))
+
+                g_mu_var[k, 0] -= self.expectation(f_mu, args) / eta[k][1]
+                g_mu_var[k, 1] -= self.expectation(f_var, args) * 0.5 / eta[k][1]
+
+        return g_mu_var * self.w[:, np.newaxis]
+
+    def gradient_category_tau(self, rv):
+        g_c = np.zeros((self.K, len(rv.domain.values)))
+        eta = self.eta[rv]
+
+        for k in range(self.K):
+            for f in rv.nb:
+                args = list()
+                for rv_ in f.nb:
+                    if rv_ is not rv:
+                        if rv.domain.continuous:
+                            args.append((True, self.eta[rv_][k]))
+                        else:
+                            args.append((False, (rv.domain.values, self.eta[rv_][k])))
+
+                idx = f.nb.index(rv)
+                for d, (xi, v) in enumerate(zip(rv.domain.values, eta[k])):
+                    if len(f.nb) == 1:
+                        g_c[k, d] -= log(f.potential.get((xi,))) - (1 - f.nb[0].N) * log(self.rvs_belief((xi,), f.nb))
+                    else:
+                        def f_c(x):
+                            new_x = x[:idx] + (xi,) + x[idx:]
+                            return log(f.potential.get(new_x)) - log(self.rvs_belief(new_x, f.nb))
+
+                        g_c[k, d] -= self.expectation(f_c, args)
+
+        g_c = g_c * self.w[:, np.newaxis]
+
+        return eta * (g_c - np.sum(g_c * eta, 1)[:, np.newaxis])
+
+    def rvs_belief(self, x, rvs):
         b = np.copy(self.w)
 
-        for i, rv in enumerate(f.nb):
+        for i, rv in enumerate(rvs):
             eta = self.eta[rv]
 
             if rv.domain.continuous:
                 for k in range(self.K):
                     b[k] *= self.norm_pdf(x[i], eta[k])
             else:
-                idx = rv.domain.values.index(x[i])
+                d = rv.domain.values.index(x[i])
                 for k in range(self.K):
-                    b[k] *= eta[k][idx]
+                    b[k] *= eta[k, d]
 
         return np.sum(b)
+
+    def belief(self, x, rv):
+        return self.rvs_belief((x,), (rv,))
 
     def run(self, iteration=100):
         pass
