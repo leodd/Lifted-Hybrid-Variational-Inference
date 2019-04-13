@@ -12,9 +12,9 @@ utils.set_path()
 from MLNPotential import and_op, or_op, neg_op, imp_op, bic_op, eq_op
 from Graph import Domain, Potential, RV, F, Graph
 
-test = 'd'  # disc
+# test = 'd'  # disc
 # test = 'd2'  # disc
-# test = 'c'  # cont
+test = 'c'  # cont
 # test = 'h'  # hybrid
 
 N = 2
@@ -86,6 +86,46 @@ elif test == 'd2':
             Z += np.exp(lphi_0([s0]) + lphi_1([s1]) + lpsi([s0, s1]))
     print('true -log Z =', -np.log(Z))
 
+elif test == 'c':
+    rvs = [RV(domain=Domain(values=[-10, 10], continuous=True)),
+           RV(domain=Domain(values=[-10, 10], continuous=True))]
+
+
+    def lphi_0(xs):
+        x = xs[0]
+        return -2 + 1 * x + 0.1 * x ** 2
+
+
+    def lphi_1(xs):
+        x = xs[0]
+        return 0.3 + 0.2 * x + -1 * x ** 2
+
+
+    def lpsi(xs):
+        x0 = xs[0]
+        x1 = xs[1]
+        return 0.1 + 0.2 * x1 + 0.3 * x1 ** 2 + \
+               0.4 * x0 + 0.5 * x0 * x1 + 0.6 * x0 * x1 ** 2 + \
+               -0.7 * x0 ** 2 + -0.8 * x0 ** 2 * x1 + -0.9 * x0 ** 2 * x1 ** 2
+
+
+    factors = [
+        F(log_potential_fun=lphi_0, nb=[rvs[0]]),
+        F(log_potential_fun=lphi_1, nb=[rvs[1]]),
+        F(log_potential_fun=lpsi, nb=[rvs[0], rvs[1]]),
+    ]
+
+    from scipy.integrate import dblquad
+
+    # def f(x1, x0):
+    #     return np.exp(lphi_0([x0]) + lphi_1[x1] + lpsi([x0, x1]))
+
+
+    B = 10
+    Z, err = dblquad(lambda x1, x0: np.exp(lphi_0([x0]) + lphi_1([x1]) + lpsi([x0, x1])),
+                     -B, B, lambda x: -B, lambda x: B)
+    print('true -log Z =', -np.log(Z))
+
 g = Graph()
 g.rvs = rvs
 g.factors = factors
@@ -95,10 +135,11 @@ g.init_rv_indices()
 from OneShot import OneShot
 
 K = 4
-T = 8
+T = 30
 lr = 1e-1
 osi = OneShot(g=g, K=K, T=T, seed=seed)
-res = osi.run(lr=lr, its=200)
+optimizer = tf.train.GradientDescentOptimizer(learning_rate=lr)
+res = osi.run(lr=lr, optimizer=optimizer, its=1000)
 w = res['w']
 w_row = w[None, :]
 for rv in sorted(g.rvs):
