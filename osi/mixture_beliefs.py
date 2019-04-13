@@ -35,13 +35,14 @@ def get_hfactor_expectation_coefs_points(factor, K, T, dtype='float64'):
 
     for rv in factor.nb:
         if rv.domain_type == 'd':  # discrete
-            c = rv.belief_params_['probs']  # K x dstates[i] matrix (tf)
-            p = np.tile(np.reshape(rv.values, [1, -1]), [K, 1])  # K x dstates[i] (identical rows)
+            c = rv.belief_params_['probs']  # K x dstates[i] matrix (tf); will be put under stop_gradient later
+            p = np.tile(np.reshape(rv.values, [1, -1]), [K, 1])  # K x dstates[i] (identical rows); currently not used
         elif rv.domain_type == 'c':  # cont, assuming Gaussian for now
             c = ghq_weights_KT
             mean_K1 = rv.belief_params_['mean_K1']
             var_K1 = rv.belief_params_['var_K1']
             p = (2 * var_K1) ** 0.5 * ghq_points + mean_K1  # K x T
+            p = tf.stop_gradient(p)  # don't want to differentiate w.r.t. evaluation points
         else:
             raise NotImplementedError
         coefs.append(c)
@@ -112,7 +113,7 @@ def hfactor_bfe_obj(factor, T, w):
     lpot = utils.eval_fun_grid(factor.log_potential_fun, arrs=axes)  # K x V1 x V2 x ... Vn
     log_belief = tf.log(belief)
     F = -lpot + log_belief
-    prod = tf.stop_gradient(w_broadcast * coefs * F)  # weighted component-wise Hadamard products
+    prod = tf.stop_gradient(w_broadcast * coefs * F)  # weighted component-wise Hadamard products for K expectations
     bfe = tf.reduce_sum(prod)
     aux_obj = tf.reduce_sum(prod * log_belief)
 
@@ -200,25 +201,19 @@ def crvs_bfe_obj(rvs, T, w, Mu, Var):
     :return:
     """
     [N, K] = Mu.shape
-    w_col = tf.reshape(w, [K, 1])
+    w_1K1 = w[None, :, None]
 
     ghq_points, ghq_weights = roots_hermite(T)  # assuming Gaussian for now
     ghq_coef = (np.pi) ** (-0.5)  # from change-of-var
     ghq_weights *= ghq_coef
     QY = ghq_points * (2 * tf.reshape(Var, [N, K, 1])) ** 0.5 + tf.reshape(Mu, [N, K, 1])  # N x K x T; all eval points
+    QY = tf.stop_gradient(QY)  # don't want to differentiate w.r.t. quad points
 
     num_nbrs = np.array([len(rv.nb) for rv in rvs])
-    num_nbrs = num_nbrs.reshape([1, N])
     log_belief = tf.log(eval_crvs_belief(QY, w, Mu, Var))  # N x K x T
-    prod = tf.stop_gradient(ghq_weights * log_belief)  # N x K x T; component-wise Hadamard products
-
-    grals = tf.reduce_sum(prod, axis=2)  # N x K
-    bfe = (1 - num_nbrs) @ (grals @ w_col)
-    bfe = tf.reshape(bfe, ())  # convert 1x1 mat to scalar
-
-    grals = tf.reduce_sum(prod * log_belief, axis=2)  # N x K
-    aux_obj = (1 - num_nbrs) @ (grals @ w_col)
-    aux_obj = tf.reshape(aux_obj, ())  # convert 1x1 mat to scalar
+    prod = tf.stop_gradient(w_1K1 * ghq_weights * log_belief)  # N x K x T; weighted component-wise Hadamard products
+    bfe = tf.reduce_sum((1 - num_nbrs) * tf.reduce_sum(prod, axis=[1, 2]))
+    aux_obj = tf.reduce_sum((1 - num_nbrs) * tf.reduce_sum(prod * log_belief, axis=[1, 2]))
 
     return bfe, aux_obj
 
