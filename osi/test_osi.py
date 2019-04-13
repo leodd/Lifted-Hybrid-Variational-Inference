@@ -138,8 +138,7 @@ K = 4
 T = 30
 lr = 1e-1
 osi = OneShot(g=g, K=K, T=T, seed=seed)
-optimizer = tf.train.GradientDescentOptimizer(learning_rate=lr)
-res = osi.run(lr=lr, optimizer=optimizer, its=1000)
+res = osi.run(lr=lr, its=1000)
 w = res['w']
 w_row = w[None, :]
 for rv in sorted(g.rvs):
