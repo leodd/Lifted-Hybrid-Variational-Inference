@@ -85,7 +85,7 @@ class OneShot:
         if g.Nc > 0:  # assuming Gaussian
             # hard-coded for now
             Mu_bds = [-10, 10]
-            Var_bds = [1e-3, 10]
+            Var_bds = [5e-3, 10]
             lVar_bds = np.log(Var_bds)
 
             Mu = tf.Variable(np.random.uniform(low=Mu_bds[0] / 2, high=Mu_bds[1] / 2, size=[g.Nc, K]),
