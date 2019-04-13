@@ -22,15 +22,16 @@ def get_hfactor_expectation_coefs_points(factor, K, T, dtype='float64'):
     """
     coefs = []
     axes = []
-    assert factor.domain_type in ('c', 'h'), \
-        'Must input continuous/hybrid factor; use dfactor_bfe_obj directly for discrete factor'
-    # compute GHQ once (same for all cnodes) if factor is cont/hybrid
-    ghq_points, ghq_weights = roots_hermite(T)  # assuming Gaussian for now
-    ghq_coef = (np.pi) ** (-0.5)  # from change-of-var
-    ghq_weights = ghq_coef * ghq_weights  # let's fold ghq_coef into the quadrature weights, so no need to worry about it later
-    # ghq_weights_KT = np.tile(np.reshape(ghq_weights, [1, -1]), [K, 1])  # K x T (repeat for K identical rows)
-    ghq_weights = tf.constant(ghq_weights, dtype=dtype)
-    ghq_weights_KT = tf.tile(tf.reshape(ghq_weights, [1, -1]), [K, 1])  # K x T (repeat for K identical rows)
+    if factor.domain_type in ('c', 'h'):
+        assert factor.domain_type in ('c', 'h'), \
+            'Must input continuous/hybrid factor; use dfactor_bfe_obj directly for discrete factor'
+        # compute GHQ once (same for all cnodes) if factor is cont/hybrid
+        ghq_points, ghq_weights = roots_hermite(T)  # assuming Gaussian for now
+        ghq_coef = (np.pi) ** (-0.5)  # from change-of-var
+        ghq_weights = ghq_coef * ghq_weights  # let's fold ghq_coef into the quadrature weights, so no need to worry about it later
+        # ghq_weights_KT = np.tile(np.reshape(ghq_weights, [1, -1]), [K, 1])  # K x T (repeat for K identical rows)
+        ghq_weights = tf.constant(ghq_weights, dtype=dtype)
+        ghq_weights_KT = tf.tile(tf.reshape(ghq_weights, [1, -1]), [K, 1])  # K x T (repeat for K identical rows)
 
     for rv in factor.nb:
         if rv.domain_type == 'd':  # discrete
@@ -103,6 +104,7 @@ def hfactor_bfe_obj(factor, T, w):
     """
     K = np.prod(w.shape)
     einsum_eq = utils.outer_prod_einsum_equation(len(factor.nb), common_first_ndims=1)
+    w_broadcast = tf.reshape(w, [-1] + [1] * len(factor.nb))  # K x 1 x 1 ... x 1
 
     coefs, axes = get_hfactor_expectation_coefs_points(factor, K, T)  # [[K, V1], [K, V2], ..., [K, Vn]]
     coefs = tf.einsum(einsum_eq, *coefs)  # K x V1 x V2 x ... Vn; K grids of Hadamard products
@@ -110,10 +112,9 @@ def hfactor_bfe_obj(factor, T, w):
     lpot = utils.eval_fun_grid(factor.log_potential_fun, arrs=axes)  # K x V1 x V2 x ... Vn
     log_belief = tf.log(belief)
     F = -lpot + log_belief
-    prod = tf.stop_gradient(coefs * F)  # stop_gradient is needed for aux_obj
-    bfe = tf.reduce_sum(
-        w * tf.reduce_sum(prod, axis=tuple(range(1, len(factor.nb) + 1))))  # inner reduce over 1,2,...,n
-    aux_obj = tf.reduce_sum(w * tf.reduce_sum(prod * log_belief, axis=tuple(range(1, len(factor.nb) + 1))))
+    prod = tf.stop_gradient(w_broadcast * coefs * F)  # weighted component-wise Hadamard products
+    bfe = tf.reduce_sum(prod)
+    aux_obj = tf.reduce_sum(prod * log_belief)
 
     return bfe, aux_obj
 

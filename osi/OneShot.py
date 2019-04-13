@@ -33,8 +33,10 @@ class OneShot:
         g.init_rv_indices()  # will create attributes like Vc, Vc_idx, etc.
         g.init_nb()  # in case neighbors aren't already sorted
         for f in g.factors_list:
-            assert isinstance(f.potential, MLNPotential), 'currently can only get log_potential_fun from MLNPotential'
-            f.log_potential_fun = utils.get_log_potential_fun_from_MLNPotential(f.potential)
+            if f.log_potential_fun is None:
+                assert isinstance(f.potential,
+                                  MLNPotential), 'currently can only get log_potential_fun from MLNPotential'
+                f.log_potential_fun = utils.get_log_potential_fun_from_MLNPotential(f.potential)
 
         tf.reset_default_graph()  # clear existing
         if seed is not None:  # note that seed that has been set prior to tf.reset_default_graph will be invalidated
@@ -111,7 +113,8 @@ class OneShot:
         # get factors' contribution to the objectives
         for factor in g.factors_list:
             if factor.domain_type == 'd':
-                delta_bfe, delta_aux_obj = dfactor_bfe_obj(factor, w)
+                # delta_bfe, delta_aux_obj = dfactor_bfe_obj(factor, w)
+                delta_bfe, delta_aux_obj = hfactor_bfe_obj(factor, T, w)
             else:
                 assert factor.domain_type in ('c', 'h')
                 delta_bfe, delta_aux_obj = hfactor_bfe_obj(factor, T, w)
