@@ -41,8 +41,7 @@ class OneShot:
         tf.reset_default_graph()  # clear existing
         if seed is not None:  # note that seed that has been set prior to tf.reset_default_graph will be invalidated
             tf.set_random_seed(seed)  # thus we have to reseed after reset_default_graph
-        # tau = tf.Variable(tf.zeros(K, dtype=dtype), trainable=True, name='tau')  # mixture weights logits
-        tau = tf.Variable(np.array([-2, -1, 1, 2], dtype=dtype), trainable=True, name='tau')  # mixture weights logits
+        tau = tf.Variable(tf.zeros(K, dtype=dtype), trainable=True, name='tau')  # mixture weights logits
         # tau = tf.Variable(tf.random_normal([K], dtype=dtype), trainable=True, name='tau')  # mixture weights logits
         w = tf.nn.softmax(tau, name='w')  # mixture weights
 
@@ -89,23 +88,12 @@ class OneShot:
             Var_bds = [1e-3, 10]
             lVar_bds = np.log(Var_bds)
 
-            # Mu = tf.Variable(tf.random_uniform([g.Nc, K], minval=Mu_bds[0]/2, maxval=Mu_bds[1]/2, dtype=dtype), dtype=dtype,
-            # Mu = tf.Variable(tf.random_uniform([g.Nc, K], minval=-1, maxval=1, dtype=dtype), dtype=dtype,
-            #                  trainable=True, name='Mu')
-
-            # Mu = tf.Variable(np.zeros([g.Nc, K]), trainable=True, name='Mu')
-            Mu = tf.Variable(np.array([[-2., -1, 0, 1], [2, 1, 0, -1]]), trainable=True, name='Mu')
+            Mu = tf.Variable(np.random.uniform(low=Mu_bds[0] / 2, high=Mu_bds[1] / 2, size=[g.Nc, K]),
+                             dtype=dtype, trainable=True, name='Mu')
 
             # log of Var (sigma squared), for numeric stability
-            # lVar = tf.Variable(tf.random_uniform([g.Nc, K], minval=lVar_bds[0], maxval=lVar_bds[1], dtype=dtype),
-            #                    dtype=dtype, trainable=True, name='lVar')
-            # lVar = tf.Variable(np.zeros([g.Nc, K]) + 0.1, trainable=True, name='lVar')    # OK
-            # lVar = tf.Variable(np.array([[.4, .3, .2, .1], [.1, .2, .3, .4]]), trainable=True, name='lVar')   # grad difference with matlab implementation negilible
-            # lVar = tf.Variable(np.array([[-4., -3, -2, -1], [1, -2, -3, -4]]), trainable=True, name='lVar') # still OK
-            # lVar = tf.Variable(np.array([[-4., -1, -2, -1], [1, -1, 0, -2]]), trainable=True,
-            #                    name='lVar')  # difference starting to get significant
-            lVar = tf.Variable(np.array([[-6., -1, -2, -1], [1, -1, 0, -2]]), trainable=True,
-                               name='lVar')  # grad for the 1st component differs significantly from matlab, less so for the 2nd
+            lVar = tf.Variable(np.random.uniform(low=lVar_bds[0], high=lVar_bds[1], size=[g.Nc, K]),
+                               dtype=dtype, trainable=True, name='lVar')
             Var = tf.exp(lVar)
 
             clip_op = tf.group(tf.assign(Mu, tf.clip_by_value(Mu, *Mu_bds)),
