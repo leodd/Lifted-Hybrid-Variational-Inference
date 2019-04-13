@@ -81,40 +81,29 @@ else:  # general case when each dnode can have different num states
 # assign symbolic belief vars to rvs
 for rv in g.Vd:
     i = g.Vd_idx[rv]  # ith disc node
-    rv.belief_params_ = {'probs': Pi[i]}  # K x dstates[i] matrix
-
-# for rv in g.Vc:
-#     i = g.Vd_idx[rv]  # ith disc node
-#     rv.belief_params_ = {
-#         'mean': Mu[i], 'var': Var[i], 'var_inv': 1 / Var[i], 'mean_K1': tf.reshape(Mu[i], [K, 1]),
-#         'var_K1': tf.reshape(Var[i], [K, 1]), 'var_inv_K1': tf.reshape(1 / Var[i], [K, 1])
-#     }
+    rv.belief_params_ = {'pi': Pi[i]}  # K x dstates[i] matrix
 
 tau = tf.Variable(tf.zeros(K, dtype=dtype), trainable=True, name='tau')  # mixture weights logits
 # tau = tf.Variable(tf.random_normal([K], dtype=dtype), trainable=True, name='tau')  # mixture weights logits
 w = tf.nn.softmax(tau, name='w')  # mixture weights
 
-from mixture_beliefs import dfactor_bfe_obj, drv_bfe_obj
+from mixture_beliefs import dfactor_bfe_obj, drv_bfe_obj, drvs_bfe_obj
 
 bfe = aux_obj = 0
 for factor in g.factors:
-    bfe_, aux_obj_ = dfactor_bfe_obj(factor, w)
-    bfe += bfe_
-    aux_obj += aux_obj_
+    delta_bfe, delta_aux_obj = dfactor_bfe_obj(factor, w)
+    bfe += delta_bfe
+    aux_obj += delta_aux_obj
 
 if shared_dstates > 0:  # all discrete rvs have the same number of states
-    w_1K1 = tf.reshape(w, [1, K, 1])
-    belief = tf.reduce_sum(w_1K1 * Pi, axis=1)  # Nd x shared_dstates
-    log_belief = tf.log(belief)
-    num_nbrs = np.array([len(rv.nb) for rv in g.Vd])
-    prod = tf.stop_gradient(belief * log_belief)  # Nd x shared_dstates
-    bfe += tf.reduce_sum((1 - num_nbrs) * tf.reduce_sum(prod, axis=1))
-    aux_obj += tf.reduce_sum((1 - num_nbrs) * tf.reduce_sum(prod * log_belief, axis=1))
+    delta_bfe, delta_aux_obj = drvs_bfe_obj(rvs=g.Vd, w=w, Pi=Pi)
+    bfe += delta_bfe
+    aux_obj += delta_aux_obj
 else:
     for rv in g.Vd:
-        bfe_, aux_obj_ = drv_bfe_obj(rv, w)
-        bfe += bfe_
-        aux_obj += aux_obj_
+        delta_bfe, delta_aux_obj = drv_bfe_obj(rv, w)
+        bfe += delta_bfe
+        aux_obj += delta_aux_obj
 
 print('set up training')
 # train

@@ -18,7 +18,7 @@ class OneShot:
     also maintains all the local variables/results created along the way.
     """
 
-    def __init__(self, g, K, T, seed=None):
+    def __init__(self, g, K, T, seed=None, Var_bds=None):
         """
         Define symbolic BFE and auxiliary objective expression to be optimized by tensorflow, given a factor graph.
         We'll use the one default tensorflow computation graph; to make sure we don't redefine it, everytime it'll
@@ -68,7 +68,7 @@ class OneShot:
             # assign symbolic belief vars to rvs
             for rv in g.Vd:
                 i = g.Vd_idx[rv]  # ith disc node
-                rv.belief_params_ = {'probs': Pi[i]}  # K x dstates[i] matrix
+                rv.belief_params_ = {'pi': Pi[i]}  # K x dstates[i] matrix
 
             # get discrete nodes' contributions to the objective
             if shared_dstates > 0:  # all discrete rvs have the same number of states
@@ -83,15 +83,21 @@ class OneShot:
 
         clip_op = tf.no_op()  # will be replaced with real clip op if Nc > 0
         if g.Nc > 0:  # assuming Gaussian
-            # hard-coded for now
-            Mu_bds = [-10, 10]
-            Var_bds = [5e-3, 10]
-            lVar_bds = np.log(Var_bds)
+            if Var_bds is None:
+                Var_bds = [5e-3, 10]  # currently shared by all cnodes
 
+            Mu_bds = np.empty([2, g.Nc], dtype='float')
+            for n, rv in enumerate(g.Vc):
+                Mu_bds[:, n] = rv.values[0], rv.values[1]  # lb, ub
+            Mu_bds = Mu_bds[:, :, None] + \
+                     np.zeros([2, g.Nc, K], dtype='float')  # Mu_bds[0], Mu_bds[1] give lb, ub for Mu; same for all K
             Mu = tf.Variable(np.random.uniform(low=Mu_bds[0] / 2, high=Mu_bds[1] / 2, size=[g.Nc, K]),
                              dtype=dtype, trainable=True, name='Mu')
 
-            # log of Var (sigma squared), for numeric stability
+            # optimize the log of Var (sigma squared), for numeric stability
+            lVar_bds = np.log(Var_bds)
+            # lVar = tf.Variable(np.log(np.random.uniform(low=Var_bds[0], high=Var_bds[1], size=[g.Nc, K])),
+            #                    dtype=dtype, trainable=True, name='lVar')
             lVar = tf.Variable(np.random.uniform(low=lVar_bds[0], high=lVar_bds[1], size=[g.Nc, K]),
                                dtype=dtype, trainable=True, name='lVar')
             Var = tf.exp(lVar)
@@ -102,7 +108,7 @@ class OneShot:
             for rv in g.Vc:
                 i = g.Vc_idx[rv]  # ith cont node
                 rv.belief_params_ = {
-                    'mean': Mu[i], 'var': Var[i], 'var_inv': 1 / Var[i], 'mean_K1': tf.reshape(Mu[i], [K, 1]),
+                    'mu': Mu[i], 'var': Var[i], 'var_inv': 1 / Var[i], 'mu_K1': tf.reshape(Mu[i], [K, 1]),
                     'var_K1': tf.reshape(Var[i], [K, 1]), 'var_inv_K1': tf.reshape(1 / Var[i], [K, 1])
                 }
 
@@ -197,7 +203,7 @@ class OneShot:
 
             for rv in g.Vd:
                 i = g.Vd_idx[rv]  # ith disc node
-                rv.belief_params = {'probs': params['Pi'][i]}  # K x dstates[i] matrix
+                rv.belief_params = {'pi': params['Pi'][i]}  # K x dstates[i] matrix
 
         if g.Nc > 0:
             Mu, Var = self.Mu, self.Var
@@ -228,7 +234,7 @@ class OneShot:
 
             cond_w = calc_cond_mixture_weights(g, X, obs_rvs, params)
             if rv.domain_type == 'd':
-                map_state, map_prob = drv_belief_map(cond_w, rv.belief_params['probs'])
+                map_state, map_prob = drv_belief_map(cond_w, rv.belief_params['pi'])
                 print(rv, map_state, map_prob)
                 out = rv.values[map_state]
             else:

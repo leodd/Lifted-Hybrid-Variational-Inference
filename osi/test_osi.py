@@ -9,8 +9,7 @@ dtype = 'float64'
 import utils
 
 utils.set_path()
-from MLNPotential import and_op, or_op, neg_op, imp_op, bic_op, eq_op
-from Graph import Domain, Potential, RV, F, Graph
+from Graph import Domain, RV, F, Graph
 
 # test = 'd'  # disc
 # test = 'd2'  # disc
@@ -87,8 +86,9 @@ elif test == 'd2':
     print('true -log Z =', -np.log(Z))
 
 elif test == 'c':
-    rvs = [RV(domain=Domain(values=[-10, 10], continuous=True)),
-           RV(domain=Domain(values=[-10, 10], continuous=True))]
+    B = 10
+    rvs = [RV(domain=Domain(values=[-B, B], continuous=True)),
+           RV(domain=Domain(values=[-B, B], continuous=True))]
 
 
     def lphi_0(xs):
@@ -117,11 +117,6 @@ elif test == 'c':
 
     from scipy.integrate import dblquad
 
-    # def f(x1, x0):
-    #     return np.exp(lphi_0([x0]) + lphi_1[x1] + lpsi([x0, x1]))
-
-
-    B = 10
     Z, err = dblquad(lambda x1, x0: np.exp(lphi_0([x0]) + lphi_1([x1]) + lpsi([x0, x1])),
                      -B, B, lambda x: -B, lambda x: B)
     print('true -log Z =', -np.log(Z))
@@ -144,8 +139,8 @@ w_row = w[None, :]
 for rv in sorted(g.rvs):
     params = rv.belief_params
     print(params)
-    if 'probs' in params:
-        print(w @ params['probs'])
+    if 'pi' in params:
+        print(w @ params['pi'])
     if 'mu' in params:
         print(w @ params['mu'])
 

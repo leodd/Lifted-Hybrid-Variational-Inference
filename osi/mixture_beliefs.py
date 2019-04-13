@@ -35,11 +35,11 @@ def get_hfactor_expectation_coefs_points(factor, K, T, dtype='float64'):
 
     for rv in factor.nb:
         if rv.domain_type == 'd':  # discrete
-            c = rv.belief_params_['probs']  # K x dstates[i] matrix (tf); will be put under stop_gradient later
+            c = rv.belief_params_['pi']  # K x dstates[i] matrix (tf); will be put under stop_gradient later
             p = np.tile(np.reshape(rv.values, [1, -1]), [K, 1])  # K x dstates[i] (identical rows); currently not used
         elif rv.domain_type == 'c':  # cont, assuming Gaussian for now
             c = ghq_weights_KT
-            mean_K1 = rv.belief_params_['mean_K1']
+            mean_K1 = rv.belief_params_['mu_K1']
             var_K1 = rv.belief_params_['var_K1']
             p = (2 * var_K1) ** 0.5 * ghq_points + mean_K1  # K x T
             p = tf.stop_gradient(p)  # don't want to differentiate w.r.t. evaluation points
@@ -72,14 +72,9 @@ def eval_hfactor_belief(factor, axes, w):
         for n, rv in enumerate(factor.nb):
             if rv.domain_type == 'd':  # discrete
                 comp_prob = rv.belief_params_[
-                    'probs']  # assuming the states of Xn are sorted, so p_kn(rv.states) = p_kn
+                    'pi']  # assuming the states of Xn are sorted, so p_kn(rv.states) = p_kn
             elif rv.domain_type == 'c':  # cont, assuming Gaussian for now
-                # mean, var = rv.belief_params_['mean'], rv.belief_params_['var']
-                # mean_K1 = tf.reshape(mean, [-1, 1])
-                # var_inv = 1 / var
-                # var_K1 = tf.reshape(var, [-1, 1])
-                # var_inv_K1 = tf.reshape(var_inv, [-1, 1])
-                mean_K1 = rv.belief_params_['mean_K1']
+                mean_K1 = rv.belief_params_['mu_K1']
                 var_inv_K1 = rv.belief_params_['var_inv_K1']
                 comp_prob = (2 * np.pi) ** (-0.5) * tf.sqrt(var_inv_K1) * \
                             tf.exp(-0.5 * (axes[n][k] - mean_K1) ** 2 * var_inv_K1)  # eval pdf under all K scalar comps
@@ -127,7 +122,7 @@ def eval_dfactor_belief(factor, w):
     :return:
     """
     einsum_eq = utils.outer_prod_einsum_equation(len(factor.nb), common_first_ndims=1)
-    comp_probs = [rv.belief_params_['probs'] for rv in factor.nb]  # [K x V1, K x V2, ..., K x Vn]
+    comp_probs = [rv.belief_params_['pi'] for rv in factor.nb]  # [K x V1, K x V2, ..., K x Vn]
     # multiple all dimensions together, all K components at once
     joint_comp_probs = tf.einsum(einsum_eq, *comp_probs)  # K x V1 x V2 x ... Vn
     w_broadcast = tf.reshape(w, [-1] + [1] * len(comp_probs))  # K x 1 x 1 ... x 1
@@ -162,7 +157,7 @@ def drv_bfe_obj(rv, w):
     :return:
     """
     w_K1 = tf.reshape(w, [-1, 1])
-    belief = tf.reduce_sum(w_K1 * rv.belief_params_['probs'], axis=0)  # K x 1 times K x S, then sum over axis 0
+    belief = tf.reduce_sum(w_K1 * rv.belief_params_['pi'], axis=0)  # K x 1 times K x S, then sum over axis 0
     log_belief = tf.log(belief)
     prod = tf.stop_gradient(belief * log_belief)  # stop_gradient is needed for aux_obj
     bfe = (1 - len(rv.nb)) * tf.reduce_sum(prod)  # we really mean the free energy, which is to be minimized
