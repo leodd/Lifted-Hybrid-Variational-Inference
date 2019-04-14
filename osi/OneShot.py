@@ -41,8 +41,7 @@ class OneShot:
         tf.reset_default_graph()  # clear existing
         if seed is not None:  # note that seed that has been set prior to tf.reset_default_graph will be invalidated
             tf.set_random_seed(seed)  # thus we have to reseed after reset_default_graph
-        # tau = tf.Variable(tf.zeros(K, dtype=dtype), trainable=True, name='tau')  # mixture weights logits
-        tau = tf.Variable(np.array([-2, -1, 1, 2], dtype=dtype), trainable=True, name='tau')  # mixture weights logits
+        tau = tf.Variable(tf.zeros(K, dtype=dtype), trainable=True, name='tau')  # mixture weights logits
         # tau = tf.Variable(tf.random_normal([K], dtype=dtype), trainable=True, name='tau')  # mixture weights logits
         w = tf.nn.softmax(tau, name='w')  # mixture weights
 
@@ -55,10 +54,10 @@ class OneShot:
                 shared_dstates = -1
 
             if shared_dstates > 0:  # all discrete rvs have the same number of states
-                Rho = tf.Variable(tf.zeros([g.Nd, K, shared_dstates], dtype=dtype), trainable=True,
-                                  name='Rho')  # dnode categorical prob logits
-                # Rho = tf.Variable(tf.random_normal([g.Nd, K, shared_dstates], dtype=dtype), trainable=True,
+                # Rho = tf.Variable(tf.zeros([g.Nd, K, shared_dstates], dtype=dtype), trainable=True,
                 #                   name='Rho')  # dnode categorical prob logits
+                Rho = tf.Variable(tf.random_normal([g.Nd, K, shared_dstates], dtype=dtype), trainable=True,
+                                  name='Rho')  # dnode categorical prob logits
                 Pi = tf.nn.softmax(Rho, name='Pi')
             else:  # general case when each dnode can have different num states
                 Rho = [tf.Variable(tf.zeros([K, rv.dstates], dtype=dtype), trainable=True, name='Rho_%d' % i) for
@@ -92,20 +91,15 @@ class OneShot:
                 Mu_bds[:, n] = rv.values[0], rv.values[1]  # lb, ub
             Mu_bds = Mu_bds[:, :, None] + \
                      np.zeros([2, g.Nc, K], dtype='float')  # Mu_bds[0], Mu_bds[1] give lb, ub for Mu; same for all K
-            # Mu = tf.Variable(np.random.uniform(low=Mu_bds[0] / 2, high=Mu_bds[1] / 2, size=[g.Nc, K]),
-            #                  dtype=dtype, trainable=True, name='Mu')
-            # Mu = tf.Variable(np.array([[-2., 1, -1, 1], [2, 1, 0, -1]]), trainable=True, name='Mu')
-            Mu = tf.Variable(np.array([[-2., 1, -1, 1]]), trainable=True, name='Mu')
+            Mu = tf.Variable(np.random.uniform(low=Mu_bds[0] / 2, high=Mu_bds[1] / 2, size=[g.Nc, K]),
+                             dtype=dtype, trainable=True, name='Mu')
 
             # optimize the log of Var (sigma squared), for numeric stability
             lVar_bds = np.log(Var_bds)
             # lVar = tf.Variable(np.log(np.random.uniform(low=Var_bds[0], high=Var_bds[1], size=[g.Nc, K])),
             #                    dtype=dtype, trainable=True, name='lVar')
-            # lVar = tf.Variable(np.random.uniform(low=lVar_bds[0], high=lVar_bds[1], size=[g.Nc, K]),
-            #                    dtype=dtype, trainable=True, name='lVar')
-            # lVar = tf.Variable(np.array([[-4., -1, -2, -1], [1, -1, 0, -2]]), trainable=True, name='lVar')
-            lVar = tf.Variable(np.array([[-4., -1, -2, -1]]), trainable=True, name='lVar')
-
+            lVar = tf.Variable(np.random.uniform(low=lVar_bds[0], high=lVar_bds[1], size=[g.Nc, K]),
+                               dtype=dtype, trainable=True, name='lVar')
             Var = tf.exp(lVar)
 
             clip_op = tf.group(tf.assign(Mu, tf.clip_by_value(Mu, *Mu_bds)),
