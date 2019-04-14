@@ -254,7 +254,7 @@ def eval_drvs_comp_prob(X, Pi):
     """
     Evaluate component-wise log probabilities on arbitrary tensor x, for multiple discrete rvs simultaneously.
     Currently only supports numpy arrays.
-    :param X: shape N x M, each nth slice evaluated by the nth dnode, with params Pi[n]
+    :param X: shape N x M integer type, each nth slice evaluated by the nth dnode, with params Pi[n]
     :param Pi: probability params, Pi[n] should be K x dstates_of_nth_dnode
     :return: K x N x M, kth slice gives p_k(x)
     """
@@ -289,6 +289,9 @@ def calc_marg_comp_log_prob(g, X, obs_rvs, params):
 
     C = X[:, obs_c]  # M x (num of cont obs)
     D = X[:, obs_d]  # M x (num of disc obs)
+    D_precast = D.copy()
+    D = D.astype('int')  # for disc obs (will need to index into Pi)
+    assert np.all(D == D_precast), 'Discrete observations must be integers!'
 
     comp_log_probs = 0
 
