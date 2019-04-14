@@ -13,8 +13,8 @@ from Graph import Domain, RV, F, Graph
 
 # test = 'd'  # disc
 # test = 'd2'  # disc
-test = 'c'  # cont
-# test = 'h'  # hybrid
+# test = 'c'  # cont
+test = 'h'  # hybrid
 
 N = 2
 nodes = np.arange(N)
@@ -121,6 +121,43 @@ elif test == 'c':
                      -B, B, lambda x: -B, lambda x: B)
     print('true -log Z =', -np.log(Z))
 
+elif test == 'h':
+    B = 10
+    rvs = [RV(domain=Domain(values=[0, 1], continuous=False)),
+           RV(domain=Domain(values=[-B, B], continuous=True))]
+
+
+    def lphi_0(xs):
+        x = xs[0]
+        return -0.2 * (xs[0] == 0) + 1 * (x == 1)
+
+
+    def lphi_1(xs):
+        x = xs[0]
+        return -2 + 1 * x + 0.1 * x ** 2
+
+
+    def lpsi(xs):
+        x0 = xs[0]
+        x1 = xs[1]
+        return (x0 == 0) * (0.1 + 0.2 * x1 - 0.3 * x1 ** 2) + \
+               (x0 == 1) * (0.4 + 0.5 * x1 - 0.6 * x1 ** 2)
+
+
+    factors = [
+        F(log_potential_fun=lphi_0, nb=[rvs[0]]),
+        F(log_potential_fun=lphi_1, nb=[rvs[1]]),
+        F(log_potential_fun=lpsi, nb=[rvs[0], rvs[1]]),
+    ]
+
+    from scipy.integrate import quad
+
+    Z = 0
+    for x0 in rvs[0].values:
+        Z_, err = quad(lambda x1: np.exp(lphi_0([x0]) + lphi_1([x1]) + lpsi([x0, x1])), -B, B)
+        Z += Z_
+    print('true -log Z =', -np.log(Z))
+
 g = Graph()
 g.rvs = rvs
 g.factors = factors
@@ -131,9 +168,10 @@ from OneShot import OneShot
 
 K = 4
 T = 30
-lr = 1e-1
+lr = 5e-1
 osi = OneShot(g=g, K=K, T=T, seed=seed)
-res = osi.run(lr=lr, its=1000)
+optimizer = tf.train.GradientDescentOptimizer(learning_rate=lr)
+res = osi.run(lr=lr, optimizer=optimizer, its=1000)
 w = res['w']
 w_row = w[None, :]
 for rv in sorted(g.rvs):
