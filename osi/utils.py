@@ -118,3 +118,20 @@ def eval_fun_grid(fun, arrs, sep_args=False):
     else:
         res = fun(expanded_arrs)  # should evaluate on the Cartesian product (ndgrid) of axes by broadcasting
     return res
+
+
+def calc_num_grad(v, obj, sess, delta=1e-4):
+    """
+    Compute numerical gradient using tensorflow.python.ops.gradient_checker.
+    e.g., calc_num_grad(Mu, bfe, sess) gives gradient of the scalar bfe objective w.r.t. Mu, at Mu's current value
+    :param v:
+    :param obj:
+    :param sess:
+    :param delta:
+    :return:
+    """
+    from tensorflow.python.ops import gradient_checker
+    with sess.as_default():
+        val = sess.run(v)
+        out = gradient_checker._compute_numeric_jacobian(v, v.shape, val, obj, obj.shape, delta, {v.name: val})
+    return out
