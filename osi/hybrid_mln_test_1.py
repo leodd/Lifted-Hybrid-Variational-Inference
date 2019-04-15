@@ -58,12 +58,12 @@ g, rvs_table = rel_g.grounded_graph()
 
 from OneShot import OneShot
 
-grad_check = True
+grad_check = False
 if not grad_check:
     K = 3
     T = 20
     lr = 1e-2
-    its = 600
+    its = 500
     osi = OneShot(g=g, K=K, T=T, seed=seed)
     res = osi.run(lr=lr, its=its)
     record = res['record']
@@ -96,6 +96,7 @@ else:
     lr = 1e-2
     its = 1
     import tensorflow as tf
+
     for T in [10, 20, 50, 100]:
         print('grad check, T =', T)
         utils.set_seed(seed)

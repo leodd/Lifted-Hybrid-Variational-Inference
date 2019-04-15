@@ -1,13 +1,9 @@
 import tensorflow as tf
 import numpy as np
-
-seed = 0
-tf.set_random_seed(seed)
-np.random.seed(seed)
-dtype = 'float64'
-
 import utils
 
+seed = 0
+utils.set_seed(seed=seed)
 utils.set_path()
 from Graph import Domain, RV, F, Graph
 
@@ -166,7 +162,7 @@ g.init_rv_indices()
 
 from OneShot import OneShot
 
-grad_check = True
+grad_check = False
 if not grad_check:
     K = 4
     T = 30
