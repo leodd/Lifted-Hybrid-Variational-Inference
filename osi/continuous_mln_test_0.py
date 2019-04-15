@@ -1,6 +1,6 @@
 import utils
 
-seed = 1
+seed = 0
 utils.set_seed(seed=seed)
 utils.set_path()
 
@@ -16,7 +16,7 @@ data = {
     ('Smoke', 'Tim'): -2,
 }
 
-domain_cont = Domain((-5, 5), continuous=True)
+domain_cont = Domain((-3, 3), continuous=True)
 
 lv_x = LV(instance)
 lv_y = LV(instance)
