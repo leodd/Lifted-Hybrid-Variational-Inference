@@ -91,7 +91,7 @@ class OneShot:
                 Mu_bds[:, n] = rv.values[0], rv.values[1]  # lb, ub
             Mu_bds = Mu_bds[:, :, None] + \
                      np.zeros([2, g.Nc, K], dtype='float')  # Mu_bds[0], Mu_bds[1] give lb, ub for Mu; same for all K
-            Mu = tf.Variable(np.random.uniform(low=Mu_bds[0] / 2, high=Mu_bds[1] / 2, size=[g.Nc, K]),
+            Mu = tf.Variable(np.random.uniform(low=Mu_bds[0], high=Mu_bds[1], size=[g.Nc, K]),
                              dtype=dtype, trainable=True, name='Mu')
 
             # optimize the log of Var (sigma squared), for numeric stability

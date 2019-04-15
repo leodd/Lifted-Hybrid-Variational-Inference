@@ -59,16 +59,19 @@ g, rvs_table = rel_g.grounded_graph()
 from OneShot import OneShot
 
 K = 3
-T = 8
+T = 20
+# T = 8
 osi = OneShot(g=g, K=K, T=T, seed=seed)
 res = osi.run(lr=1e-2, its=600)
+record = res['record']
+del res['record']
+print(res)
 for key, rv in rvs_table.items():
     if rv.value is None:  # only test non-evidence nodes
-        print(key, osi.map(rv))
+        print(rv, key, osi.map(rv))
 
 import matplotlib.pyplot as plt
 
-record = res['record']
 for key in record:
     plt.plot(record[key], label=key)
 plt.legend(loc='best')
