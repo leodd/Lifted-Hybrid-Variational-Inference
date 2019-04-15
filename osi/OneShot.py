@@ -130,7 +130,7 @@ class OneShot:
 
         self.__dict__.update(**locals())
 
-    def run(self, its=100, lr=5e-2, tf_session=None, optimizer=None, trainable_params=None):
+    def run(self, its=100, lr=5e-2, tf_session=None, optimizer=None, trainable_params=None, grad_check=False):
         """
         Launch tf training session and optimize the BFE, to get optimal mixture belief params.
         :param its:
@@ -152,8 +152,8 @@ class OneShot:
         # clip gradients if needed
         grads_update = optimizer.apply_gradients(grads_and_vars)
 
-        vnames = ['g' + v.name.split(':')[0] for v in trainable_params]
-        record = {n: [] for n in vnames + ['bfe']}
+        gvnames = ['g' + v.name.split(':')[0] for v in trainable_params]
+        record = {n: [] for n in gvnames + ['bfe']}
 
         if not tf_session:
             sess = tf.Session()  # session configs maybe
@@ -164,6 +164,31 @@ class OneShot:
         for it in range(its):
             # bfe_, grads_and_vars_, _ = sess.run([bfe, grads_and_vars, grads_update])
             bfe_, grads_and_vars_ = sess.run([bfe, grads_and_vars])
+
+            if grad_check:
+                print('var vals')
+                print(dict(zip([v.name.split(':')[0] for v in trainable_params], [gv[1] for gv in grads_and_vars_])))
+
+                print(gvnames)
+
+                print('numerical grads')
+                num_grads = utils.calc_num_grad(trainable_params, bfe, sess, delta=1e-4)
+                print(num_grads)
+
+                print('quad symbolic grads')
+                quad_grads = [gv[0] for gv in grads_and_vars_]
+                print(quad_grads)
+
+                print('relative errs')
+                rel_errs = [np.abs(g1 - g2) / np.abs(g1) for (g1, g2) in zip(num_grads, quad_grads)]
+                print(rel_errs)
+
+                num_elems = np.sum([g.size for g in num_grads])
+                print('avg grads absolute err:', np.sum([np.sum(err) for err in rel_errs]) / num_elems)
+
+                if it == 1:
+                    break
+
             sess.run(grads_update)
 
             sess.run(clip_op)  # does nothing if no cont nodes
@@ -173,7 +198,7 @@ class OneShot:
                 if not isinstance(grad, np.ndarray):
                     grad = grad.values  # somehow gMu is a IndexedSlicesValue
                 avg_grads.append(np.mean(np.abs(grad)))
-            it_record = dict(zip(vnames, avg_grads))
+            it_record = dict(zip(gvnames, avg_grads))
             it_record['bfe'] = bfe_
             it_record['t'] = it
             for key in sorted(it_record.keys()):

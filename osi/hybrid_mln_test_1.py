@@ -58,32 +58,48 @@ g, rvs_table = rel_g.grounded_graph()
 
 from OneShot import OneShot
 
-K = 3
-T = 20
-# T = 8
-osi = OneShot(g=g, K=K, T=T, seed=seed)
-res = osi.run(lr=1e-2, its=600)
-record = res['record']
-del res['record']
-print(res)
-for key, rv in rvs_table.items():
-    if rv.value is None:  # only test non-evidence nodes
-        print(rv, key, osi.map(rv))
+grad_check = True
+if not grad_check:
+    K = 3
+    T = 20
+    lr = 1e-2
+    its = 600
+    osi = OneShot(g=g, K=K, T=T, seed=seed)
+    res = osi.run(lr=lr, its=its)
+    record = res['record']
+    del res['record']
+    print(res)
+    for key, rv in rvs_table.items():
+        if rv.value is None:  # only test non-evidence nodes
+            print(rv, key, osi.map(rv))
 
-import matplotlib.pyplot as plt
+    import matplotlib.pyplot as plt
 
-for key in record:
-    plt.plot(record[key], label=key)
-plt.legend(loc='best')
-save_name = __file__.split('.py')[0]
-plt.savefig('%s.png' % save_name)
+    for key in record:
+        plt.plot(record[key], label=key)
+    plt.legend(loc='best')
+    save_name = __file__.split('.py')[0]
+    plt.savefig('%s.png' % save_name)
 
-# EPBP inference
-from EPBPLogVersion import EPBP
+    # EPBP inference
+    from EPBPLogVersion import EPBP
 
-bp = EPBP(g, n=50, proposal_approximation='simple')
-bp.run(30, log_enable=True)
+    bp = EPBP(g, n=50, proposal_approximation='simple')
+    bp.run(30, log_enable=True)
 
-for key, rv in rvs_table.items():
-    if rv.value is None:  # only test non-evidence nodes
-        print(key, bp.map(rv))
+    for key, rv in rvs_table.items():
+        if rv.value is None:  # only test non-evidence nodes
+            print(key, bp.map(rv))
+
+else:
+    K = 3
+    lr = 1e-2
+    its = 1
+    import tensorflow as tf
+    for T in [10, 20, 50, 100]:
+        print('grad check, T =', T)
+        utils.set_seed(seed)
+        osi = OneShot(g=g, K=K, T=T, seed=seed)
+        optimizer = tf.train.GradientDescentOptimizer(learning_rate=lr)
+        res = osi.run(lr=lr, optimizer=optimizer, its=its, grad_check=True)
+        print()

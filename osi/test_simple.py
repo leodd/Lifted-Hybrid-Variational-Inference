@@ -166,27 +166,41 @@ g.init_rv_indices()
 
 from OneShot import OneShot
 
-K = 4
-T = 30
-lr = 5e-1
-osi = OneShot(g=g, K=K, T=T, seed=seed)
-optimizer = tf.train.GradientDescentOptimizer(learning_rate=lr)
-res = osi.run(lr=lr, optimizer=optimizer, its=1000)
-w = res['w']
-w_row = w[None, :]
-for rv in sorted(g.rvs):
-    params = rv.belief_params
-    print(params)
-    if 'pi' in params:
-        print(w @ params['pi'])
-    if 'mu' in params:
-        print(w @ params['mu'])
+grad_check = True
+if not grad_check:
+    K = 4
+    T = 30
+    lr = 5e-1
+    osi = OneShot(g=g, K=K, T=T, seed=seed)
+    optimizer = tf.train.GradientDescentOptimizer(learning_rate=lr)
+    res = osi.run(lr=lr, optimizer=optimizer, its=1000)
+    w = res['w']
+    w_row = w[None, :]
+    for rv in sorted(g.rvs):
+        params = rv.belief_params
+        print(params)
+        if 'pi' in params:
+            print(w @ params['pi'])
+        if 'mu' in params:
+            print(w @ params['mu'])
 
-import matplotlib.pyplot as plt
+    import matplotlib.pyplot as plt
 
-record = res['record']
-for key in record:
-    plt.plot(record[key], label=key)
-plt.legend(loc='best')
+    record = res['record']
+    for key in record:
+        plt.plot(record[key], label=key)
+    plt.legend(loc='best')
 
-plt.show()
+    plt.show()
+
+else:
+    K = 4
+    its = 1
+    lr = 5e-1
+    for T in [10, 20, 50, 100, 200]:
+        print('grad check, T =', T)
+        utils.set_seed(seed)
+        osi = OneShot(g=g, K=K, T=T, seed=seed)
+        optimizer = tf.train.GradientDescentOptimizer(learning_rate=lr)
+        res = osi.run(lr=lr, optimizer=optimizer, its=its, grad_check=True)
+        print()

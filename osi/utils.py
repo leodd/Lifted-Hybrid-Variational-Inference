@@ -120,18 +120,31 @@ def eval_fun_grid(fun, arrs, sep_args=False):
     return res
 
 
-def calc_num_grad(v, obj, sess, delta=1e-4):
+def calc_num_grad(vs, obj, sess, delta=1e-4):
     """
     Compute numerical gradient using tensorflow.python.ops.gradient_checker.
     e.g., calc_num_grad(Mu, bfe, sess) gives gradient of the scalar bfe objective w.r.t. Mu, at Mu's current value
-    :param v:
+    :param vs: list of tf vars, or a single tf var
     :param obj:
     :param sess:
     :param delta:
     :return:
     """
     from tensorflow.python.ops import gradient_checker
+    if not isinstance(vs, list):
+        vs = [vs]
+    scalar_obj = np.prod(obj.shape) == 1
+    grads = []
     with sess.as_default():
-        val = sess.run(v)
-        out = gradient_checker._compute_numeric_jacobian(v, v.shape, val, obj, obj.shape, delta, {v.name: val})
+        for v in vs:
+            val = sess.run(v)
+            grad = gradient_checker._compute_numeric_jacobian(v, v.shape, val, obj, obj.shape, delta, {v.name: val})
+            if scalar_obj:
+                grad = grad.reshape(v.shape)
+            grads.append(grad)
+
+    if len(grads) == 1:
+        out = grads[0]
+    else:
+        out = grads
     return out
