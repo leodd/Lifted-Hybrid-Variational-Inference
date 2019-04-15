@@ -130,7 +130,8 @@ class OneShot:
 
         self.__dict__.update(**locals())
 
-    def run(self, its=100, lr=5e-2, tf_session=None, optimizer=None, trainable_params=None, grad_check=False):
+    def run(self, its=100, lr=5e-2, tf_session=None, optimizer=None, trainable_params=None, grad_check=False,
+            logging_itv=10):
         """
         Launch tf training session and optimize the BFE, to get optimal mixture belief params.
         :param its:
@@ -162,10 +163,10 @@ class OneShot:
 
         sess.run(tf.global_variables_initializer())
         for it in range(its):
-            # bfe_, grads_and_vars_, _ = sess.run([bfe, grads_and_vars, grads_update])
-            bfe_, grads_and_vars_ = sess.run([bfe, grads_and_vars])
-
             if grad_check:
+                if it == 1:
+                    break
+                bfe_, grads_and_vars_ = sess.run([bfe, grads_and_vars])  # no need to run grads_update
                 print('var vals')
                 print(dict(zip([v.name.split(':')[0] for v in trainable_params], [gv[1] for gv in grads_and_vars_])))
 
@@ -186,10 +187,11 @@ class OneShot:
                 num_elems = np.sum([g.size for g in num_grads])
                 print('avg grads absolute err:', np.sum([np.sum(err) for err in rel_errs]) / num_elems)
 
-                if it == 1:
-                    break
-
-            sess.run(grads_update)
+            else:
+                # bfe_, grads_and_vars_ = sess.run([bfe, grads_and_vars])
+                # sess.run(grads_update)
+                # note that grads_and_vars_ below will contain updated vars because grads_update is also run
+                bfe_, grads_and_vars_, _ = sess.run([bfe, grads_and_vars, grads_update])
 
             sess.run(clip_op)  # does nothing if no cont nodes
             avg_grads = []
@@ -201,10 +203,11 @@ class OneShot:
             it_record = dict(zip(gvnames, avg_grads))
             it_record['bfe'] = bfe_
             it_record['t'] = it
-            for key in sorted(it_record.keys()):
-                print('%s: %g, ' % (key, it_record[key]), end='')
-            print(sess.run(w))
-            print()
+            if it % logging_itv == 0:
+                for key in sorted(it_record.keys()):
+                    print('%s: %g, ' % (key, it_record[key]), end='')
+                print(sess.run(w))
+                print()
             for key in record:
                 record[key].append(it_record[key])
 

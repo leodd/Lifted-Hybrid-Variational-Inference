@@ -82,7 +82,7 @@ def eval_hfactor_belief(factor, axes, w):
                 raise NotImplementedError
             comp_probs.append(comp_prob)
 
-        # multiple all dimensions together, then weighted sum by w; this gives
+        # multiply all dimensions together, then weigh by w
         joint_comp_probs = tf.einsum(einsum_eq, *comp_probs)  # K x V1 x V2 x ... Vn
         res.append(tf.reduce_sum(w_broadcast * joint_comp_probs, axis=0, keepdims=True))  # 1 x V1 x V2 x ... Vn
 
@@ -123,7 +123,7 @@ def eval_dfactor_belief(factor, w):
     """
     einsum_eq = utils.outer_prod_einsum_equation(len(factor.nb), common_first_ndims=1)
     comp_probs = [rv.belief_params_['pi'] for rv in factor.nb]  # [K x V1, K x V2, ..., K x Vn]
-    # multiple all dimensions together, all K components at once
+    # multiply all dimensions together, all K components at once
     joint_comp_probs = tf.einsum(einsum_eq, *comp_probs)  # K x V1 x V2 x ... Vn
     w_broadcast = tf.reshape(w, [-1] + [1] * len(comp_probs))  # K x 1 x 1 ... x 1
     belief = tf.reduce_sum(w_broadcast * joint_comp_probs, axis=0)  # V1 x V2 x ... Vn
@@ -271,7 +271,7 @@ def calc_marg_comp_log_prob(g, X, obs_rvs, params):
     """
 
     :param g:
-    :param X:
+    :param X: M x N_o matrix of (partial) observations, where N_o is the number of obs nodes; alternatively a N_o vector
     :param obs_rvs: length N_o
     :param params:
     :return:
@@ -315,6 +315,16 @@ def calc_marg_comp_log_prob(g, X, obs_rvs, params):
 
 
 def calc_cond_mixture_weights(g, X, obs_rvs, params):
+    """
+    Calculate mixture weights of the new mixture produced by conditioning on observations;
+    i.e., given current weights w, calc w', such that p(x_h|x_o) = \sum_k w'[k] p_k(x_h) =
+    = \sum_k {w[k]*p_k(x_o) / p(x_o)} p_k(x_h) = \sum_k {w[k]*p_k(x_o) / (\sum_j w[j]*p_j(x_o))} p_k(x_h)
+    :param g:
+    :param X:
+    :param obs_rvs:
+    :param params:
+    :return:
+    """
     comp_log_probs = calc_marg_comp_log_prob(g, X, obs_rvs, params)  # M x K
     w = params['w']
     cond_mixture_weights = utils.softmax(np.log(w) + comp_log_probs, axis='last')  # M x K
