@@ -37,9 +37,12 @@ class OneShot:
         return y
 
     @staticmethod
-    def softmax(x):
+    def softmax(x, axis=0):
         res = e ** x
-        return res / np.sum(res)
+        if axis == 0:
+            return res / np.sum(res, 0)
+        else:
+            return res / np.sum(res, 1)[:, np.newaxis]
 
     def expectation(self, f, *args):  # arg = (is_continuous, eta), discrete eta = (domains, values)
         xs, ws = list(), list()
@@ -75,7 +78,7 @@ class OneShot:
                     else:
                         args.append((False, (rv.domain.values, self.eta[rv][k])))
 
-                g_w[k] += self.expectation(f_w, args)
+                g_w[k] -= self.expectation(f_w, args)
 
         return self.w * (g_w - np.sum(g_w * self.w))
 
@@ -160,4 +163,41 @@ class OneShot:
         return self.rvs_belief((x,), (rv,))
 
     def run(self, iteration=100):
-        pass
+        # initiate parameters
+        self.w_tau = np.zeros(self.K)
+        self.eta, self.eta_tau = dict(), dict()
+        for rv in self.g.rvs:
+            if rv.domain.continuous:
+                self.eta[rv] = np.ones((self.K, 2))
+            else:
+                self.eta_tau[rv] = np.zeros((self.K, len(rv.domain.values)))
+
+        # update w and categorical distribution
+        self.w = self.softmax(self.w_tau)
+        for rv, table in self.eta_tau.items():
+            self.eta[rv] = self.softmax(table, 1)
+
+        # Bethe iteration
+        for itr in range(iteration):
+            # compute gradient
+            w_tau_g = self.gradient_w_tau()
+            eta_g = dict()
+            eta_tau_g = dict()
+            for rv in self.g.rvs:
+                if rv.domain.continuous:
+                    eta_g[rv] = self.gradient_mu_var(rv)
+                else:
+                    eta_tau_g[rv] = self.gradient_category_tau(rv)
+
+            # update parameters
+            self.w_tau = self.w_tau - w_tau_g
+            self.w = self.softmax(self.w_tau)
+            for rv in self.g.rvs:
+                if rv.domain.continuous:
+                    table = self.eta[rv] - eta_g[rv]
+                    table[:, 1] = np.clip(table[:, 1], a_min=self.var_threshold, a_max=np.inf)
+                    self.eta[rv] = table
+                else:
+                    table = self.eta_tau[rv] - eta_tau_g[rv]
+                    self.eta_tau[rv] = table
+                    self.eta[rv] = self.softmax(table, 1)
