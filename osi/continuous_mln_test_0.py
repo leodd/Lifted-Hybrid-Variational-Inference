@@ -30,7 +30,7 @@ f1 = ParamF(
     constrain=lambda sub: sub[lv_x] > sub[lv_y]
 )
 f2 = ParamF(
-    MLNPotential(lambda atom: -0.5 * atom[0] ** 2),  # just to help ensure normalizability
+    MLNPotential(lambda atom: -0.1 * atom[0] ** 2),  # just to help ensure normalizability
     nb=[atom_smoke_x]
 )
 
