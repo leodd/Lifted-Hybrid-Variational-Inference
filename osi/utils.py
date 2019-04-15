@@ -22,11 +22,10 @@ def softmax(a, axis=None):
     """
     Compute exp(a)/sumexp(a); relying on scipy logsumexp implementation.
     :param a: ndarray/tensor
-    :param axis: axis to sum over; default (None) sums over everything
+    :param axis: axis to sum over; default (None) sums over everything; use negative number to specify axis in reverse
+    (last to first) order (see https://docs.scipy.org/doc/numpy/reference/generated/numpy.sum.html)
     :return:
     """
-    if axis == 'last':
-        axis = a.ndim - 1
     lse = logsumexp(a, axis=axis)  # this reduces along axis
     if axis is not None:
         lse = np.expand_dims(lse, axis)  # restore that axis for subtraction

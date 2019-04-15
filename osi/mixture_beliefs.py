@@ -272,7 +272,7 @@ def calc_marg_comp_log_prob(g, X, obs_rvs, params):
 
     :param g:
     :param X: M x N_o matrix of (partial) observations, where N_o is the number of obs nodes; alternatively a N_o vector
-    :param obs_rvs: length N_o
+    :param obs_rvs: length N_o list of observed rvs
     :param params:
     :return:
     """
@@ -314,6 +314,21 @@ def calc_marg_comp_log_prob(g, X, obs_rvs, params):
     return comp_log_probs
 
 
+def calc_marg_log_prob(g, X, obs_rvs, params):
+    """
+    Calculate marginal probabilities of (partial) observations
+    :param g:
+    :param X: M x N_o matrix of (partial) observations, where N_o is the number of obs nodes; alternatively a N_o vector
+    :param obs_rvs: obs_rvs: length N_o list of observed rvs
+    :param params:
+    :return:
+    """
+    comp_log_probs = calc_marg_comp_log_prob(g, X, obs_rvs, params)  # M x K
+    w = params['w']
+    out = utils.logsumexp(np.log(w) + comp_log_probs, axis=-1)  # reduce along the last dimension
+    return out
+
+
 def calc_cond_mixture_weights(g, X, obs_rvs, params):
     """
     Calculate mixture weights of the new mixture produced by conditioning on observations;
@@ -327,7 +342,7 @@ def calc_cond_mixture_weights(g, X, obs_rvs, params):
     """
     comp_log_probs = calc_marg_comp_log_prob(g, X, obs_rvs, params)  # M x K
     w = params['w']
-    cond_mixture_weights = utils.softmax(np.log(w) + comp_log_probs, axis='last')  # M x K
+    cond_mixture_weights = utils.softmax(np.log(w) + comp_log_probs, axis=-1)  # M x K
     return cond_mixture_weights
 
 
