@@ -67,6 +67,23 @@ if not grad_check:
     save_name = __file__.split('.py')[0]
     plt.savefig('%s.png' % save_name)
 
+    from mixture_beliefs import calc_marg_log_prob
+
+    plt.figure()
+    rvs = g.rvs_list
+    xx, yy = np.meshgrid(np.linspace(rvs[0].values[0], rvs[0].values[1]),
+                         np.linspace(rvs[1].values[0], rvs[1].values[1]))
+    zs = np.exp(calc_marg_log_prob(g, X=np.vstack([xx.ravel(), yy.ravel()]).T, obs_rvs=rvs, params=res))
+    zz = zs.reshape(xx.shape)
+    num_levels = 10
+    plt.contourf(xx, yy, zz, num_levels)
+    plt.colorbar()
+    plt.title('final mixture belief; bfe = %g' % record['bfe'][-1])
+    plt.xlabel('$x_%d$' % rvs[0].id)
+    plt.ylabel('$x_%d$' % rvs[1].id)
+    save_name += '_beliefs'
+    plt.savefig('%s.png' % save_name)
+
     # EPBP inference
     from EPBPLogVersion import EPBP
 
