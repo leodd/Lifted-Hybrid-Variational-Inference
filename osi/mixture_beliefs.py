@@ -241,12 +241,12 @@ def eval_crvs_comp_log_prob(X, Mu, Var, backend=np):
     gives the log pdf of x under the kth component
     """
     assert len(Mu.shape) > 1, '1D case to be added later'
-    bd = backend
-    Mu, Var = bd.transpose(Mu), bd.transpose(Var)  # K x N
+    b = backend
+    Mu, Var = b.transpose(Mu), b.transpose(Var)  # K x N
     ind = (...,) + (None,) * (len(X.shape) - 1)
     Mu, Var = Mu[ind], Var[ind]  # K x N x 1 x 1 ... 1, to line up with x for broadcasting
     Var_inv = 1 / Var
-    comp_log_probs = -0.5 * np.log(2 * np.pi) + 0.5 * bd.log(Var_inv) - 0.5 * (X - Mu) ** 2 * Var_inv  # K by x.shape
+    comp_log_probs = -0.5 * np.log(2 * np.pi) + 0.5 * b.log(Var_inv) - 0.5 * (X - Mu) ** 2 * Var_inv  # K by x.shape
     return comp_log_probs
 
 
