@@ -78,7 +78,7 @@ class OneShot:
                     else:
                         args.append((False, (rv.domain.values, self.eta[rv][k])))
 
-                g_w[k] -= self.expectation(f_w, args)
+                g_w[k] -= self.expectation(f_w, *args)
 
         return self.w * (g_w - np.sum(g_w * self.w))
 
@@ -109,8 +109,8 @@ class OneShot:
                     else:
                         args.append((False, (rv.domain.values, self.eta[rv_][k])))
 
-                g_mu_var[k, 0] -= self.expectation(f_mu, args) / eta[k][1]
-                g_mu_var[k, 1] -= self.expectation(f_var, args) * 0.5 / eta[k][1]
+                g_mu_var[k, 0] -= self.expectation(f_mu, *args) / eta[k][1]
+                g_mu_var[k, 1] -= self.expectation(f_var, *args) * 0.5 / eta[k][1]
 
         return g_mu_var * self.w[:, np.newaxis]
 
@@ -137,7 +137,7 @@ class OneShot:
                             new_x = x[:idx] + (xi,) + x[idx:]
                             return log(f.potential.get(new_x)) - log(self.rvs_belief(new_x, f.nb))
 
-                        g_c[k, d] -= self.expectation(f_c, args)
+                        g_c[k, d] -= self.expectation(f_c, *args)
 
         g_c = g_c * self.w[:, np.newaxis]
 
@@ -162,7 +162,7 @@ class OneShot:
     def belief(self, x, rv):
         return self.rvs_belief((x,), (rv,))
 
-    def run(self, iteration=100):
+    def run(self, iteration=100, lr=0.1):
         # initiate parameters
         self.w_tau = np.zeros(self.K)
         self.eta, self.eta_tau = dict(), dict()
@@ -180,14 +180,14 @@ class OneShot:
         # Bethe iteration
         for itr in range(iteration):
             # compute gradient
-            w_tau_g = self.gradient_w_tau()
+            w_tau_g = self.gradient_w_tau() * lr
             eta_g = dict()
             eta_tau_g = dict()
             for rv in self.g.rvs:
                 if rv.domain.continuous:
-                    eta_g[rv] = self.gradient_mu_var(rv)
+                    eta_g[rv] = self.gradient_mu_var(rv) * lr
                 else:
-                    eta_tau_g[rv] = self.gradient_category_tau(rv)
+                    eta_tau_g[rv] = self.gradient_category_tau(rv) * lr
 
             # update parameters
             self.w_tau = self.w_tau - w_tau_g
