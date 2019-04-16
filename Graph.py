@@ -134,7 +134,6 @@ class Graph:
         for rv in self.rvs:
             rv.nb = []
         for f in sorted(self.factors):
-            f.nb = sorted(f.nb)
             for rv in f.nb:
                 rv.nb.append(f)
 
