@@ -15,15 +15,21 @@ from Potential import TablePotential
 p1 = TablePotential({
     (True, True): 4,
     (True, False): 1,
-    (False, True): 0.5,
+    (False, True): 1,
     (False, False): 3
 }, symmetric=True)
+# p1 = TablePotential({
+#     (True, True): 4,
+#     (True, False): 1,
+#     (False, True): 0.5,
+#     (False, False): 3
+# }, symmetric=False)  # in this example there'll be no compression if symmetric=False, so lifing makes no difference
 
 
 # currently extract the log_potential_fun manually
 def log_potential_fun(xs):
     x0, x1 = xs[0], xs[1]
-    return 4 * (x0 == 1) * (x1 == 1) + 1 * (x0 == 1) * (x1 == 0) + 0.5 * (x0 == 0) * (x1 == 1) + 3 * (x0 == 0) * (
+    return 4 * (x0 == 1) * (x1 == 1) + 1 * (x0 == 1) * (x1 == 0) + 1 * (x0 == 0) * (x1 == 1) + 3 * (x0 == 0) * (
         x1 == 0)
     # return 4 * x0 * x1 + 3 * (1 - x0) * (1 - x1) + 1 * (x0 != x1)  # being clever in this case
 
