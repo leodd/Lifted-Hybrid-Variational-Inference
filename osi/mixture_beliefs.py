@@ -166,33 +166,43 @@ def drv_bfe_obj(rv, w):
     return bfe, aux_obj
 
 
-def drvs_bfe_obj(rvs, w, Pi):
+def drvs_bfe_obj(rvs, w, Pi, rvs_counts=None):
     """
     Get the contribution to the BFE from multiple discrete rvs sharing the same number of states
     :param rvs: list of discrete rvs; must "line up with" Pi; i.e., Pi[i] gives belief params for rvs[i]
     :param w:
     :param Pi: tensor of component belief probabilities, for N drvs sharing the same number of states; N x K x dstates
+    :param rvs_counts: an iterable of non-negative ints, such that the bfe contribution from rvs[i] will be multiplied
+    by rvs_counts[i]; by default the contribution from each rv is only counted once
     :return:
     """
     w_1K1 = tf.reshape(w, [1, -1, 1])
     belief = tf.reduce_sum(w_1K1 * Pi, axis=1)  # Nd x shared_dstates
     log_belief = tf.log(belief)
-    num_nbrs = np.array([len(rv.nb) for rv in rvs])
     prod = tf.stop_gradient(belief * log_belief)  # Nd x shared_dstates
-    bfe = tf.reduce_sum((1 - num_nbrs) * tf.reduce_sum(prod, axis=1))
-    aux_obj = tf.reduce_sum((1 - num_nbrs) * tf.reduce_sum(prod * log_belief, axis=1))
+    num_nbrs = np.array([len(rv.nb) for rv in rvs])
+    if rvs_counts is None:
+        rvs_counts = np.ones(len(rvs), dtype='int')
+    else:
+        rvs_counts = np.array(rvs_counts).astype('int')
+    expect_coefs = rvs_counts * (1 - num_nbrs)
+    bfe = tf.reduce_sum(expect_coefs * tf.reduce_sum(prod, axis=1))
+    aux_obj = tf.reduce_sum(expect_coefs * tf.reduce_sum(prod * log_belief, axis=1))
 
     return bfe, aux_obj
 
 
-def crvs_bfe_obj(rvs, T, w, Mu, Var):
+def crvs_bfe_obj(rvs, T, w, Mu, Var, rvs_counts=None):
     """
     Get the contribution to the BFE from multiple cont (Gaussian) rvs
     :param rvs: rvs: list of cont rvs; must "line up with" params Mu and Var; i.e., Mu[i] and Var[i] give belief params
     for rvs[i]
+    :param T:
+    :param w:
     :param Mu:
     :param Var:
-    :param w:
+    :param rvs_counts: an iterable of non-negative ints, such that the bfe contribution from rvs[i] will be multiplied
+    by rvs_counts[i]; by default the contribution from each rv is only counted once
     :return:
     """
     [N, K] = Mu.shape
@@ -204,11 +214,18 @@ def crvs_bfe_obj(rvs, T, w, Mu, Var):
     QY = ghq_points * (2 * tf.reshape(Var, [N, K, 1])) ** 0.5 + tf.reshape(Mu, [N, K, 1])  # N x K x T; all eval points
     QY = tf.stop_gradient(QY)  # don't want to differentiate w.r.t. quad points
 
-    num_nbrs = np.array([len(rv.nb) for rv in rvs])
     log_belief = tf.log(eval_crvs_belief(QY, w, Mu, Var))  # N x K x T
     prod = tf.stop_gradient(w_1K1 * ghq_weights * log_belief)  # N x K x T; weighted component-wise Hadamard products
-    bfe = tf.reduce_sum((1 - num_nbrs) * tf.reduce_sum(prod, axis=[1, 2]))
-    aux_obj = tf.reduce_sum((1 - num_nbrs) * tf.reduce_sum(prod * log_belief, axis=[1, 2]))
+
+    num_nbrs = np.array([len(rv.nb) for rv in rvs])
+    if rvs_counts is None:
+        rvs_counts = np.ones(len(rvs), dtype='int')
+    else:
+        rvs_counts = np.array(rvs_counts).astype('int')
+    expect_coefs = rvs_counts * (1 - num_nbrs)
+
+    bfe = tf.reduce_sum(expect_coefs * tf.reduce_sum(prod, axis=[1, 2]))
+    aux_obj = tf.reduce_sum(expect_coefs * tf.reduce_sum(prod * log_belief, axis=[1, 2]))
 
     return bfe, aux_obj
 
