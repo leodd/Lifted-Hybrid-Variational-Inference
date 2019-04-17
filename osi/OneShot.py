@@ -331,7 +331,7 @@ class LiftedOneShot(OneShot):
 
             # get discrete nodes' contributions to the objective
             if shared_dstates > 0:  # all discrete rvs have the same number of states
-                counts = [len(rv.rvs) for rv in g.rvs]
+                counts = [len(rv.rvs) for rv in g.Vd]
                 delta_bfe, delta_aux_obj = drvs_bfe_obj(rvs=g.Vd, w=w, Pi=Pi, rvs_counts=counts)
                 bfe += delta_bfe
                 aux_obj += delta_aux_obj
@@ -374,7 +374,7 @@ class LiftedOneShot(OneShot):
                 }
 
             # get continuous nodes' contribution to the objectives (assuming all Gaussian for now)
-            counts = [len(rv.rvs) for rv in g.rvs]
+            counts = [len(rv.rvs) for rv in g.Vc]
             delta_bfe, delta_aux_obj = crvs_bfe_obj(rvs=g.Vc, T=T, w=w, Mu=Mu, Var=Var, rvs_counts=counts)
             bfe += delta_bfe
             aux_obj += delta_aux_obj
