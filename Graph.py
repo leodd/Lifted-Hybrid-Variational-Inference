@@ -86,7 +86,7 @@ class F:
         self.potential = potential
         self.potential_fun = potential_fun  # directly callable
         self.log_potential = log_potential
-        self.log_potential_fun = log_potential_fun  # directly callable
+        self.log_potential_fun = log_potential_fun  # directly callable; only this is used in /osi currently
         if nb is None:
             self.nb = []
         else:

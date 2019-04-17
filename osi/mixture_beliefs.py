@@ -232,7 +232,7 @@ def crvs_bfe_obj(rvs, T, w, Mu, Var, rvs_counts=None):
 
 def eval_crvs_belief(X, w, Mu, Var):
     """
-    Evaluate beliefs on arbitrary tensor x, for multiple continuous (Gaussian) rvs simultaneously.
+    Evaluate beliefs on tensor data, for multiple continuous (Gaussian) rvs simultaneously.
     :param X: shape N x ..., each nth slice evaluated by the nth cnode, with params Mu[n], Var[n]
     :param w: shape K
     :param Mu: shape N x K, mixture means of N cnodes
@@ -248,7 +248,7 @@ def eval_crvs_belief(X, w, Mu, Var):
 
 def eval_crvs_comp_log_prob(X, Mu, Var, backend=np):
     """
-    Evaluate component-wise log probabilities on arbitrary tensor x, for multiple continuous (Gaussian) rvs
+    Evaluate component-wise log probabilities on tensor data, for multiple continuous (Gaussian) rvs
     simultaneously.
     :param X: shape N x ..., each nth slice evaluated by the nth cnode, with params Mu[n], Var[n]
     :param Mu: shape N x K, mixture means of N cnodes
@@ -269,7 +269,7 @@ def eval_crvs_comp_log_prob(X, Mu, Var, backend=np):
 
 def eval_drvs_comp_prob(X, Pi):
     """
-    Evaluate component-wise log probabilities on arbitrary tensor x, for multiple discrete rvs simultaneously.
+    Evaluate component-wise probabilities on matrix X, for multiple discrete rvs simultaneously.
     Currently only supports numpy arrays.
     :param X: shape N x M integer type, each nth slice evaluated by the nth dnode, with params Pi[n]
     :param Pi: probability params, Pi[n] should be K x dstates_of_nth_dnode
@@ -333,7 +333,7 @@ def calc_marg_comp_log_prob(g, X, obs_rvs, params):
 
 def calc_marg_log_prob(g, X, obs_rvs, params):
     """
-    Calculate marginal probabilities of (partial) observations
+    Calculate marginal log probabilities of observations
     :param g:
     :param X: M x N_o matrix of (partial) observations, where N_o is the number of obs nodes; alternatively a N_o vector
     :param obs_rvs: obs_rvs: length N_o list of observed rvs

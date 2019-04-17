@@ -1,3 +1,5 @@
+# A version of CompressedGraph that (hopefully) produces the same graph (with identical labeling) every time when run,
+# which makes a bit easier to run/test algorithms with it.
 from Graph import *
 from collections import Counter
 from statistics import mean
@@ -35,7 +37,6 @@ class SuperRV:
     def values(self):
         rv0 = next(iter(self.rvs))
         return rv0.values
-
 
     @staticmethod
     def get_cluster(instance):
@@ -122,7 +123,7 @@ class SuperF:
         return res
 
 
-class CompressedGraph:
+class CompressedGraphSorted:
     # color passing algorithm for compressing graph
 
     def __init__(self, graph):

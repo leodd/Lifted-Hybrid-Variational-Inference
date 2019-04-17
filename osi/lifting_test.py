@@ -6,7 +6,6 @@ seed = 0
 utils.set_seed(seed=seed)
 utils.set_path()
 
-from CompressedGraph import *
 from CompressedGraphSorted import *
 
 from numpy import Inf
@@ -18,6 +17,8 @@ p1 = TablePotential({
     (False, True): 1,
     (False, False): 3
 }, symmetric=True)
+
+
 # p1 = TablePotential({
 #     (True, True): 4,
 #     (True, False): 1,
@@ -55,7 +56,7 @@ g.rvs = rvs
 g.factors = fs
 g.init_nb()
 
-cg = CompressedGraph(g)
+cg = CompressedGraphSorted(g)
 cg.run()
 
 print(len(g.rvs), len(g.factors))
@@ -68,7 +69,7 @@ its = 300
 from OneShot import OneShot, LiftedOneShot
 
 print('with lifting')
-osi = LiftedOneShot(cg=cg, K=K, T=T, seed=seed)
+osi = LiftedOneShot(g=cg, K=K, T=T, seed=seed)
 res = osi.run(lr=lr, its=its)
 w = res['w']
 w_row = w[None, :]
