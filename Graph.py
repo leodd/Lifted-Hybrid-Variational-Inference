@@ -68,6 +68,8 @@ class RV:
     def dstates(self):
         if self.domain_type == 'd':
             return len(self.domain.values)
+        else:
+            return None
 
     @property
     def values(self):  # numpy array version

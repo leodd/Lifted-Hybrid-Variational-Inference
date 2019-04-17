@@ -13,7 +13,11 @@ class SuperRV:
 
     def __init__(self, rvs, domain=None):
         self.rvs = rvs
-        self.domain = next(iter(rvs)).domain if domain is None else domain
+        rv0 = next(iter(self.rvs))
+        self.domain = rv0.domain if domain is None else domain
+        self.domain_type = rv0.domain_type
+        self.dstates = rv0.dstates
+        self.values = rv0.values
         self.nb = None
         for rv in rvs:
             rv.cluster = self
@@ -21,21 +25,6 @@ class SuperRV:
 
     def __lt__(self, other):
         return self.id < other.id
-
-    @property
-    def domain_type(self):
-        rv0 = next(iter(self.rvs))
-        return rv0.domain_type
-
-    @property
-    def dstates(self):
-        rv0 = next(iter(self.rvs))
-        return rv0.dstates
-
-    @property
-    def values(self):
-        rv0 = next(iter(self.rvs))
-        return rv0.values
 
     @property
     def sharing_count(self):
@@ -76,7 +65,10 @@ class SuperF:
 
     def __init__(self, factors):
         self.factors = factors
-        self.potential = next(iter(factors)).potential
+        factor0 = next(iter(factors))
+        self.potential = factor0.potential
+        self.log_potential_fun = factor0.log_potential_fun
+        self.domain_type = factor0.domain_type
         self.nb = None
         for f in factors:
             f.cluster = self
@@ -84,21 +76,6 @@ class SuperF:
 
     def __lt__(self, other):
         return self.id < other.id
-
-    # @property
-    # def potential(self):
-    #     factor0 = next(iter(self.factors))
-    #     return factor0.potential
-
-    @property
-    def log_potential_fun(self):
-        factor0 = next(iter(self.factors))
-        return factor0.log_potential_fun
-
-    @property
-    def domain_type(self):
-        factor0 = next(iter(self.factors))
-        return factor0.domain_type
 
     @property
     def sharing_count(self):
