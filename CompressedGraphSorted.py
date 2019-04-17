@@ -1,10 +1,9 @@
 # A version of CompressedGraph that (hopefully) produces the same graph (with identical labeling) every time when run,
 # which makes a bit easier to run/test algorithms with it.
-from Graph import *
-from collections import Counter
-from statistics import mean
-from random import uniform
-import numpy as np
+# from collections import Counter
+# from statistics import mean
+# from random import uniform
+# import numpy as np
 
 import itertools
 
@@ -37,6 +36,10 @@ class SuperRV:
     def values(self):
         rv0 = next(iter(self.rvs))
         return rv0.values
+
+    @property
+    def sharing_count(self):
+        return len(self.rvs)
 
     @staticmethod
     def get_cluster(instance):
@@ -82,6 +85,11 @@ class SuperF:
     def __lt__(self, other):
         return self.id < other.id
 
+    # @property
+    # def potential(self):
+    #     factor0 = next(iter(self.factors))
+    #     return factor0.potential
+
     @property
     def log_potential_fun(self):
         factor0 = next(iter(self.factors))
@@ -91,6 +99,10 @@ class SuperF:
     def domain_type(self):
         factor0 = next(iter(self.factors))
         return factor0.domain_type
+
+    @property
+    def sharing_count(self):
+        return len(self.factors)
 
     @staticmethod
     def get_cluster(instance):

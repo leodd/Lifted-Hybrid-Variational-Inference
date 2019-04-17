@@ -31,7 +31,7 @@ class OneShot:
 
         # pre-process graph to make things easier
         g.init_rv_indices()  # will create attributes like Vc, Vc_idx, etc.
-        g.init_nb()  # in case neighbors aren't already sorted
+        # g.init_nb()  # caller should have always run this (or done sth similar) to ensure g is well defined!
         for f in g.factors_list:
             if f.log_potential_fun is None:
                 assert isinstance(f.potential,
@@ -72,14 +72,16 @@ class OneShot:
 
             # get discrete nodes' contributions to the objective
             if shared_dstates > 0:  # all discrete rvs have the same number of states
-                delta_bfe, delta_aux_obj = drvs_bfe_obj(rvs=g.Vd, w=w, Pi=Pi)
+                sharing_counts = [rv.sharing_count for rv in g.Vd]  # for lifting/param sharing; 1s if no lifting
+                delta_bfe, delta_aux_obj = drvs_bfe_obj(rvs=g.Vd, w=w, Pi=Pi, rvs_counts=sharing_counts)
                 bfe += delta_bfe
                 aux_obj += delta_aux_obj
             else:
                 for rv in g.Vd:
                     delta_bfe, delta_aux_obj = drv_bfe_obj(rv, w)
-                    bfe += delta_bfe
-                    aux_obj += delta_aux_obj
+                    sharing_count = rv.sharing_count
+                    bfe += sharing_count * delta_bfe
+                    aux_obj += sharing_count * delta_aux_obj
 
         clip_op = tf.no_op()  # will be replaced with real clip op if Nc > 0
         if g.Nc > 0:  # assuming Gaussian
@@ -113,7 +115,8 @@ class OneShot:
                 }
 
             # get continuous nodes' contribution to the objectives (assuming all Gaussian for now)
-            delta_bfe, delta_aux_obj = crvs_bfe_obj(rvs=g.Vc, T=T, w=w, Mu=Mu, Var=Var)
+            sharing_counts = [rv.sharing_count for rv in g.Vc]  # for lifting/param sharing; 1s if no lifting
+            delta_bfe, delta_aux_obj = crvs_bfe_obj(rvs=g.Vc, T=T, w=w, Mu=Mu, Var=Var, rvs_counts=sharing_counts)
             bfe += delta_bfe
             aux_obj += delta_aux_obj
 
@@ -125,8 +128,9 @@ class OneShot:
             else:
                 assert factor.domain_type in ('c', 'h')
                 delta_bfe, delta_aux_obj = hfactor_bfe_obj(factor, T, w)
-            bfe += delta_bfe
-            aux_obj += delta_aux_obj
+            sharing_count = factor.sharing_count
+            bfe += sharing_count * delta_bfe
+            aux_obj += sharing_count * delta_aux_obj
 
         self.__dict__.update(**locals())
 
@@ -285,111 +289,13 @@ class LiftedOneShot(OneShot):
         :param seed:
         :param Var_bds:
         """
-
-        # may want to refactor to reduce code copying:
-
-        # # pre-process graph to make things easier
-        # g.init_rv_indices()  # will create attributes like Vc, Vc_idx, etc.
-        # g.init_nb()  # in case neighbors aren't already sorted
-        # for f in g.factors_list:
-        #     if f.log_potential_fun is None:
-        #         assert isinstance(f.potential,
-        #                           MLNPotential), 'currently can only get log_potential_fun from MLNPotential'
-        #         f.log_potential_fun = utils.get_log_potential_fun_from_MLNPotential(f.potential)
-        g.init_rv_indices()
-        tf.reset_default_graph()  # clear existing
-        if seed is not None:  # note that seed that has been set prior to tf.reset_default_graph will be invalidated
-            tf.set_random_seed(seed)  # thus we have to reseed after reset_default_graph
-        tau = tf.Variable(tf.zeros(K, dtype=dtype), trainable=True, name='tau')  # mixture weights logits
-        # tau = tf.Variable(tf.random_normal([K], dtype=dtype), trainable=True, name='tau')  # mixture weights logits
-        w = tf.nn.softmax(tau, name='w')  # mixture weights
-
-        bfe = aux_obj = 0
-        if g.Nd > 0:
-            shared_dstates = set(rv.dstates for rv in g.Vd)
-            if len(shared_dstates) == 1:
-                shared_dstates = shared_dstates.pop()
-            else:
-                shared_dstates = -1
-
-            if shared_dstates > 0:  # all discrete rvs have the same number of states
-                # Rho = tf.Variable(tf.zeros([g.Nd, K, shared_dstates], dtype=dtype), trainable=True,
-                #                   name='Rho')  # dnode categorical prob logits
-                Rho = tf.Variable(tf.random_normal([g.Nd, K, shared_dstates], dtype=dtype), trainable=True,
-                                  name='Rho')  # dnode categorical prob logits
-                Pi = tf.nn.softmax(Rho, name='Pi')
-            else:  # general case when each dnode can have different num states
-                Rho = [tf.Variable(tf.zeros([K, rv.dstates], dtype=dtype), trainable=True, name='Rho_%d' % i) for
-                       (i, rv) in
-                       enumerate(g.Vd)]  # dnode categorical prob logits
-                Pi = [tf.nn.softmax(rho, name='Pi_%d' % i) for (i, rho) in enumerate(Rho)]  # convert to probs
-
-            # assign symbolic belief vars to rvs
-            for rv in g.Vd:
-                i = g.Vd_idx[rv]  # ith disc node
-                rv.belief_params_ = {'pi': Pi[i]}  # K x dstates[i] matrix
-
-            # get discrete nodes' contributions to the objective
-            if shared_dstates > 0:  # all discrete rvs have the same number of states
-                counts = [len(rv.rvs) for rv in g.Vd]
-                delta_bfe, delta_aux_obj = drvs_bfe_obj(rvs=g.Vd, w=w, Pi=Pi, rvs_counts=counts)
-                bfe += delta_bfe
-                aux_obj += delta_aux_obj
-            else:
-                for rv in g.Vd:
-                    delta_bfe, delta_aux_obj = drv_bfe_obj(rv, w)
-                    count = len(rv.rvs)
-                    bfe += count * delta_bfe
-                    aux_obj += count * delta_aux_obj
-
-        clip_op = tf.no_op()  # will be replaced with real clip op if Nc > 0
-        if g.Nc > 0:  # assuming Gaussian
-            if Var_bds is None:
-                Var_bds = [5e-3, 10]  # currently shared by all cnodes
-
-            Mu_bds = np.empty([2, g.Nc], dtype='float')
-            for n, rv in enumerate(g.Vc):
-                Mu_bds[:, n] = rv.values[0], rv.values[1]  # lb, ub
-            Mu_bds = Mu_bds[:, :, None] + \
-                     np.zeros([2, g.Nc, K], dtype='float')  # Mu_bds[0], Mu_bds[1] give lb, ub for Mu; same for all K
-            Mu = tf.Variable(np.random.uniform(low=Mu_bds[0], high=Mu_bds[1], size=[g.Nc, K]),
-                             dtype=dtype, trainable=True, name='Mu')
-
-            # optimize the log of Var (sigma squared), for numeric stability
-            lVar_bds = np.log(Var_bds)
-            # lVar = tf.Variable(np.log(np.random.uniform(low=Var_bds[0], high=Var_bds[1], size=[g.Nc, K])),
-            #                    dtype=dtype, trainable=True, name='lVar')
-            lVar = tf.Variable(np.random.uniform(low=lVar_bds[0], high=lVar_bds[1], size=[g.Nc, K]),
-                               dtype=dtype, trainable=True, name='lVar')
-            Var = tf.exp(lVar)
-
-            clip_op = tf.group(tf.assign(Mu, tf.clip_by_value(Mu, *Mu_bds)),
-                               tf.assign(lVar, tf.clip_by_value(lVar, *lVar_bds)))
-
-            for rv in g.Vc:
-                i = g.Vc_idx[rv]  # ith cont node
-                rv.belief_params_ = {
-                    'mu': Mu[i], 'var': Var[i], 'var_inv': 1 / Var[i], 'mu_K1': tf.reshape(Mu[i], [K, 1]),
-                    'var_K1': tf.reshape(Var[i], [K, 1]), 'var_inv_K1': tf.reshape(1 / Var[i], [K, 1])
-                }
-
-            # get continuous nodes' contribution to the objectives (assuming all Gaussian for now)
-            counts = [len(rv.rvs) for rv in g.Vc]
-            delta_bfe, delta_aux_obj = crvs_bfe_obj(rvs=g.Vc, T=T, w=w, Mu=Mu, Var=Var, rvs_counts=counts)
-            bfe += delta_bfe
-            aux_obj += delta_aux_obj
-
-        # get factors' contribution to the objectives
-        for factor in g.factors_list:
-            if factor.domain_type == 'd':
-                # delta_bfe, delta_aux_obj = dfactor_bfe_obj(factor, w)
-                delta_bfe, delta_aux_obj = hfactor_bfe_obj(factor, T, w)
-            else:
-                assert factor.domain_type in ('c', 'h')
-                delta_bfe, delta_aux_obj = hfactor_bfe_obj(factor, T, w)
-            count = len(factor.factors)
-            bfe += count * delta_bfe
-            aux_obj += count * delta_aux_obj
-
-        self.__dict__.update(**locals())
+        super().__init__(g, K, T, seed, Var_bds)
         self.orig_g = g.g  # original (uncompressed) graph
+
+    def run(self, its=100, lr=5e-2, tf_session=None, optimizer=None, trainable_params=None, grad_check=False,
+            logging_itv=10):
+        res = super().run(its=its, lr=lr, tf_session=tf_session, optimizer=optimizer, trainable_params=trainable_params,
+                          grad_check=grad_check, logging_itv=logging_itv)
+
+        # maybe some post-processing to add resulting params to original graph?
+        return res

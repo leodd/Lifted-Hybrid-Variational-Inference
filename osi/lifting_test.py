@@ -7,6 +7,7 @@ utils.set_seed(seed=seed)
 utils.set_path()
 
 from CompressedGraphSorted import *
+from Graph import Domain, RV, F, Graph
 
 from numpy import Inf
 from Potential import TablePotential

@@ -15,15 +15,15 @@ class Domain:
             else:
                 self.integral_points = integral_points
 
-    # def __hash__(self):
-    #     return hash((self.values, self.continuous))
-    #
-    # def __eq__(self, other):
-    #     return (
-    #         self.__class__ == other.__class__ and
-    #         self.values == other.values and
-    #         self.continuous == other.continuous
-    #     )
+                # def __hash__(self):
+                #     return hash((self.values, self.continuous))
+                #
+                # def __eq__(self, other):
+                #     return (
+                #         self.__class__ == other.__class__ and
+                #         self.values == other.values and
+                #         self.continuous == other.continuous
+                #     )
 
 
 class Potential(ABC):
@@ -58,6 +58,7 @@ class RV:
         self.nb = []
         self.belief_params_ = {}  # symbolic, used by tf
         self.belief_params = {}  # np arrs
+        self.sharing_count = 1  # no parameter sharing in the uncompressed/unlifted graph
 
     @property
     def domain_type(self):
@@ -92,6 +93,7 @@ class F:
         else:
             self.nb = nb
         self.id = next(self.id_counter)
+        self.sharing_count = 1  # no parameter sharing in the uncompressed/unlifted graph
 
     @property
     def domain_type(self):
