@@ -143,6 +143,29 @@ class OneShot:
 
         return eta * (g_c - np.sum(g_c * eta, 1)[:, np.newaxis])
 
+    def free_energy(self):
+        energy = 0
+
+        for k in range(self.K):
+            for f in self.g.factors:
+                if len(f.nb) == 1:
+                    def f_bfe(x):
+                        return log(f.potential.get(x)) - (1 - f.nb[0].N) * log(self.rvs_belief(x, f.nb))
+                else:
+                    def f_bfe(x):
+                        return log(f.potential.get(x)) - log(self.rvs_belief(x, f.nb))
+
+                args = list()
+                for rv in f.nb:
+                    if rv.domain.continuous:
+                        args.append((True, self.eta[rv][k]))
+                    else:
+                        args.append((False, (rv.domain.values, self.eta[rv][k])))
+
+                energy -= self.expectation(f_bfe, *args)
+
+        return energy
+
     def rvs_belief(self, x, rvs):
         b = np.copy(self.w)
 
