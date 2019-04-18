@@ -60,13 +60,13 @@ osi.init_param()
 print(osi.gradient_w_tau())
 old_energy = osi.free_energy()
 print(osi.w)
-osi.w_tau += [2, 0]
+osi.w_tau += [20, -20]
 osi.w = osi.softmax(osi.w_tau)
 print(osi.w)
 new_energy = osi.free_energy()
 print(new_energy, old_energy)
 
-# osi.run(100)
+# osi.run(100, lr=1)
 #
 # print(osi.w_tau)
 # print(osi.w)

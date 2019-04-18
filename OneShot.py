@@ -192,7 +192,7 @@ class OneShot:
             if rv.domain.continuous:
                 self.eta[rv] = np.ones((self.K, 2))
             else:
-                self.eta_tau[rv] = np.zeros((self.K, len(rv.domain.values)))
+                self.eta_tau[rv] = np.random.rand(self.K, len(rv.domain.values))
 
         # update w and categorical distribution
         self.w = self.softmax(self.w_tau)
@@ -228,4 +228,4 @@ class OneShot:
                     self.eta_tau[rv] = table
                     self.eta[rv] = self.softmax(table, 1)
 
-            # print(self.free_energy())
+            print(self.free_energy())
