@@ -185,8 +185,7 @@ class OneShot:
     def belief(self, x, rv):
         return self.rvs_belief((x,), (rv,))
 
-    def run(self, iteration=100, lr=0.1):
-        # initiate parameters
+    def init_param(self):
         self.w_tau = np.zeros(self.K)
         self.eta, self.eta_tau = dict(), dict()
         for rv in self.g.rvs:
@@ -199,6 +198,10 @@ class OneShot:
         self.w = self.softmax(self.w_tau)
         for rv, table in self.eta_tau.items():
             self.eta[rv] = self.softmax(table, 1)
+
+    def run(self, iteration=100, lr=0.1):
+        # initiate parameters
+        self.init_param()
 
         # Bethe iteration
         for itr in range(iteration):
@@ -224,3 +227,5 @@ class OneShot:
                     table = self.eta_tau[rv] - eta_tau_g[rv]
                     self.eta_tau[rv] = table
                     self.eta[rv] = self.softmax(table, 1)
+
+            # print(self.free_energy())
