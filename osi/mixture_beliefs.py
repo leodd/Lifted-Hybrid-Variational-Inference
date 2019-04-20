@@ -177,9 +177,9 @@ def drvs_bfe_obj(rvs, w, Pi, rvs_counts=None):
     :return:
     """
     w_1K1 = tf.reshape(w, [1, -1, 1])
-    belief = tf.reduce_sum(w_1K1 * Pi, axis=1)  # Nd x shared_dstates
+    belief = tf.reduce_sum(w_1K1 * Pi, axis=1)  # Nd x common_dstates
     log_belief = tf.log(belief)
-    prod = tf.stop_gradient(belief * log_belief)  # Nd x shared_dstates
+    prod = tf.stop_gradient(belief * log_belief)  # Nd x common_dstates
     num_nbrs = np.array([len(rv.nb) for rv in rvs])
     if rvs_counts is None:
         rvs_counts = np.ones(len(rvs), dtype='int')
