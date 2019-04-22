@@ -102,13 +102,21 @@ class OneShot:
         g_mu_var = np.zeros((self.K, 2))
         eta = self.eta[rv]
 
-        def f_mu(x):
-            return (log(f.potential.get(x)) - (1 - f.nb[0].N) * log(self.rvs_belief(x, f.nb))) * \
-                   (x[idx] - eta[k][0]) ** 2
+        phi = rv.node_factor
+        if phi is None:
+            def f_mu(x):
+                return ((rv.N - 1) * log(self.rvs_belief(x, phi.nb))) * (x[idx] - eta[k][0]) ** 2
 
-        def f_var(x):
-            return (log(f.potential.get(x)) - (1 - f.nb[0].N) * log(self.rvs_belief(x, f.nb))) * \
-                   ((x[idx] - eta[k][0]) ** 2 / eta[k][1] - 1)
+            def f_var(x):
+                return ((rv.N - 1) * log(self.rvs_belief(x, phi.nb))) * ((x[idx] - eta[k][0]) ** 2 / eta[k][1] - 1)
+        else:
+            def f_mu(x):
+                return (log(f.potential.get(x)) - (1 - f.nb[0].N) * log(self.rvs_belief(x, f.nb))) * \
+                       (x[idx] - eta[k][0]) ** 2
+
+            def f_var(x):
+                return (log(f.potential.get(x)) - (1 - f.nb[0].N) * log(self.rvs_belief(x, f.nb))) * \
+                       ((x[idx] - eta[k][0]) ** 2 / eta[k][1] - 1)
 
         for k in range(self.K):
             arg = (True, self.eta[rv][k]) if rv.domain.continuous else (False, (rv.domain.values, self.eta[rv][k]))
