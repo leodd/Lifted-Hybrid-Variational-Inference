@@ -47,16 +47,16 @@ class OneShot:
 
         bfe = aux_obj = 0
         if g.Nd > 0:
-            shared_dstates = set(rv.dstates for rv in g.Vd)
-            if len(shared_dstates) == 1:
-                shared_dstates = shared_dstates.pop()
+            common_dstates = set(rv.dstates for rv in g.Vd)
+            if len(common_dstates) == 1:
+                common_dstates = common_dstates.pop()
             else:
-                shared_dstates = -1
+                common_dstates = -1
 
-            if shared_dstates > 0:  # all discrete rvs have the same number of states
-                # Rho = tf.Variable(tf.zeros([g.Nd, K, shared_dstates], dtype=dtype), trainable=True,
+            if common_dstates > 0:  # all discrete rvs have the same number of states
+                # Rho = tf.Variable(tf.zeros([g.Nd, K, common_dstates], dtype=dtype), trainable=True,
                 #                   name='Rho')  # dnode categorical prob logits
-                Rho = tf.Variable(tf.random_normal([g.Nd, K, shared_dstates], dtype=dtype), trainable=True,
+                Rho = tf.Variable(tf.random_normal([g.Nd, K, common_dstates], dtype=dtype), trainable=True,
                                   name='Rho')  # dnode categorical prob logits
                 Pi = tf.nn.softmax(Rho, name='Pi')
             else:  # general case when each dnode can have different num states
@@ -71,7 +71,7 @@ class OneShot:
                 rv.belief_params_ = {'pi': Pi[i]}  # K x dstates[i] matrix
 
             # get discrete nodes' contributions to the objective
-            if shared_dstates > 0:  # all discrete rvs have the same number of states
+            if common_dstates > 0:  # all discrete rvs have the same number of states
                 sharing_counts = [rv.sharing_count for rv in g.Vd]  # for lifting/param sharing; 1s if no lifting
                 delta_bfe, delta_aux_obj = drvs_bfe_obj(rvs=g.Vd, w=w, Pi=Pi, rvs_counts=sharing_counts)
                 bfe += delta_bfe
@@ -220,13 +220,13 @@ class OneShot:
         if g.Nd > 0:
             Rho, Pi = self.Rho, self.Pi
 
-            shared_dstates = set(rv.dstates for rv in g.Vd)
-            if len(shared_dstates) == 1:
-                shared_dstates = shared_dstates.pop()
+            common_dstates = set(rv.dstates for rv in g.Vd)
+            if len(common_dstates) == 1:
+                common_dstates = common_dstates.pop()
             else:
-                shared_dstates = -1
+                common_dstates = -1
 
-            if shared_dstates > 0:  # all discrete rvs have the same number of states
+            if common_dstates > 0:  # all discrete rvs have the same number of states
                 params['Rho'] = sess.run(Rho)
                 params['Pi'] = sess.run(Pi)
             else:
