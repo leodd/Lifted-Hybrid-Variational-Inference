@@ -10,7 +10,7 @@ class OneShot:
 
     def __init__(self, g, num_mixtures=5, num_quadrature_points=3):
         self.g = g
-        self.init_sharing_count()
+        self.init_rv()
 
         self.K = num_mixtures
         self.T = num_quadrature_points
@@ -22,13 +22,16 @@ class OneShot:
         self.eta_tau = dict()
         self.eta = dict()  # key=rv, value={continuous eta: [, [mu, var]], discrete eta: [k, d]}
 
-    def init_sharing_count(self):
+    def init_rv(self):
         for rv in self.g.rvs:
             rv.N = 0
+            rv.node_factor = None
         for f in self.g.factors:
             if len(f.nb) > 1:
                 for rv in f.nb:
                     rv.N += 1
+            else:
+                f.nb[0].node_factor = f
 
     @staticmethod
     def norm_pdf(x, eta):
@@ -57,6 +60,7 @@ class OneShot:
 
         res = 0
         for x, w in zip(product(*xs), product(*ws)):
+            print(f(x))
             res += np.prod(w) * f(x)
 
         return res
@@ -147,22 +151,34 @@ class OneShot:
         energy = 0
 
         for k in range(self.K):
-            for f in self.g.factors:
-                if len(f.nb) == 1:
+            for rv in self.g.rvs:
+                if rv.node_factor is None:
                     def f_bfe(x):
-                        return log(f.potential.get(x)) - (1 - f.nb[0].N) * log(self.rvs_belief(x, f.nb))
+                        return (rv.N - 1) * log(self.rvs_belief(x, [rv]))
                 else:
+                    def f_bfe(x):
+                        return log(rv.node_factor.potential.get(x)) - (1 - rv.N) * log(self.rvs_belief(x, [rv]))
+
+                if rv.domain.continuous:
+                    arg = (True, self.eta[rv][k])
+                else:
+                    arg = (False, (rv.domain.values, self.eta[rv][k]))
+
+                energy -= self.w[k] * self.expectation(f_bfe, arg)
+
+            for f in self.g.factors:
+                if len(f.nb) > 1:
                     def f_bfe(x):
                         return log(f.potential.get(x)) - log(self.rvs_belief(x, f.nb))
 
-                args = list()
-                for rv in f.nb:
-                    if rv.domain.continuous:
-                        args.append((True, self.eta[rv][k]))
-                    else:
-                        args.append((False, (rv.domain.values, self.eta[rv][k])))
+                    args = list()
+                    for rv in f.nb:
+                        if rv.domain.continuous:
+                            args.append((True, self.eta[rv][k]))
+                        else:
+                            args.append((False, (rv.domain.values, self.eta[rv][k])))
 
-                energy -= self.expectation(f_bfe, *args)
+                    energy -= self.w[k] * self.expectation(f_bfe, *args)
 
         return energy
 
@@ -192,7 +208,7 @@ class OneShot:
             if rv.domain.continuous:
                 self.eta[rv] = np.ones((self.K, 2))
             else:
-                self.eta_tau[rv] = np.random.rand(self.K, len(rv.domain.values))
+                self.eta_tau[rv] = np.zeros((self.K, len(rv.domain.values)))
 
         # update w and categorical distribution
         self.w = self.softmax(self.w_tau)
@@ -228,4 +244,4 @@ class OneShot:
                     self.eta_tau[rv] = table
                     self.eta[rv] = self.softmax(table, 1)
 
-            print(self.free_energy())
+            # print(self.free_energy())
