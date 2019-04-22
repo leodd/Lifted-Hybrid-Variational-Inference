@@ -60,7 +60,6 @@ class OneShot:
 
         res = 0
         for x, w in zip(product(*xs), product(*ws)):
-            print(f(x))
             res += np.prod(w) * f(x)
 
         return res
@@ -68,21 +67,34 @@ class OneShot:
     def gradient_w_tau(self):
         g_w = np.zeros(self.K)
 
-        for k in range(self.K):
-            for f in self.g.factors:
-                if len(f.nb) == 1:
-                    def f_w(x): return log(f.potential.get(x)) - (1 - f.nb[0].N) * log(self.rvs_belief(x, f.nb))
-                else:
-                    def f_w(x): return log(f.potential.get(x)) - log(self.rvs_belief(x, f.nb))
+        for rv in self.g.rvs:
+            phi = rv.node_factor
+            if phi is None:
+                def f_w(x):
+                    return (rv.N - 1) * log(self.rvs_belief(x, [rv]))
+            else:
+                def f_w(x):
+                    return log(phi.potential.get(x)) - (1 - rv.N) * log(self.rvs_belief(x, [rv]))
 
-                args = list()
-                for rv in f.nb:
-                    if rv.domain.continuous:
-                        args.append((True, self.eta[rv][k]))
-                    else:
-                        args.append((False, (rv.domain.values, self.eta[rv][k])))
+            for k in range(self.K):
+                arg = (True, self.eta[rv][k]) if rv.domain.continuous else (False, (rv.domain.values, self.eta[rv][k]))
 
-                g_w[k] -= self.expectation(f_w, *args)
+                g_w[k] -= self.expectation(f_w, arg)
+
+        for f in self.g.factors:
+            if len(f.nb) > 1:
+                def f_w(x):
+                    return log(f.potential.get(x)) - log(self.rvs_belief(x, f.nb))
+
+                for k in range(self.K):
+                    args = list()
+                    for rv in f.nb:
+                        if rv.domain.continuous:
+                            args.append((True, self.eta[rv][k]))
+                        else:
+                            args.append((False, (rv.domain.values, self.eta[rv][k])))
+
+                    g_w[k] -= self.expectation(f_w, *args)
 
         return self.w * (g_w - np.sum(g_w * self.w))
 
@@ -90,31 +102,39 @@ class OneShot:
         g_mu_var = np.zeros((self.K, 2))
         eta = self.eta[rv]
 
+        def f_mu(x):
+            return (log(f.potential.get(x)) - (1 - f.nb[0].N) * log(self.rvs_belief(x, f.nb))) * \
+                   (x[idx] - eta[k][0]) ** 2
+
+        def f_var(x):
+            return (log(f.potential.get(x)) - (1 - f.nb[0].N) * log(self.rvs_belief(x, f.nb))) * \
+                   ((x[idx] - eta[k][0]) ** 2 / eta[k][1] - 1)
+
         for k in range(self.K):
-            for f in rv.nb:
-                idx = f.nb.index(rv)
-                if len(f.nb) == 1:
-                    def f_mu(x): return (log(f.potential.get(x)) - (1 - f.nb[0].N) * log(self.rvs_belief(x, f.nb))) * \
-                                        (x[idx] - eta[k][0]) ** 2
+            arg = (True, self.eta[rv][k]) if rv.domain.continuous else (False, (rv.domain.values, self.eta[rv][k]))
 
-                    def f_var(x): return (log(f.potential.get(x)) - (1 - f.nb[0].N) * log(self.rvs_belief(x, f.nb))) * \
-                                         ((x[idx] - eta[k][0]) ** 2 / eta[k][1] - 1)
-                else:
-                    def f_mu(x): return (log(f.potential.get(x)) - log(self.rvs_belief(x, f.nb))) * \
-                                        (x[idx] - eta[k][0]) ** 2
+            g_mu_var[k, 0] -= self.expectation(f_mu, arg) / eta[k][1]
+            g_mu_var[k, 1] -= self.expectation(f_var, arg) * 0.5 / eta[k][1]
 
-                    def f_var(x): return (log(f.potential.get(x)) - log(self.rvs_belief(x, f.nb))) * \
-                                         ((x[idx] - eta[k][0]) ** 2 / eta[k][1] - 1)
+        for f in rv.nb:
+            idx = f.nb.index(rv)
+            if len(f.nb) > 1:
+                def f_mu(x): return (log(f.potential.get(x)) - log(self.rvs_belief(x, f.nb))) * \
+                                    (x[idx] - eta[k][0]) ** 2
 
-                args = list()
-                for rv_ in f.nb:
-                    if rv.domain.continuous:
-                        args.append((True, self.eta[rv_][k]))
-                    else:
-                        args.append((False, (rv.domain.values, self.eta[rv_][k])))
+                def f_var(x): return (log(f.potential.get(x)) - log(self.rvs_belief(x, f.nb))) * \
+                                     ((x[idx] - eta[k][0]) ** 2 / eta[k][1] - 1)
 
-                g_mu_var[k, 0] -= self.expectation(f_mu, *args) / eta[k][1]
-                g_mu_var[k, 1] -= self.expectation(f_var, *args) * 0.5 / eta[k][1]
+                for k in range(self.K):
+                    args = list()
+                    for rv_ in f.nb:
+                        if rv.domain.continuous:
+                            args.append((True, self.eta[rv_][k]))
+                        else:
+                            args.append((False, (rv.domain.values, self.eta[rv_][k])))
+
+                    g_mu_var[k, 0] -= self.expectation(f_mu, *args) / eta[k][1]
+                    g_mu_var[k, 1] -= self.expectation(f_var, *args) * 0.5 / eta[k][1]
 
         return g_mu_var * self.w[:, np.newaxis]
 
@@ -123,6 +143,13 @@ class OneShot:
         eta = self.eta[rv]
 
         for k in range(self.K):
+            for d, (xi, v) in enumerate(zip(rv.domain.values, eta[k])):
+                phi = rv.node_factor
+                if rv.phi is None:
+                    g_c[k, d] -= (rv.N - 1) * log(self.rvs_belief([xi], [rv]))
+                else:
+                    g_c[k, d] -= log(phi.potential.get((xi,))) - (1 - rv.N) * log(self.rvs_belief([xi], [rv]))
+
             for f in rv.nb:
                 args = list()
                 for rv_ in f.nb:
@@ -133,10 +160,8 @@ class OneShot:
                             args.append((False, (rv.domain.values, self.eta[rv_][k])))
 
                 idx = f.nb.index(rv)
-                for d, (xi, v) in enumerate(zip(rv.domain.values, eta[k])):
-                    if len(f.nb) == 1:
-                        g_c[k, d] -= log(f.potential.get((xi,))) - (1 - f.nb[0].N) * log(self.rvs_belief((xi,), f.nb))
-                    else:
+                for d, xi in enumerate(rv.domain.values):
+                    if len(f.nb) > 1:
                         def f_c(x):
                             new_x = x[:idx] + (xi,) + x[idx:]
                             return log(f.potential.get(new_x)) - log(self.rvs_belief(new_x, f.nb))
@@ -150,27 +175,26 @@ class OneShot:
     def free_energy(self):
         energy = 0
 
-        for k in range(self.K):
-            for rv in self.g.rvs:
-                if rv.node_factor is None:
-                    def f_bfe(x):
-                        return (rv.N - 1) * log(self.rvs_belief(x, [rv]))
-                else:
-                    def f_bfe(x):
-                        return log(rv.node_factor.potential.get(x)) - (1 - rv.N) * log(self.rvs_belief(x, [rv]))
+        for rv in self.g.rvs:
+            phi = rv.node_factor
+            if phi is None:
+                def f_bfe(x):
+                    return (rv.N - 1) * log(self.rvs_belief(x, [rv]))
+            else:
+                def f_bfe(x):
+                    return log(phi.potential.get(x)) - (1 - rv.N) * log(self.rvs_belief(x, [rv]))
 
-                if rv.domain.continuous:
-                    arg = (True, self.eta[rv][k])
-                else:
-                    arg = (False, (rv.domain.values, self.eta[rv][k]))
+            for k in range(self.K):
+                arg = (True, self.eta[rv][k]) if rv.domain.continuous else (False, (rv.domain.values, self.eta[rv][k]))
 
                 energy -= self.w[k] * self.expectation(f_bfe, arg)
 
-            for f in self.g.factors:
-                if len(f.nb) > 1:
-                    def f_bfe(x):
-                        return log(f.potential.get(x)) - log(self.rvs_belief(x, f.nb))
+        for f in self.g.factors:
+            if len(f.nb) > 1:
+                def f_bfe(x):
+                    return log(f.potential.get(x)) - log(self.rvs_belief(x, f.nb))
 
+                for k in range(self.K):
                     args = list()
                     for rv in f.nb:
                         if rv.domain.continuous:
