@@ -153,7 +153,7 @@ class OneShot:
         for k in range(self.K):
             for d, (xi, v) in enumerate(zip(rv.domain.values, eta[k])):
                 phi = rv.node_factor
-                if rv.phi is None:
+                if phi is None:
                     g_c[k, d] -= (rv.N - 1) * log(self.rvs_belief([xi], [rv]))
                 else:
                     g_c[k, d] -= log(phi.potential.get((xi,))) - (1 - rv.N) * log(self.rvs_belief([xi], [rv]))
@@ -240,7 +240,7 @@ class OneShot:
             if rv.domain.continuous:
                 self.eta[rv] = np.ones((self.K, 2))
             else:
-                self.eta_tau[rv] = np.zeros((self.K, len(rv.domain.values)))
+                self.eta_tau[rv] = np.random.rand(self.K, len(rv.domain.values))
 
         # update w and categorical distribution
         self.w = self.softmax(self.w_tau)
