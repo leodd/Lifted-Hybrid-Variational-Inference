@@ -1,6 +1,7 @@
 from Graph import *
 import numpy as np
 from numpy.polynomial.hermite import hermgauss
+from scipy.optimize import fminbound
 from math import sqrt, pi, e, log
 from itertools import product
 
@@ -21,6 +22,9 @@ class OneShot:
         self.w = np.zeros(self.K)
         self.eta_tau = dict()
         self.eta = dict()  # key=rv, value={continuous eta: [, [mu, var]], discrete eta: [k, d]}
+
+        self.condition_weight = None
+        self.condition_prob = 1
 
     def init_rv(self):
         for rv in self.g.rvs:
@@ -230,15 +234,14 @@ class OneShot:
 
         return np.sum(b)
 
-    def belief(self, x, rv):
-        return self.rvs_belief((x,), (rv,))
-
     def init_param(self):
         self.w_tau = np.zeros(self.K)
         self.eta, self.eta_tau = dict(), dict()
         for rv in self.g.rvs:
             if rv.domain.continuous:
-                self.eta[rv] = np.ones((self.K, 2))
+                temp = np.ones((self.K, 2))
+                temp[:, 0] = np.random.rand(self.K)
+                self.eta[rv] = temp
             else:
                 self.eta_tau[rv] = np.random.rand(self.K, len(rv.domain.values))
 
@@ -277,3 +280,60 @@ class OneShot:
                     self.eta[rv] = self.softmax(table, 1)
 
             # print(self.free_energy())
+
+        # compute condition weight
+        self.condition_weight = np.copy(self.w)
+
+        for rv in self.g.rvs:
+            if rv.value is not None:
+                eta = self.eta[rv]
+
+                if rv.domain.continuous:
+                    for k in range(self.K):
+                        self.condition_weight[k] *= self.norm_pdf(rv.value, eta[k])
+                else:
+                    d = rv.domain.values.index(rv.value)
+                    for k in range(self.K):
+                        self.condition_weight[k] *= eta[k, d]
+
+        self.condition_prob = np.sum(self.condition_weight)
+
+    def belief(self, x, rv):
+        if rv.value is None:
+            b = np.copy(self.condition_weight)
+            eta = self.eta[rv]
+
+            if rv.domain.continuous:
+                for k in range(self.K):
+                    b[k] *= self.norm_pdf(x, eta[k])
+            else:
+                d = rv.domain.values.index(x)
+                for k in range(self.K):
+                    b[k] *= eta[k, d]
+
+            return b / self.condition_prob
+        else:
+            return 1 if x == rv.value else 0
+
+    def map(self, rv):
+        if rv.value is None:
+            if rv.domain.continuous:
+                p = dict()
+                for x in self.eta[:, 0]:
+                    p[x] = self.belief(x, rv)
+                res = max(p.keys(), key=(lambda k: p[k]))
+
+                # res = fminbound(
+                #     lambda val: -self.belief(val, rv),
+                #     rv.domain.values[0], rv.domain.values[1],
+                #     disp=False
+                # )
+            else:
+                p = dict()
+                for x in rv.domain.values:
+                    p[x] = self.belief(x, rv)
+                res = max(p.keys(), key=(lambda k: p[k]))
+
+            return res
+        else:
+            return rv.value
