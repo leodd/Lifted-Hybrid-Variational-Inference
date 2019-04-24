@@ -6,7 +6,6 @@ import osi.utils as utils
 import numpy as np
 import time
 
-
 seed = 9
 utils.set_seed(seed)
 
@@ -80,7 +79,8 @@ for _ in range(num_test):
 
     print(rvs_table)
 
-    print('number of vr', len(g.rvs))
+    print('number of rvs', len(g.rvs))
+    print('number of factors', len(g.factors))
     print('number of evidence', len(data))
 
     key_list = list()
@@ -113,8 +113,8 @@ for _ in range(num_test):
 
     name = 'OSI'
     res = np.zeros((len(key_list), 5))
+    osi = OneShot(g=g, K=5, T=8, seed=seed)  # can be moved outside of all loops, as the ground MRF doesn't change
     for j in range(5):
-        osi = OneShot(g=g, K=5, T=8, seed=seed)
         start_time = time.process_time()
         osi.run(lr=0.2, its=200)
         time_cost[name] = (time.process_time() - start_time) / 5 / num_test + time_cost.get(name, 0)

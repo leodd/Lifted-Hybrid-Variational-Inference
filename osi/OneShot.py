@@ -134,6 +134,27 @@ class OneShot:
 
         self.__dict__.update(**locals())
 
+    def run_setup(self, lr=5e-2, optimizer=None, trainable_params=None):
+        """
+        Set up gradient update ops, to facilitate caching (for repeated runs)
+        :param lr:
+        :param optimizer:
+        :param trainable_params:
+        :return:
+        """
+        if not (hasattr(self, 'grads_and_vars') and hasattr(self, 'grads_update')):
+            if not optimizer:
+                optimizer = tf.train.AdamOptimizer(lr)
+            if trainable_params is None:  # means all params are trainable
+                trainable_params = tf.trainable_variables()
+
+            aux_obj = self.aux_obj
+            grads_and_vars = optimizer.compute_gradients(aux_obj, var_list=trainable_params)
+            grads_update = optimizer.apply_gradients(grads_and_vars)
+
+            self.__dict__.update(**locals())
+            return grads_and_vars, grads_update
+
     def run(self, its=100, lr=5e-2, tf_session=None, optimizer=None, trainable_params=None, grad_check=False,
             logging_itv=10):
         """
@@ -153,19 +174,27 @@ class OneShot:
         if trainable_params is None:  # means all params are trainable
             trainable_params = tf.trainable_variables()
 
-        grads_and_vars = optimizer.compute_gradients(aux_obj, var_list=trainable_params)
-        # clip gradients if needed
-        grads_update = optimizer.apply_gradients(grads_and_vars)
+        # grads_and_vars = optimizer.compute_gradients(aux_obj, var_list=trainable_params)
+        # # clip gradients if needed
+        # grads_update = optimizer.apply_gradients(grads_and_vars)
+
+        # recompute gradient every time like above can be slow (e.g. for many repeated runs with random starts)
+        self.run_setup(lr=lr, optimizer=optimizer, trainable_params=trainable_params)
+        grads_and_vars, grads_update = self.grads_and_vars, self.grads_update
 
         gvnames = ['g' + v.name.split(':')[0] for v in trainable_params]
         record = {n: [] for n in gvnames + ['bfe']}
 
-        if not tf_session:
-            sess = tf.Session()  # session configs maybe
-        else:
+        if hasattr(self, 'sess'):  # will reuse most recent session to avoid session init overhead
+            sess = self.sess
+        elif tf_session is not None:
             sess = tf_session
+        else:
+            sess = tf.Session()  # add session configs maybe
 
-        sess.run(tf.global_variables_initializer())
+        self.sess = sess  # will cache session from last run
+
+        sess.run(tf.global_variables_initializer())  # always reinit
         for it in range(its):
             if grad_check:
                 if it == 1:
