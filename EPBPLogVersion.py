@@ -242,8 +242,8 @@ class EPBP:
 
         # BP iteration
         for i in range(iteration):
-            print(f'iteration: {i + 1}')
             if log_enable:
+                print(f'iteration: {i + 1}')
                 time_start = time.clock()
             # calculate messages from rv to f
             for rv in self.g.rvs:
@@ -308,19 +308,29 @@ class EPBP:
 
     def belief(self, x, rv):
         if rv.value is None:
-            # z = quad(
-            #     lambda val: e ** self.belief_rv(val, rv, self.sample),
-            #     rv.domain.values[0], rv.domain.values[1]
-            # )[0]
-            z, shift = self.log_area(
-                lambda val: self.belief_rv(val, rv, self.sample),
-                rv.domain.values[0], rv.domain.values[1],
-                20
-            )
+            if rv.domain.continuous:
+                # z = quad(
+                #     lambda val: e ** self.belief_rv(val, rv, self.sample),
+                #     rv.domain.values[0], rv.domain.values[1]
+                # )[0]
+                z, shift = self.log_area(
+                    lambda val: self.belief_rv(val, rv, self.sample),
+                    rv.domain.values[0], rv.domain.values[1],
+                    20
+                )
 
-            b = e ** (self.belief_rv(x, rv, self.sample) - shift)
+                b = e ** (self.belief_rv(x, rv, self.sample) - shift)
 
-            return b / z
+                return b / z
+            else:
+                b = dict()
+
+                for val in rv.domain.values:
+                    b[val] = self.belief_rv(val, rv, self.sample)
+
+                self.message_normalization(b)
+
+                return b[x]
         else:
             return 1 if x == rv.value else 0
 

@@ -311,7 +311,7 @@ class OneShot:
                 for k in range(self.K):
                     b[k] *= eta[k, d]
 
-            return b / self.condition_prob
+            return np.sum(b) / self.condition_prob
         else:
             return 1 if x == rv.value else 0
 

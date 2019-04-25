@@ -3,8 +3,8 @@ from RelationalGraph import *
 from MLNPotential import *
 
 instance = [
-    'Joey',
-    'Rachel',
+    # 'Joey',
+    # 'Rachel',
     'Tim',
 ]
 
@@ -60,25 +60,46 @@ print(rvs_table)
 # T = 8
 # osi = OneShot(g=g, K=K, T=T, seed=seed)
 # res = osi.run(lr=0.2, its=200)
+# for key, rv in sorted(rvs_table.items()):
+#     if rv.value is None:  # only test non-evidence nodes
+#         print(key, osi.map(rv))
 
 from OneShot import OneShot
 
-np.random.seed(9)
+# np.random.seed(9)
 osi = OneShot(g, num_mixtures=2, num_quadrature_points=8)
 
-osi.init_param()
-print(osi.gradient_w_tau())
-old_energy = osi.free_energy()
-print(osi.w)
-osi.w_tau += [0.01, 0]
-osi.w = osi.softmax(osi.w_tau)
-print(osi.w)
-new_energy = osi.free_energy()
-print(old_energy, new_energy, (new_energy-old_energy)/0.01)
-
-# osi.run(200, lr=1)
-#
-# print(osi.w_tau)
+# osi.init_param()
+# print(osi.gradient_w_tau())
+# old_energy = osi.free_energy()
 # print(osi.w)
-# print(osi.eta)
-# print(osi.free_energy())
+# osi.w_tau += [0.01, 0]
+# osi.w = osi.softmax(osi.w_tau)
+# print(osi.w)
+# new_energy = osi.free_energy()
+# print(old_energy, new_energy, (new_energy-old_energy)/0.01)
+
+osi.run(200, lr=1)
+
+print(osi.free_energy())
+
+for key, rv in sorted(rvs_table.items()):
+    if rv.value is None:  # only test non-evidence nodes
+        p = dict()
+        for x in rv.domain.values:
+            p[x] = osi.belief(x, rv)
+        print(key, p)
+
+# EPBP inference
+from EPBPLogVersion import EPBP
+
+bp = EPBP(g, n=50, proposal_approximation='simple')
+bp.run(30, log_enable=False)
+
+for key, rv in sorted(rvs_table.items()):
+    if rv.value is None:  # only test non-evidence nodes
+        p = dict()
+        for x in rv.domain.values:
+            p[x] = bp.belief(x, rv)
+        print(key, p)
+
