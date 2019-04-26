@@ -3,8 +3,8 @@ from RelationalGraph import *
 from MLNPotential import *
 
 instance = [
-    # 'Joey',
-    # 'Rachel',
+    'Joey',
+    'Rachel',
     'Tim',
 ]
 
@@ -33,12 +33,12 @@ atom_smoke_y = Atom(domain=domain_bool, logical_variables=[lv_y], name='Smoke')
 atom_cancer = Atom(domain=domain_bool, logical_variables=[lv_x], name='Cancer')
 
 f1 = ParamF(
-    MLNPotential(lambda atom: imp_op(atom[0], bic_op(atom[1], atom[2]))),
+    MLNPotential(lambda atom: imp_op(atom[0], bic_op(atom[1], atom[2])), 0.1),
     nb=[atom_friend, atom_smoke_x, atom_smoke_y],
     constrain=lambda sub: sub[lv_x] > sub[lv_y]
 )
 f2 = ParamF(
-    MLNPotential(lambda atom: imp_op(atom[0], atom[1])),
+    MLNPotential(lambda atom: imp_op(atom[0], atom[1]), 1),
     nb=[atom_smoke_x, atom_cancer]
 )
 
@@ -67,7 +67,7 @@ print(rvs_table)
 from OneShot import OneShot
 
 # np.random.seed(9)
-osi = OneShot(g, num_mixtures=2, num_quadrature_points=8)
+osi = OneShot(g, num_mixtures=10, num_quadrature_points=8)
 
 # osi.init_param()
 # print(osi.gradient_w_tau())
@@ -79,7 +79,7 @@ osi = OneShot(g, num_mixtures=2, num_quadrature_points=8)
 # new_energy = osi.free_energy()
 # print(old_energy, new_energy, (new_energy-old_energy)/0.01)
 
-osi.run(200, lr=1)
+osi.run(200, lr=5)
 
 print(osi.free_energy())
 
@@ -94,7 +94,7 @@ for key, rv in sorted(rvs_table.items()):
 from EPBPLogVersion import EPBP
 
 bp = EPBP(g, n=50, proposal_approximation='simple')
-bp.run(30, log_enable=False)
+bp.run(20, log_enable=False)
 
 for key, rv in sorted(rvs_table.items()):
     if rv.value is None:  # only test non-evidence nodes

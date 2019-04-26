@@ -1,13 +1,10 @@
 from RelationalGraph import *
 from MLNPotential import *
 from EPBPLogVersion import EPBP
-from osi.OneShot import OneShot
-import osi.utils as utils
+from OneShot import OneShot
 import numpy as np
 import time
 
-seed = 9
-utils.set_seed(seed)
 
 num_x = 10
 num_y = 2
@@ -93,12 +90,12 @@ for _ in range(num_test):
     ans = dict()
 
     name = 'EPBP'
-    res = np.zeros((len(key_list), 5))
-    for j in range(5):
+    res = np.zeros((len(key_list), 1))
+    for j in range(1):
         bp = EPBP(g, n=20, proposal_approximation='simple')
         start_time = time.process_time()
         bp.run(10, log_enable=False)
-        time_cost[name] = (time.process_time() - start_time) / 5 / num_test + time_cost.get(name, 0)
+        time_cost[name] = (time.process_time() - start_time) / 1 / num_test + time_cost.get(name, 0)
         print(name, f'time {time.process_time() - start_time}')
         for i, key in enumerate(key_list):
             res[i, j] = bp.map(rvs_table[key])
@@ -113,10 +110,10 @@ for _ in range(num_test):
 
     name = 'OSI'
     res = np.zeros((len(key_list), 5))
-    osi = OneShot(g=g, K=5, T=8, seed=seed)  # can be moved outside of all loops, as the ground MRF doesn't change
+    osi = OneShot(g, num_mixtures=1, num_quadrature_points=2)  # can be moved outside of all loops, as the ground MRF doesn't change
     for j in range(5):
         start_time = time.process_time()
-        osi.run(lr=0.2, its=200)
+        osi.run(200, lr=2)
         time_cost[name] = (time.process_time() - start_time) / 5 / num_test + time_cost.get(name, 0)
         print(name, f'time {time.process_time() - start_time}')
         for i, key in enumerate(key_list):

@@ -326,7 +326,7 @@ class EPBP:
                 b = dict()
 
                 for val in rv.domain.values:
-                    b[val] = self.belief_rv(val, rv, self.sample)
+                    b[val] = e ** self.belief_rv(val, rv, self.sample)
 
                 self.message_normalization(b)
 

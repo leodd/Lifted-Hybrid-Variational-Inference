@@ -7,7 +7,7 @@ from itertools import product
 
 
 class OneShot:
-    var_threshold = 0.1
+    var_threshold = 1
 
     def __init__(self, g, num_mixtures=5, num_quadrature_points=3):
         self.g = g
@@ -107,22 +107,23 @@ class OneShot:
         eta = self.eta[rv]
 
         phi = rv.node_factor
-        if phi is None:
-            def f_mu(x):
-                return ((rv.N - 1) * log(self.rvs_belief(x, phi.nb))) * (x[idx] - eta[k][0]) ** 2
-
-            def f_var(x):
-                return ((rv.N - 1) * log(self.rvs_belief(x, phi.nb))) * ((x[idx] - eta[k][0]) ** 2 / eta[k][1] - 1)
-        else:
-            def f_mu(x):
-                return (log(f.potential.get(x)) - (1 - f.nb[0].N) * log(self.rvs_belief(x, f.nb))) * \
-                       (x[idx] - eta[k][0]) ** 2
-
-            def f_var(x):
-                return (log(f.potential.get(x)) - (1 - f.nb[0].N) * log(self.rvs_belief(x, f.nb))) * \
-                       ((x[idx] - eta[k][0]) ** 2 / eta[k][1] - 1)
 
         for k in range(self.K):
+            if phi is None:
+                def f_mu(x):
+                    return ((rv.N - 1) * log(self.rvs_belief(x, [rv]))) * (x[0] - eta[k][0]) ** 2
+
+                def f_var(x):
+                    return ((rv.N - 1) * log(self.rvs_belief(x, [rv]))) * ((x[0] - eta[k][0]) ** 2 / eta[k][1] - 1)
+            else:
+                def f_mu(x):
+                    return (log(f.potential.get(x)) - (1 - rv.N) * log(self.rvs_belief(x, phi.nb))) * \
+                           (x[0] - eta[k][0]) ** 2
+
+                def f_var(x):
+                    return (log(f.potential.get(x)) - (1 - rv.N) * log(self.rvs_belief(x, phi.nb))) * \
+                           ((x[0] - eta[k][0]) ** 2 / eta[k][1] - 1)
+
             arg = (True, self.eta[rv][k]) if rv.domain.continuous else (False, (rv.domain.values, self.eta[rv][k]))
 
             g_mu_var[k, 0] -= self.expectation(f_mu, arg) / eta[k][1]
@@ -131,19 +132,21 @@ class OneShot:
         for f in rv.nb:
             idx = f.nb.index(rv)
             if len(f.nb) > 1:
-                def f_mu(x): return (log(f.potential.get(x)) - log(self.rvs_belief(x, f.nb))) * \
-                                    (x[idx] - eta[k][0]) ** 2
-
-                def f_var(x): return (log(f.potential.get(x)) - log(self.rvs_belief(x, f.nb))) * \
-                                     ((x[idx] - eta[k][0]) ** 2 / eta[k][1] - 1)
-
                 for k in range(self.K):
+                    def f_mu(x):
+                        return (log(f.potential.get(x)) - log(self.rvs_belief(x, f.nb))) * \
+                               (x[idx] - eta[k][0]) ** 2
+
+                    def f_var(x):
+                        return (log(f.potential.get(x)) - log(self.rvs_belief(x, f.nb))) * \
+                               ((x[idx] - eta[k][0]) ** 2 / eta[k][1] - 1)
+
                     args = list()
                     for rv_ in f.nb:
-                        if rv.domain.continuous:
+                        if rv_.domain.continuous:
                             args.append((True, self.eta[rv_][k]))
                         else:
-                            args.append((False, (rv.domain.values, self.eta[rv_][k])))
+                            args.append((False, (rv_.domain.values, self.eta[rv_][k])))
 
                     g_mu_var[k, 0] -= self.expectation(f_mu, *args) / eta[k][1]
                     g_mu_var[k, 1] -= self.expectation(f_var, *args) * 0.5 / eta[k][1]
@@ -240,10 +243,10 @@ class OneShot:
         for rv in self.g.rvs:
             if rv.domain.continuous:
                 temp = np.ones((self.K, 2))
-                temp[:, 0] = np.random.rand(self.K)
+                temp[:, 0] = np.random.rand(self.K) * 3 - 1.5
                 self.eta[rv] = temp
             else:
-                self.eta_tau[rv] = np.random.rand(self.K, len(rv.domain.values))
+                self.eta_tau[rv] = np.random.rand(self.K, len(rv.domain.values)) * 3
 
         # update w and categorical distribution
         self.w = self.softmax(self.w_tau)
@@ -279,7 +282,7 @@ class OneShot:
                     self.eta_tau[rv] = table
                     self.eta[rv] = self.softmax(table, 1)
 
-            # print(self.free_energy())
+            print(self.free_energy())
 
         # compute condition weight
         self.condition_weight = np.copy(self.w)
