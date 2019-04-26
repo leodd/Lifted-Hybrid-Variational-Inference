@@ -123,8 +123,7 @@ class OneShot:
         # get factors' contribution to the objectives
         for factor in g.factors_list:
             if factor.domain_type == 'd':
-                # delta_bfe, delta_aux_obj = dfactor_bfe_obj(factor, w)
-                delta_bfe, delta_aux_obj = hfactor_bfe_obj(factor, T, w)
+                delta_bfe, delta_aux_obj = dfactor_bfe_obj(factor, w)
             else:
                 assert factor.domain_type in ('c', 'h')
                 delta_bfe, delta_aux_obj = hfactor_bfe_obj(factor, T, w)

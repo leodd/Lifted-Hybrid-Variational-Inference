@@ -16,7 +16,7 @@ def neg_op(x):
 
 
 def imp_op(x, y):
-    return or_op(1 - x, y)
+    return or_op(1 - x, y)  # equivalently, return 1 - x + x * y
 
 
 def bic_op(x, y):

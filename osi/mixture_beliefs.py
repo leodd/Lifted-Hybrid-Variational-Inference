@@ -22,16 +22,15 @@ def get_hfactor_expectation_coefs_points(factor, K, T, dtype='float64'):
     """
     coefs = []
     axes = []
-    if factor.domain_type in ('c', 'h'):
-        assert factor.domain_type in ('c', 'h'), \
-            'Must input continuous/hybrid factor; use dfactor_bfe_obj directly for discrete factor'
-        # compute GHQ once (same for all cnodes) if factor is cont/hybrid
-        ghq_points, ghq_weights = roots_hermite(T)  # assuming Gaussian for now
-        ghq_coef = (np.pi) ** (-0.5)  # from change-of-var
-        ghq_weights = ghq_coef * ghq_weights  # let's fold ghq_coef into the quadrature weights, so no need to worry about it later
-        # ghq_weights_KT = np.tile(np.reshape(ghq_weights, [1, -1]), [K, 1])  # K x T (repeat for K identical rows)
-        ghq_weights = tf.constant(ghq_weights, dtype=dtype)
-        ghq_weights_KT = tf.tile(tf.reshape(ghq_weights, [1, -1]), [K, 1])  # K x T (repeat for K identical rows)
+    assert factor.domain_type in ('c', 'h'), \
+        'Must input continuous/hybrid factor; use dfactor_bfe_obj directly for discrete factor for better performance'
+    # compute GHQ once (same for all cnodes) if factor is cont/hybrid
+    ghq_points, ghq_weights = roots_hermite(T)  # assuming Gaussian for now
+    ghq_coef = (np.pi) ** (-0.5)  # from change-of-var
+    ghq_weights = ghq_coef * ghq_weights  # let's fold ghq_coef into the quadrature weights, so no need to worry about it later
+    # ghq_weights_KT = np.tile(np.reshape(ghq_weights, [1, -1]), [K, 1])  # K x T (repeat for K identical rows)
+    ghq_weights = tf.constant(ghq_weights, dtype=dtype)
+    ghq_weights_KT = tf.tile(tf.reshape(ghq_weights, [1, -1]), [K, 1])  # K x T (repeat for K identical rows)
 
     for rv in factor.nb:
         if rv.domain_type == 'd':  # discrete
