@@ -54,38 +54,36 @@ def eval_hfactor_belief(factor, axes, w):
     """
     Evaluate hybrid/continuous factor's belief on grid(s).
     :param factor:
-    :param axes: list of mats [K x V1, K x V2, ..., K x Vn]; we allow the flexibility to evaluate on K > 1 ndgrids
+    :param axes: list of mats [M x V1, M x V2, ..., M x Vn]; we allow the flexibility to evaluate on M > 1 ndgrids
     simultaneously
     :param w:
-    :return: a [K x V1 x V2 x ... x Vn] tensor, whose (k, v1, ..., vn)th coordinate is the mixture belief evaluated on
-    the point (axes[0][k,v1], axes[1][k,v2], ..., axes[n][k,vn])
+    :return: a [M x V1 x V2 x ... x Vn] tensor, whose (m, v1, ..., vn)th coordinate is the mixture belief evaluated on
+    the point (axes[0][m,v1], axes[1][m,v2], ..., axes[n][m,vn])
     """
-    einsum_eq = utils.outer_prod_einsum_equation(len(factor.nb), common_first_ndims=1)
+    M = int(axes[0].shape[0])  # number of grids
+    comp_probs = []
+    for n, rv in enumerate(factor.nb):
+        if rv.domain_type == 'd':  # discrete
+            comp_prob = rv.belief_params_['pi']  # assuming the states of Xn are sorted, so p_kn(rv.states) = p_kn
+            comp_prob = comp_prob[:, None, :]  # K x 1 x Vn
+            comp_prob = tf.tile(comp_prob, [1, M, 1])  # K x M x Vn; same for all M axes
+        elif rv.domain_type == 'c':  # cont, assuming Gaussian for now
+            mean_K1 = rv.belief_params_['mu_K1']
+            mean_K11 = mean_K1[:, :, None]
+            var_inv_K1 = rv.belief_params_['var_inv_K1']
+            var_inv_K11 = var_inv_K1[:, :, None]
+            # eval pdf of axes[n] (M x Vn) under all K scalar comps of nth node in the clique; result is K x M x Vn
+            comp_prob = (2 * np.pi) ** (-0.5) * tf.sqrt(var_inv_K11) * \
+                        tf.exp(-0.5 * (axes[n] - mean_K11) ** 2 * var_inv_K11)
+        else:
+            raise NotImplementedError
+        comp_probs.append(comp_prob)
 
-    res = []
-    # TODO: 1. get rid of outer loop; 2. maybe replace multiplication with addition in log-domain? no need?
-    K = np.prod(w.shape)
-    w_broadcast = tf.reshape(w, [-1] + [1] * len(factor.nb))  # K x 1 x 1 ... x 1
-    for k in range(K):  # for mixture belief b(E_k) on the kth grid E_k = \bigotimes_{i=1}^n axes[i][k, :]
-        comp_probs = []
-        for n, rv in enumerate(factor.nb):
-            if rv.domain_type == 'd':  # discrete
-                comp_prob = rv.belief_params_[
-                    'pi']  # assuming the states of Xn are sorted, so p_kn(rv.states) = p_kn
-            elif rv.domain_type == 'c':  # cont, assuming Gaussian for now
-                mean_K1 = rv.belief_params_['mu_K1']
-                var_inv_K1 = rv.belief_params_['var_inv_K1']
-                comp_prob = (2 * np.pi) ** (-0.5) * tf.sqrt(var_inv_K1) * \
-                            tf.exp(-0.5 * (axes[n][k] - mean_K1) ** 2 * var_inv_K1)  # eval pdf under all K scalar comps
-            else:
-                raise NotImplementedError
-            comp_probs.append(comp_prob)
-
-        # multiply all dimensions together, then weigh by w
-        joint_comp_probs = tf.einsum(einsum_eq, *comp_probs)  # K x V1 x V2 x ... Vn
-        res.append(tf.reduce_sum(w_broadcast * joint_comp_probs, axis=0, keepdims=True))  # 1 x V1 x V2 x ... Vn
-
-    return tf.concat(res, 0)  # K x V1 x V2 x ... Vn
+    # multiply all dimensions together, then weigh by w
+    einsum_eq = utils.outer_prod_einsum_equation(len(factor.nb), common_first_ndims=2)
+    joint_comp_probs = tf.einsum(einsum_eq, *comp_probs)  # K x M x V1 x V2 x ... Vn
+    w_broadcast = tf.reshape(w, [-1] + [1] * (len(factor.nb) + 1))
+    return tf.reduce_sum(w_broadcast * joint_comp_probs, axis=0)  # M x V1 x V2 x ... Vn
 
 
 def hfactor_bfe_obj(factor, T, w):
