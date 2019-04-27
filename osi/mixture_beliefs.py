@@ -1,4 +1,3 @@
-# from utils import outer_prod_einsum_equation
 from scipy.special import roots_hermite
 import tensorflow as tf
 import numpy as np
@@ -35,17 +34,18 @@ def get_hfactor_expectation_coefs_points(factor, K, T, dtype='float64'):
     for rv in factor.nb:
         if rv.domain_type == 'd':  # discrete
             c = rv.belief_params_['pi']  # K x dstates[i] matrix (tf); will be put under stop_gradient later
-            p = np.tile(np.reshape(rv.values, [1, -1]), [K, 1])  # K x dstates[i] (identical rows); currently not used
+            a = np.tile(np.reshape(rv.values, [1, -1]), [K, 1])  # K x dstates[i] (identical rows); currently not used
+            a = tf.constant(a)
         elif rv.domain_type == 'c':  # cont, assuming Gaussian for now
             c = ghq_weights_KT
             mean_K1 = rv.belief_params_['mu_K1']
             var_K1 = rv.belief_params_['var_K1']
-            p = (2 * var_K1) ** 0.5 * ghq_points + mean_K1  # K x T
-            p = tf.stop_gradient(p)  # don't want to differentiate w.r.t. evaluation points
+            a = (2 * var_K1) ** 0.5 * ghq_points + mean_K1  # K x T
+            a = tf.stop_gradient(a)  # don't want to differentiate w.r.t. evaluation points
         else:
             raise NotImplementedError
         coefs.append(c)
-        axes.append(p)
+        axes.append(a)
 
     return coefs, axes
 
@@ -62,19 +62,19 @@ def eval_hfactor_belief(factor, axes, w):
     """
     M = int(axes[0].shape[0])  # number of grids
     comp_probs = []
-    for n, rv in enumerate(factor.nb):
+    for i, rv in enumerate(factor.nb):
         if rv.domain_type == 'd':  # discrete
-            comp_prob = rv.belief_params_['pi']  # assuming the states of Xn are sorted, so p_kn(rv.states) = p_kn
-            comp_prob = comp_prob[:, None, :]  # K x 1 x Vn
-            comp_prob = tf.tile(comp_prob, [1, M, 1])  # K x M x Vn; same for all M axes
+            comp_prob = rv.belief_params_['pi']  # assuming the states of Xi are sorted, so p_ki(rv.states) = p_ki
+            comp_prob = comp_prob[:, None, :]  # K x 1 x Vi
+            comp_prob = tf.tile(comp_prob, [1, M, 1])  # K x M x Vi; same for all M axes
         elif rv.domain_type == 'c':  # cont, assuming Gaussian for now
             mean_K1 = rv.belief_params_['mu_K1']
             mean_K11 = mean_K1[:, :, None]
             var_inv_K1 = rv.belief_params_['var_inv_K1']
             var_inv_K11 = var_inv_K1[:, :, None]
-            # eval pdf of axes[n] (M x Vn) under all K scalar comps of nth node in the clique; result is K x M x Vn
+            # eval pdf of axes[i] (M x Vi) under all K scalar comps of ith node in the clique; result is K x M x Vi
             comp_prob = (2 * np.pi) ** (-0.5) * tf.sqrt(var_inv_K11) * \
-                        tf.exp(-0.5 * (axes[n] - mean_K11) ** 2 * var_inv_K11)
+                        tf.exp(-0.5 * (axes[i] - mean_K11) ** 2 * var_inv_K11)
         else:
             raise NotImplementedError
         comp_probs.append(comp_prob)
