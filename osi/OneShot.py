@@ -1,7 +1,6 @@
 from Graph import *
 
 import tensorflow as tf
-# import tensorflow.contrib.eager as tfe
 
 import numpy as np
 
@@ -43,10 +42,7 @@ class OneShot:
         tf.reset_default_graph()  # clear existing
         if seed is not None:  # note that seed that has been set prior to tf.reset_default_graph will be invalidated
             tf.set_random_seed(seed)  # thus we have to reseed after reset_default_graph
-        if tf.executing_eagerly():
-            tau = tfe.Variable(tf.zeros(K, dtype=dtype), trainable=True, name='tau')  # mixture weights logits
-        else:
-            tau = tf.Variable(tf.zeros(K, dtype=dtype), trainable=True, name='tau')  # mixture weights logits
+        tau = tf.Variable(tf.zeros(K, dtype=dtype), trainable=True, name='tau')  # mixture weights logits
         # tau = tf.Variable(tf.random_normal([K], dtype=dtype), trainable=True, name='tau')  # mixture weights logits
         w = tf.nn.softmax(tau, name='w')  # mixture weights
 
@@ -98,23 +94,15 @@ class OneShot:
                 Mu_bds[:, n] = rv.values[0], rv.values[1]  # lb, ub
             Mu_bds = Mu_bds[:, :, None] + \
                      np.zeros([2, g.Nc, K], dtype='float')  # Mu_bds[0], Mu_bds[1] give lb, ub for Mu; same for all K
-            if tf.executing_eagerly():
-                Mu = tfe.Variable(np.random.uniform(low=Mu_bds[0], high=Mu_bds[1], size=[g.Nc, K]),
-                                  dtype=dtype, trainable=True, name='Mu')
-            else:
-                Mu = tf.Variable(np.random.uniform(low=Mu_bds[0], high=Mu_bds[1], size=[g.Nc, K]),
-                                 dtype=dtype, trainable=True, name='Mu')
+            Mu = tf.Variable(np.random.uniform(low=Mu_bds[0], high=Mu_bds[1], size=[g.Nc, K]),
+                             dtype=dtype, trainable=True, name='Mu')
 
             # optimize the log of Var (sigma squared), for numeric stability
             lVar_bds = np.log(Var_bds)
             # lVar = tf.Variable(np.log(np.random.uniform(low=Var_bds[0], high=Var_bds[1], size=[g.Nc, K])),
             #                    dtype=dtype, trainable=True, name='lVar')
-            if tf.executing_eagerly():
-                lVar = tfe.Variable(np.random.uniform(low=lVar_bds[0], high=lVar_bds[1], size=[g.Nc, K]),
-                                    dtype=dtype, trainable=True, name='lVar')
-            else:
-                lVar = tf.Variable(np.random.uniform(low=lVar_bds[0], high=lVar_bds[1], size=[g.Nc, K]),
-                                   dtype=dtype, trainable=True, name='lVar')
+            lVar = tf.Variable(np.random.uniform(low=lVar_bds[0], high=lVar_bds[1], size=[g.Nc, K]),
+                               dtype=dtype, trainable=True, name='lVar')
             Var = tf.exp(lVar)
 
             clip_op = tf.group(tf.assign(Mu, tf.clip_by_value(Mu, *Mu_bds)),

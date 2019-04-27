@@ -11,13 +11,13 @@ import time
 seed = 9
 utils.set_seed(seed)
 
-num_x = 10
-num_y = 2
-num_s = 5
-
-# num_x = 2
+# num_x = 10
 # num_y = 2
-# num_s = 2
+# num_s = 5
+
+num_x = 2
+num_y = 2
+num_s = 2
 
 X = []
 for x in range(num_x):
