@@ -11,13 +11,13 @@ import time
 seed = 9
 utils.set_seed(seed)
 
-# num_x = 10
-# num_y = 2
-# num_s = 5
-
-num_x = 2
+num_x = 10
 num_y = 2
-num_s = 2
+num_s = 5
+
+# num_x = 2
+# num_y = 2
+# num_s = 2
 
 X = []
 for x in range(num_x):
@@ -125,7 +125,7 @@ for _ in range(num_tests):
     osi = OneShot(g=g, K=5, T=8, seed=seed)  # can be moved outside of all loops, as the ground MRF doesn't change
     for j in range(num_runs):
         start_time = time.process_time()
-        osi.run(lr=0.2, its=200)
+        osi.run(lr=0.05, its=200)
         time_cost[name] = (time.process_time() - start_time) / num_runs / num_tests + time_cost.get(name, 0)
         print(name, f'time {time.process_time() - start_time}')
         for i, key in enumerate(key_list):

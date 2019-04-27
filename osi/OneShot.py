@@ -1,11 +1,13 @@
 from Graph import *
 
 import tensorflow as tf
+# import tensorflow.contrib.eager as tfe
+
 import numpy as np
 
 dtype = 'float64'
 from mixture_beliefs import hfactor_bfe_obj, dfactor_bfe_obj, drv_bfe_obj, drvs_bfe_obj, crvs_bfe_obj, \
-    calc_cond_mixture_weights, drv_belief_map, crv_belief_map
+    calc_cond_mixture_weights, drv_belief_map, crv_belief_map, hfactors_bfe_obj, dfactors_bfe_obj
 import utils
 
 utils.set_path()
@@ -41,7 +43,10 @@ class OneShot:
         tf.reset_default_graph()  # clear existing
         if seed is not None:  # note that seed that has been set prior to tf.reset_default_graph will be invalidated
             tf.set_random_seed(seed)  # thus we have to reseed after reset_default_graph
-        tau = tf.Variable(tf.zeros(K, dtype=dtype), trainable=True, name='tau')  # mixture weights logits
+        if tf.executing_eagerly():
+            tau = tfe.Variable(tf.zeros(K, dtype=dtype), trainable=True, name='tau')  # mixture weights logits
+        else:
+            tau = tf.Variable(tf.zeros(K, dtype=dtype), trainable=True, name='tau')  # mixture weights logits
         # tau = tf.Variable(tf.random_normal([K], dtype=dtype), trainable=True, name='tau')  # mixture weights logits
         w = tf.nn.softmax(tau, name='w')  # mixture weights
 
@@ -93,15 +98,23 @@ class OneShot:
                 Mu_bds[:, n] = rv.values[0], rv.values[1]  # lb, ub
             Mu_bds = Mu_bds[:, :, None] + \
                      np.zeros([2, g.Nc, K], dtype='float')  # Mu_bds[0], Mu_bds[1] give lb, ub for Mu; same for all K
-            Mu = tf.Variable(np.random.uniform(low=Mu_bds[0], high=Mu_bds[1], size=[g.Nc, K]),
-                             dtype=dtype, trainable=True, name='Mu')
+            if tf.executing_eagerly():
+                Mu = tfe.Variable(np.random.uniform(low=Mu_bds[0], high=Mu_bds[1], size=[g.Nc, K]),
+                                  dtype=dtype, trainable=True, name='Mu')
+            else:
+                Mu = tf.Variable(np.random.uniform(low=Mu_bds[0], high=Mu_bds[1], size=[g.Nc, K]),
+                                 dtype=dtype, trainable=True, name='Mu')
 
             # optimize the log of Var (sigma squared), for numeric stability
             lVar_bds = np.log(Var_bds)
             # lVar = tf.Variable(np.log(np.random.uniform(low=Var_bds[0], high=Var_bds[1], size=[g.Nc, K])),
             #                    dtype=dtype, trainable=True, name='lVar')
-            lVar = tf.Variable(np.random.uniform(low=lVar_bds[0], high=lVar_bds[1], size=[g.Nc, K]),
-                               dtype=dtype, trainable=True, name='lVar')
+            if tf.executing_eagerly():
+                lVar = tfe.Variable(np.random.uniform(low=lVar_bds[0], high=lVar_bds[1], size=[g.Nc, K]),
+                                    dtype=dtype, trainable=True, name='lVar')
+            else:
+                lVar = tf.Variable(np.random.uniform(low=lVar_bds[0], high=lVar_bds[1], size=[g.Nc, K]),
+                                   dtype=dtype, trainable=True, name='lVar')
             Var = tf.exp(lVar)
 
             clip_op = tf.group(tf.assign(Mu, tf.clip_by_value(Mu, *Mu_bds)),
@@ -120,16 +133,21 @@ class OneShot:
             bfe += delta_bfe
             aux_obj += delta_aux_obj
 
-        # get factors' contribution to the objectives
-        for factor in g.factors_list:
+        unique_potentials = set(f.potential for f in g.factors)
+        print('number of unique potentials =', len(unique_potentials))
+        factors_with_unique_potentials = [None] * len(unique_potentials)  # list of lists of factors
+        for i, unique_potential in enumerate(unique_potentials):
+            factors = list(filter(lambda f: f.potential == unique_potential, g.factors_list))
+            factors_with_unique_potentials[i] = factors
+        for factors in factors_with_unique_potentials:
+            factor = factors[0]
             if factor.domain_type == 'd':
-                delta_bfe, delta_aux_obj = dfactor_bfe_obj(factor, w)
+                delta_bfe, delta_aux_obj = dfactors_bfe_obj(factors, w)
             else:
                 assert factor.domain_type in ('c', 'h')
-                delta_bfe, delta_aux_obj = hfactor_bfe_obj(factor, T, w)
-            sharing_count = factor.sharing_count
-            bfe += sharing_count * delta_bfe
-            aux_obj += sharing_count * delta_aux_obj
+                delta_bfe, delta_aux_obj = hfactors_bfe_obj(factors, T, w)
+            bfe += delta_bfe
+            aux_obj += delta_aux_obj
 
         self.__dict__.update(**locals())
 
