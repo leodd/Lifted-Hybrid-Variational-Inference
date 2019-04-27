@@ -111,10 +111,10 @@ class OneShot:
         for k in range(self.K):
             if phi is None:
                 def f_mu(x):
-                    return ((rv.N - 1) * log(self.rvs_belief(x, [rv]))) * (x[0] - eta[k][0]) ** 2
+                    return ((rv.N - 1) * log(self.rvs_belief(x, [rv]))) * (x[0] - eta[k][0])
 
                 def f_var(x):
-                    return ((rv.N - 1) * log(self.rvs_belief(x, [rv]))) * ((x[0] - eta[k][0]) ** 2 / eta[k][1] - 1)
+                    return ((rv.N - 1) * log(self.rvs_belief(x, [rv]))) * ((x[0] - eta[k][0]) ** 2 - eta[k][1])
             else:
                 def f_mu(x):
                     return (log(f.potential.get(x)) - (1 - rv.N) * log(self.rvs_belief(x, phi.nb))) * \
@@ -122,24 +122,24 @@ class OneShot:
 
                 def f_var(x):
                     return (log(f.potential.get(x)) - (1 - rv.N) * log(self.rvs_belief(x, phi.nb))) * \
-                           ((x[0] - eta[k][0]) ** 2 / eta[k][1] - 1)
+                           ((x[0] - eta[k][0]) ** 2 - eta[k][1])
 
-            arg = (True, self.eta[rv][k]) if rv.domain.continuous else (False, (rv.domain.values, self.eta[rv][k]))
+            arg = (True, self.eta[rv][k])
 
             g_mu_var[k, 0] -= self.expectation(f_mu, arg) / eta[k][1]
-            g_mu_var[k, 1] -= self.expectation(f_var, arg) * 0.5 / eta[k][1]
+            g_mu_var[k, 1] -= self.expectation(f_var, arg) / (2 * eta[k][1] ** 2)
 
         for f in rv.nb:
-            idx = f.nb.index(rv)
             if len(f.nb) > 1:
+                idx = f.nb.index(rv)
                 for k in range(self.K):
                     def f_mu(x):
                         return (log(f.potential.get(x)) - log(self.rvs_belief(x, f.nb))) * \
-                               (x[idx] - eta[k][0]) ** 2
+                               (x[idx] - eta[k][0])
 
                     def f_var(x):
                         return (log(f.potential.get(x)) - log(self.rvs_belief(x, f.nb))) * \
-                               ((x[idx] - eta[k][0]) ** 2 / eta[k][1] - 1)
+                               ((x[idx] - eta[k][0]) ** 2 - eta[k][1])
 
                     args = list()
                     for rv_ in f.nb:
@@ -149,7 +149,7 @@ class OneShot:
                             args.append((False, (rv_.domain.values, self.eta[rv_][k])))
 
                     g_mu_var[k, 0] -= self.expectation(f_mu, *args) / eta[k][1]
-                    g_mu_var[k, 1] -= self.expectation(f_var, *args) * 0.5 / eta[k][1]
+                    g_mu_var[k, 1] -= self.expectation(f_var, *args) / (2 * eta[k][1] ** 2)
 
         return g_mu_var * self.w[:, np.newaxis]
 
@@ -322,7 +322,7 @@ class OneShot:
         if rv.value is None:
             if rv.domain.continuous:
                 p = dict()
-                for x in self.eta[:, 0]:
+                for x in self.eta[rv][:, 0]:
                     p[x] = self.belief(x, rv)
                 res = max(p.keys(), key=(lambda k: p[k]))
 

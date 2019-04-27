@@ -4,22 +4,6 @@ from EPBPLogVersion import EPBP
 from GaBP import GaBP
 import numpy as np
 import time
-from OneShot import OneShot
-
-# np.random.seed(9)
-osi = OneShot(g, num_mixtures=2, num_quadrature_points=8)
-
-# osi.init_param()
-# print(osi.gradient_w_tau())
-# old_energy = osi.free_energy()
-# print(osi.w)
-# osi.w_tau += [0.01, 0]
-# osi.w = osi.softmax(osi.w_tau)
-# print(osi.w)
-# new_energy = osi.free_energy()
-# print(old_energy, new_energy, (new_energy-old_energy)/0.01)
-
-osi.run(200, lr=0.5)
 
 
 instance_category = []
