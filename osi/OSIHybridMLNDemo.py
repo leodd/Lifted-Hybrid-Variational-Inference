@@ -4,7 +4,8 @@ utils.set_path()
 from RelationalGraph import *
 from MLNPotential import *
 from EPBPLogVersion import EPBP
-from OneShot import OneShot
+from OneShot import OneShot, LiftedOneShot
+from CompressedGraphSorted import CompressedGraphSorted
 import numpy as np
 import time
 
@@ -139,7 +140,30 @@ for _ in range(num_tests):
     its = 200
     fix_mix_its = int(its * 0.)
     res = np.zeros((len(key_list), num_runs))
-    osi = OneShot(g=g, K=K, T=T, seed=seed)  # can be moved outside of all loops, as the ground MRF doesn't change
+    osi = OneShot(g=g, K=K, T=T, seed=seed)  # can be moved outside of all loops if the ground MRF doesn't change
+    for j in range(num_runs):
+        start_time = time.process_time()
+        osi.run(lr=lr, its=its, fix_mix_its=fix_mix_its)
+        time_cost[name] = (time.process_time() - start_time) / num_runs / num_tests + time_cost.get(name, 0)
+        print(name, f'time {time.process_time() - start_time}')
+        for i, key in enumerate(key_list):
+            res[i, j] = osi.map(rvs_table[key])
+        print(res[:, j])
+        # print(osi.params)
+        print('Mu =\n', osi.params['Mu'], '\nVar =\n', osi.params['Var'])
+    for i, key in enumerate(key_list):
+        res[i, :] -= ans[key]
+    avg_diff[name] = np.average(np.average(abs(res), axis=1)) / num_tests + avg_diff.get(name, 0)
+    err_var[name] = np.average(np.average(res ** 2, axis=1)) / num_tests + err_var.get(name, 0)
+    print(name, 'diff', np.average(np.average(abs(res), axis=1)))
+    print(name, 'var', np.average(np.average(res ** 2, axis=1)) - np.average(np.average(abs(res), axis=1)) ** 2)
+
+    name = 'LOSI'
+    cg = CompressedGraphSorted(g)
+    cg.run()
+    print('number of rvs in cg', len(cg.rvs))
+    print('number of factors in cg', len(cg.factors))
+    osi = LiftedOneShot(g=cg, K=K, T=T, seed=seed)  # can be moved outside of all loops if the ground MRF doesn't change
     for j in range(num_runs):
         start_time = time.process_time()
         osi.run(lr=lr, its=its, fix_mix_its=fix_mix_its)
