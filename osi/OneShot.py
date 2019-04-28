@@ -6,7 +6,7 @@ import numpy as np
 
 dtype = 'float64'
 from mixture_beliefs import hfactor_bfe_obj, dfactor_bfe_obj, drv_bfe_obj, drvs_bfe_obj, crvs_bfe_obj, \
-    calc_cond_mixture_weights, drv_belief_map, crv_belief_map, hfactors_bfe_obj, dfactors_bfe_obj
+    hfactors_bfe_obj, dfactors_bfe_obj, calc_cond_mixture_weights, drv_belief_map, crv_belief_map, marginal_map
 import utils
 
 utils.set_path()
@@ -296,26 +296,16 @@ class OneShot:
 
     def map(self, rv):
         """
-        Toy method for testing marginal MAP. Highly inefficient b/c cond_w recomputed every time
+        Toy method for testing marginal MAP. Can be inefficient b/c cond_w is recomputed every time
         :param rv:
         :return:
         """
         if rv.value is None:
+            w = self.params['w']
             g = self.g
-            params = self.params
-            obs_rvs = [x for x in g.rvs if x.value is not None]
-            X = np.array([x.value for x in obs_rvs])
-
-            cond_w = calc_cond_mixture_weights(g, X, obs_rvs, params)
-            if rv.domain_type == 'd':
-                map_state, map_prob = drv_belief_map(cond_w, rv.belief_params['pi'])
-                print(rv, map_state, map_prob)
-                out = rv.values[map_state]
-            else:
-                assert rv.domain_type == 'c'
-                mu, var = rv.belief_params['mu'], rv.belief_params['var']
-                bds = (rv.values[0], rv.values[1])
-                out = crv_belief_map(cond_w, mu, var, bds)
+            obs_rvs = [v for v in g.rvs if v.value is not None]
+            X = np.array([v.value for v in obs_rvs])
+            out = marginal_map(X=X, obs_rvs=obs_rvs, query_rv=rv, w=w)
         else:
             out = rv.value
         return out
@@ -325,7 +315,7 @@ class LiftedOneShot(OneShot):
     def __init__(self, g, K, T, seed=None, Var_bds=None):
         """
 
-        :param g: cluster graph, containing cluster nodes and factors
+        :param g: cluster graph, containing cluster nodes and factors; should be of type CompressedGraphSorted
         :param K:
         :param T:
         :param seed:
@@ -335,9 +325,30 @@ class LiftedOneShot(OneShot):
         self.orig_g = g.g  # original (uncompressed) graph
 
     def run(self, its=100, lr=5e-2, tf_session=None, optimizer=None, trainable_params=None, grad_check=False,
-            logging_itv=10):
+            logging_itv=10, fix_mix_its=0):
         res = super().run(its=its, lr=lr, tf_session=tf_session, optimizer=optimizer, trainable_params=trainable_params,
-                          grad_check=grad_check, logging_itv=logging_itv)
+                          grad_check=grad_check, logging_itv=logging_itv, fix_mix_its=fix_mix_its)
 
-        # maybe some post-processing to add resulting params to original graph?
+        # post-processing to add resulting params to original graph; prediction tasks (e.g. marginal MAP) can then be
+        # done on the original graph
+        for rv in self.g.rvs_list:  # loop over cluster rvs (of type /CompressedGraphSorted.SuperRV) in the cluster graph
+            for orig_rv in rv.rvs:
+                orig_rv.belief_params = rv.belief_params
+
         return res
+
+    def map(self, rv):
+        """
+        Toy method for testing marginal MAP. Can be inefficient b/c cond_w is recomputed every time
+        :param rv:
+        :return:
+        """
+        if rv.value is None:
+            w = self.params['w']
+            g = self.orig_g
+            obs_rvs = [v for v in g.rvs if v.value is not None]
+            X = np.array([v.value for v in obs_rvs])
+            out = marginal_map(X=X, obs_rvs=obs_rvs, query_rv=rv, w=w)
+        else:
+            out = rv.value
+        return out

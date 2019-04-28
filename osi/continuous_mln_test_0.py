@@ -73,7 +73,7 @@ if not grad_check:
     rvs = g.rvs_list
     xx, yy = np.meshgrid(np.linspace(rvs[0].values[0], rvs[0].values[1]),
                          np.linspace(rvs[1].values[0], rvs[1].values[1]))
-    zs = np.exp(calc_marg_log_prob(g, X=np.vstack([xx.ravel(), yy.ravel()]).T, obs_rvs=rvs, params=res))
+    zs = np.exp(calc_marg_log_prob(X=np.vstack([xx.ravel(), yy.ravel()]).T, obs_rvs=rvs, w=res['w']))
     zz = zs.reshape(xx.shape)
     num_levels = 10
     plt.contourf(xx, yy, zz, num_levels)
