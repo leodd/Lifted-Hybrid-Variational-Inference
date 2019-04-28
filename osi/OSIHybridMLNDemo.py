@@ -126,11 +126,16 @@ for _ in range(num_tests):
     print(name, 'var', np.average(np.average(res ** 2, axis=1)) - np.average(np.average(abs(res), axis=1)) ** 2)
 
     name = 'OSI'
+    K = 5
+    T = 20
+    lr = 0.1
+    its = 200
+    fix_mix_its = int(its * 0.)
     res = np.zeros((len(key_list), num_runs))
-    osi = OneShot(g=g, K=5, T=20, seed=seed)  # can be moved outside of all loops, as the ground MRF doesn't change
+    osi = OneShot(g=g, K=K, T=T, seed=seed)  # can be moved outside of all loops, as the ground MRF doesn't change
     for j in range(num_runs):
         start_time = time.process_time()
-        osi.run(lr=0.1, its=200)
+        osi.run(lr=lr, its=its, fix_mix_its=fix_mix_its)
         time_cost[name] = (time.process_time() - start_time) / num_runs / num_tests + time_cost.get(name, 0)
         print(name, f'time {time.process_time() - start_time}')
         for i, key in enumerate(key_list):

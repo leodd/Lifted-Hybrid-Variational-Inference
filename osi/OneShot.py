@@ -42,9 +42,11 @@ class OneShot:
         tf.reset_default_graph()  # clear existing
         if seed is not None:  # note that seed that has been set prior to tf.reset_default_graph will be invalidated
             tf.set_random_seed(seed)  # thus we have to reseed after reset_default_graph
-        tau = tf.Variable(tf.zeros(K, dtype=dtype), trainable=True, name='tau')  # mixture weights logits
+        zeros_K = tf.zeros(K, dtype=dtype)
+        tau = tf.Variable(zeros_K, trainable=True, name='tau')  # mixture weights logits
         # tau = tf.Variable(tf.random_normal([K], dtype=dtype), trainable=True, name='tau')  # mixture weights logits
         w = tf.nn.softmax(tau, name='w')  # mixture weights
+        fix_mix_op = tf.assign(tau, zeros_K)  # op that resets mixing weights to uniform
 
         bfe = aux_obj = 0
         if g.Nd > 0:
@@ -161,7 +163,7 @@ class OneShot:
             return grads_and_vars, grads_update
 
     def run(self, its=100, lr=5e-2, tf_session=None, optimizer=None, trainable_params=None, grad_check=False,
-            logging_itv=10):
+            logging_itv=10, fix_mix_its=0):
         """
         Launch tf training session and optimize the BFE, to get optimal mixture belief params.
         :param its:
@@ -169,6 +171,10 @@ class OneShot:
         :param tf_session:
         :param optimizer:
         :param trainable_params:
+        :param grad_check: if True, will only run one iteration, print gradients, then return
+        :param logging_itv: log to console every this many its
+        :param fix_mix_its: fix mixing weights to uniform for this many initial iterations; defaul = 0, i.e., mixing
+        weights are never fixed; set to 'all' (or its) to keep the mixing weights always at uniform
         :return:
         """
         g = self.g
@@ -178,6 +184,8 @@ class OneShot:
             optimizer = tf.train.AdamOptimizer(lr)
         if trainable_params is None:  # means all params are trainable
             trainable_params = tf.trainable_variables()
+        if fix_mix_its == 'all':
+            fix_mix_its = its
 
         # grads_and_vars = optimizer.compute_gradients(aux_obj, var_list=trainable_params)
         # # clip gradients if needed
@@ -232,6 +240,9 @@ class OneShot:
                 bfe_, grads_and_vars_, _ = sess.run([bfe, grads_and_vars, grads_update])
 
             sess.run(clip_op)  # does nothing if no cont nodes
+            if it < fix_mix_its:
+                sess.run(self.fix_mix_op)
+
             avg_grads = []
             for i in range(len(grads_and_vars_)):
                 grad = grads_and_vars_[i][0]
