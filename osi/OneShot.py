@@ -10,7 +10,6 @@ from mixture_beliefs import hfactor_bfe_obj, dfactor_bfe_obj, drv_bfe_obj, drvs_
 import utils
 
 utils.set_path()
-from MLNPotential import MLNPotential
 
 
 class OneShot:
@@ -35,9 +34,7 @@ class OneShot:
         # g.init_nb()  # caller should have always run this (or done sth similar) to ensure g is well defined!
         for f in g.factors_list:
             if f.log_potential_fun is None:
-                assert isinstance(f.potential,
-                                  MLNPotential), 'currently can only get log_potential_fun from MLNPotential'
-                f.log_potential_fun = utils.get_log_potential_fun_from_MLNPotential(f.potential)
+                f.log_potential_fun = utils.get_log_potential_fun_from_Potential(f.potential)
 
         tf.reset_default_graph()  # clear existing
         if seed is not None:  # note that seed that has been set prior to tf.reset_default_graph will be invalidated

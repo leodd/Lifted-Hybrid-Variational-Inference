@@ -53,6 +53,60 @@ def get_log_potential_fun_from_MLNPotential(potential):
     return f
 
 
+def get_log_potential_fun_from_GaussianPotential(potential):
+    """
+    Extract the log potential function from a given GaussianPotential object
+    :param potential:
+    :return:
+    """
+    mu = potential.mu
+    sig_inv = potential.inv
+    log_coef = np.log(potential.coefficient)  # optional; can be absorbed into log Z
+    p = len(mu)  # num args
+
+    def f(args):
+        """
+        Gaussian log potential fun; -0.5 ((x-mu)^T * Sig_inv * (x-mu)) + log_coef
+        :param args:
+        :return:
+        """
+        quad_form = 0
+        diffs = [None] * p
+        for i in range(p):
+            diffs[i] = args[i] - mu[i]
+
+        for i in range(p):
+            for j in range(i, p):
+                sig_inv_coef = sig_inv[i, j]
+                if i == j:  # diagonal terms only counted once
+                    quad_form -= 0.5 * sig_inv_coef * diffs[i] ** 2
+                else:  # strictly upper triangular terms counted twice
+                    quad_form -= sig_inv_coef * (diffs[i] * diffs[j])
+
+        res = quad_form + log_coef
+        return res
+
+    f.potential_obj = potential  # ref for convenience
+    return f
+
+
+def get_log_potential_fun_from_Potential(potential):
+    """
+    Extract the log potential function (callable) from a given Potential object
+    :param potential:
+    :return:
+    """
+    from MLNPotential import MLNPotential
+    from Potential import GaussianPotential
+    allowed_Potentials = [MLNPotential, GaussianPotential]
+    assert type(potential) in allowed_Potentials, 'currenctly only support %s' % (str(allowed_Potentials))
+    if type(potential) == MLNPotential:
+        log_potential_fun = get_log_potential_fun_from_MLNPotential(potential)
+    elif type(potential) == GaussianPotential:
+        log_potential_fun = get_log_potential_fun_from_GaussianPotential(potential)
+    return log_potential_fun
+
+
 def outer_prod_einsum_equation(ndim, common_first_ndims=0):
     """
     Get the einsum equation for n-dimensional outer/tensor product, of n vectors v1, v2, ..., vn
