@@ -49,9 +49,14 @@ f2 = ParamF(
     MLNPotential(lambda x: x[0] * eq_op(x[1], x[2]), w=0.01), nb=(atom_C, atom_A, atom_B)
 )
 
+f3 = ParamF(
+    MLNPotential(lambda atom: -0.1 * atom[0] ** 2),  # just to help ensure normalizability
+    nb=[atom_A]
+)
+
 rel_g = RelationalGraph()
 rel_g.atoms = (atom_A, atom_B, atom_C, atom_D, atom_E)
-rel_g.param_factors = (f1, f2)
+rel_g.param_factors = (f1, f2, f3)
 rel_g.init_nb()
 
 num_tests = 2  # num rounds with different queries
@@ -122,10 +127,10 @@ for _ in range(num_tests):
 
     name = 'OSI'
     res = np.zeros((len(key_list), num_runs))
-    osi = OneShot(g=g, K=5, T=8, seed=seed)  # can be moved outside of all loops, as the ground MRF doesn't change
+    osi = OneShot(g=g, K=5, T=20, seed=seed)  # can be moved outside of all loops, as the ground MRF doesn't change
     for j in range(num_runs):
         start_time = time.process_time()
-        osi.run(lr=0.05, its=200)
+        osi.run(lr=0.1, its=200)
         time_cost[name] = (time.process_time() - start_time) / num_runs / num_tests + time_cost.get(name, 0)
         print(name, f'time {time.process_time() - start_time}')
         for i, key in enumerate(key_list):
