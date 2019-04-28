@@ -42,54 +42,6 @@ def weighted_feature_fun(feature_fun, weight):
     return wf
 
 
-def get_log_potential_fun_from_MLNPotential(potential):
-    """
-    Extract the log potential function from a given MLNPotential object
-    :param potential: an instance of MLNPotential
-    :return:
-    """
-    f = weighted_feature_fun(potential.formula, potential.w)
-    f.potential_obj = potential  # ref for convenience
-    return f
-
-
-def get_log_potential_fun_from_GaussianPotential(potential):
-    """
-    Extract the log potential function from a given GaussianPotential object
-    :param potential:
-    :return:
-    """
-    mu = potential.mu
-    sig_inv = potential.inv
-    log_coef = np.log(potential.coefficient)  # optional; can be absorbed into log Z
-    p = len(mu)  # num args
-
-    def f(args):
-        """
-        Gaussian log potential fun; -0.5 ((x-mu)^T * Sig_inv * (x-mu)) + log_coef
-        :param args:
-        :return:
-        """
-        quad_form = 0
-        diffs = [None] * p
-        for i in range(p):
-            diffs[i] = args[i] - mu[i]
-
-        for i in range(p):
-            for j in range(i, p):
-                sig_inv_coef = sig_inv[i, j]
-                if i == j:  # diagonal terms only counted once
-                    quad_form -= 0.5 * sig_inv_coef * diffs[i] ** 2
-                else:  # strictly upper triangular terms counted twice
-                    quad_form -= sig_inv_coef * (diffs[i] * diffs[j])
-
-        res = quad_form + log_coef
-        return res
-
-    f.potential_obj = potential  # ref for convenience
-    return f
-
-
 def get_log_potential_fun_from_Potential(potential):
     """
     Extract the log potential function (callable) from a given Potential object
@@ -101,9 +53,38 @@ def get_log_potential_fun_from_Potential(potential):
     allowed_Potentials = [MLNPotential, GaussianPotential]
     assert type(potential) in allowed_Potentials, 'currenctly only support %s' % (str(allowed_Potentials))
     if type(potential) == MLNPotential:
-        log_potential_fun = get_log_potential_fun_from_MLNPotential(potential)
+        log_potential_fun = weighted_feature_fun(potential.formula, potential.w)
     elif type(potential) == GaussianPotential:
-        log_potential_fun = get_log_potential_fun_from_GaussianPotential(potential)
+        mu = potential.mu
+        sig_inv = potential.inv
+        log_coef = np.log(potential.coefficient)  # optional; can be absorbed into log Z
+        p = len(mu)  # num args
+
+        def log_potential_fun(args):
+            """
+            Gaussian log potential fun; -0.5 ((x-mu)^T * Sig_inv * (x-mu)) + log_coef
+            :param args:
+            :return:
+            """
+            quad_form = 0
+            diffs = [None] * p
+            for i in range(p):
+                diffs[i] = args[i] - mu[i]
+
+            for i in range(p):
+                for j in range(i, p):
+                    sig_inv_coef = sig_inv[i, j]
+                    if i == j:  # diagonal terms only counted once
+                        quad_form -= 0.5 * sig_inv_coef * diffs[i] ** 2
+                    else:  # strictly upper triangular terms counted twice
+                        quad_form -= sig_inv_coef * (diffs[i] * diffs[j])
+
+            res = quad_form + log_coef
+            return res
+    else:
+        raise NotImplementedError
+
+    log_potential_fun.potential = potential  # ref for convenience
     return log_potential_fun
 
 
