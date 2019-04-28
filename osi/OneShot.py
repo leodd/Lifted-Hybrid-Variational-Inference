@@ -249,7 +249,7 @@ class OneShot:
             it_record = dict(zip(gvnames, avg_grads))
             it_record['bfe'] = bfe_
             it_record['t'] = it
-            if it % logging_itv == 0:
+            if it % logging_itv == 0 or it + 1 == its:
                 for key in sorted(it_record.keys()):
                     print('%s: %g, ' % (key, it_record[key]), end='')
                 print(sess.run(w))

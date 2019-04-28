@@ -90,9 +90,10 @@ for _ in range(num_test):
     T = 20
     # lr = 1e-1
     lr = 5e-1
-    its = 500
+    its = 600
     # fix_mix_its = int(its * 0.1)
-    fix_mix_its = int(its * 1.0)
+    # fix_mix_its = int(its * 1.0)
+    fix_mix_its = 500
     logging_itv = 50
     osi = OneShot(g=g, K=K, T=T, seed=seed)
     start_time = time.process_time()
