@@ -49,14 +49,20 @@ f2 = ParamF(
     MLNPotential(lambda x: x[0] * eq_op(x[1], x[2]), w=0.01), nb=(atom_C, atom_A, atom_B)
 )
 
+prior_strength = 0.05
 f3 = ParamF(
-    MLNPotential(lambda atom: -0.1 * atom[0] ** 2),  # just to help ensure normalizability
+    MLNPotential(lambda atom: -prior_strength * atom[0] ** 2),  # ensure normalizability
     nb=[atom_A]
+)
+
+f4 = ParamF(
+    MLNPotential(lambda atom: -prior_strength * (atom[0] - 5) ** 2),  # ensure normalizability
+    nb=[atom_B]
 )
 
 rel_g = RelationalGraph()
 rel_g.atoms = (atom_A, atom_B, atom_C, atom_D, atom_E)
-rel_g.param_factors = (f1, f2, f3)
+rel_g.param_factors = (f1, f2, f3, f4)
 rel_g.init_nb()
 
 num_tests = 2  # num rounds with different queries
@@ -116,6 +122,7 @@ for _ in range(num_tests):
         print(name, f'time {time.process_time() - start_time}')
         for i, key in enumerate(key_list):
             res[i, j] = bp.map(rvs_table[key])
+        print(res[:, j])
     for i, key in enumerate(key_list):
         ans[key] = np.average(res[i, :])
     for i, key in enumerate(key_list):
@@ -140,6 +147,9 @@ for _ in range(num_tests):
         print(name, f'time {time.process_time() - start_time}')
         for i, key in enumerate(key_list):
             res[i, j] = osi.map(rvs_table[key])
+        print(res[:, j])
+        # print(osi.params)
+        print('Mu =\n', osi.params['Mu'], '\nVar =\n', osi.params['Var'])
     for i, key in enumerate(key_list):
         res[i, :] -= ans[key]
     avg_diff[name] = np.average(np.average(abs(res), axis=1)) / num_tests + avg_diff.get(name, 0)
