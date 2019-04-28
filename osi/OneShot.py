@@ -294,20 +294,20 @@ class OneShot:
         result = {'record': record, **params}
         return result
 
-    def map(self, rv):
+    def map(self, query_rv):
         """
         Toy method for testing marginal MAP. Can be inefficient b/c cond_w is recomputed every time
-        :param rv:
+        :param query_rv:
         :return:
         """
-        if rv.value is None:
+        if query_rv.value is None:
             w = self.params['w']
             g = self.g
             obs_rvs = [v for v in g.rvs if v.value is not None]
             X = np.array([v.value for v in obs_rvs])
-            out = marginal_map(X=X, obs_rvs=obs_rvs, query_rv=rv, w=w)
+            out = marginal_map(X=X, obs_rvs=obs_rvs, query_rv=query_rv, w=w)
         else:
-            out = rv.value
+            out = query_rv.value
         return out
 
 
@@ -337,18 +337,18 @@ class LiftedOneShot(OneShot):
 
         return res
 
-    def map(self, rv):
+    def map(self, query_rv):
         """
         Toy method for testing marginal MAP. Can be inefficient b/c cond_w is recomputed every time
-        :param rv:
+        :param query_rv:
         :return:
         """
-        if rv.value is None:
+        if query_rv.value is None:
             w = self.params['w']
             g = self.orig_g
             obs_rvs = [v for v in g.rvs if v.value is not None]
             X = np.array([v.value for v in obs_rvs])
-            out = marginal_map(X=X, obs_rvs=obs_rvs, query_rv=rv, w=w)
+            out = marginal_map(X=X, obs_rvs=obs_rvs, query_rv=query_rv, w=w)  # relies on belief_params of rvs in orig_g
         else:
-            out = rv.value
+            out = query_rv.value
         return out

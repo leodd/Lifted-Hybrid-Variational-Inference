@@ -453,7 +453,9 @@ def eval_drvs_comp_prob(X, Pi):
 
 def get_obs_rvs_domain_types_and_params(obs_rvs, all_rvs_params=None, Vc_idx=None, Vd_idx=None):
     """
-
+    Extract the needed obs_rvs_domain_types and obs_rvs_params for _calc_marg_comp_log_prob
+    Will try extracting obs_rvs_params from all_rvs_params first; fall back to the .belief_params attributes
+    of obs_rvs, if all_rvs_params not provided.
     :param obs_rvs:
     :param all_rvs_params:
     :param g:
@@ -531,43 +533,6 @@ def _calc_marg_comp_log_prob(X, obs_rvs_domain_types, obs_rvs_params):
         comp_log_probs = comp_log_probs[0]  # K
 
     return comp_log_probs
-
-
-def _calc_marg_log_prob(X, obs_rvs_domain_types, obs_rvs_params, w):
-    """
-    A version of calc_marg_log_prob that directly takes in necessary data (instead of container objects).
-    :param X: M x N_o matrix of (partial) observations, where N_o is the number of obs nodes; alternatively a N_o vector
-    :param obs_rvs_domain_types: length N_o list of the domain type ('c' or 'd') of observed rvs, same order as obs in X
-    :param obs_rvs_params: dict of params of observed rvs for evaluating the marginal probabilities. If obs_rvs contains N_oc
-    continuous rvs (assumed Gaussian), then params should contain 'Mu' and 'Var' each of shape N_oc x K, such that
-    Mu[i], Var[i] are the params of the ith continuous observed rv; similarly if obs_rvs contains N_od discrete rvs,
-    params should contain 'Pi', an iterable of shapes [K x V1, K x V2, ... ], of length N_od (which could be a numpy
-    array of shape N_od x K x V in case all the observed drvs take on V states)
-    :return: M-vector (or a scalar if X is a N_o-vector)
-    """
-    comp_log_probs = _calc_marg_comp_log_prob(X, obs_rvs_domain_types, obs_rvs_params)  # M x K
-    out = utils.logsumexp(np.log(w) + comp_log_probs, axis=-1)  # reduce along the last dimension
-    return out
-
-
-def _calc_cond_mixture_weights(X, obs_rvs_domain_types, obs_rvs_params, w):
-    """
-    A version of calc_marg_log_prob that directly takes in necessary data (instead of container objects).
-    Calculate mixture weights of the new mixture produced by conditioning on observations;
-    i.e., given current weights w, calc w', such that p(x_h|x_o) = \sum_k w'[k] p_k(x_h) =
-    = \sum_k {w[k]*p_k(x_o) / p(x_o)} p_k(x_h) = \sum_k {w[k]*p_k(x_o) / (\sum_j w[j]*p_j(x_o))} p_k(x_h)
-    :param X: M x N_o matrix of (partial) observations, where N_o is the number of obs nodes; alternatively a N_o vector
-    :param obs_rvs_domain_types: length N_o list of the domain type ('c' or 'd') of observed rvs, same order as obs in X
-    :param obs_rvs_params: dict of params of observed rvs for evaluating the marginal probabilities. If obs_rvs contains N_oc
-    continuous rvs (assumed Gaussian), then params should contain 'Mu' and 'Var' each of shape N_oc x K, such that
-    Mu[i], Var[i] are the params of the ith continuous observed rv; similarly if obs_rvs contains N_od discrete rvs,
-    params should contain 'Pi', an iterable of shapes [K x V1, K x V2, ... ], of length N_od (which could be a numpy
-    array of shape N_od x K x V in case all the observed drvs take on V states)
-    :return: M x K (or a K-vector if X is a N_o-vector)
-    """
-    comp_log_probs = _calc_marg_comp_log_prob(X, obs_rvs_domain_types, obs_rvs_params)  # M x K
-    cond_mixture_weights = utils.softmax(np.log(w) + comp_log_probs, axis=-1)  # M x K
-    return cond_mixture_weights
 
 
 def calc_marg_comp_log_prob(X, obs_rvs, all_rvs_params=None, g=None):

@@ -43,14 +43,7 @@ def log_potential_fun(xs):
 d = Domain([0, 1], continuous=False)
 
 N = 4
-# rvs = []
-# for i in range(N):
-#     rvs.append(RV(d))
 rvs = [RV(d) for n in range(N)]
-
-# fs = []
-# for i in range(N - 1):
-#     fs.append(F(potential=p1, log_potential_fun=log_potential_fun, nb=(rvs[i], rvs[i + 1])))
 fs = [F(potential=p1, log_potential_fun=log_potential_fun, nb=(rvs[i], rvs[i + 1])) for i in range(N - 1)]
 g = Graph()
 g.rvs = rvs
@@ -73,7 +66,6 @@ print('with lifting')
 osi = LiftedOneShot(g=cg, K=K, T=T, seed=seed)
 res = osi.run(lr=lr, its=its)
 w = res['w']
-w_row = w[None, :]
 for rv in sorted(cg.rvs):
     print(rv)
     print(rv.rvs)
@@ -96,7 +88,6 @@ print('no lifting')
 osi = OneShot(g=g, K=K, T=T, seed=seed)
 res = osi.run(lr=lr, its=its)
 w = res['w']
-w_row = w[None, :]
 for rv in sorted(g.rvs):
     print(rv)
     params = rv.belief_params
