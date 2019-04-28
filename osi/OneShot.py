@@ -133,7 +133,7 @@ class OneShot:
                 delta_bfe, delta_aux_obj = dfactors_bfe_obj(factors, w)
             else:
                 assert factor.domain_type in ('c', 'h')
-                delta_bfe, delta_aux_obj = hfactors_bfe_obj(factors, T, w)
+                delta_bfe, delta_aux_obj = hfactors_bfe_obj(factors, T, w, dtype=dtype)
             bfe += delta_bfe
             aux_obj += delta_aux_obj
 

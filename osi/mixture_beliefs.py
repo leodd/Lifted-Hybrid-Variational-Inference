@@ -34,7 +34,7 @@ def get_hfactor_expectation_coefs_points(factor, K, T, dtype='float64'):
     for rv in factor.nb:
         if rv.domain_type == 'd':  # discrete
             c = rv.belief_params_['pi']  # K x dstates[i] matrix (tf); will be put under stop_gradient later
-            a = np.tile(np.reshape(rv.values, [1, -1]), [K, 1])  # K x dstates[i] (identical rows); currently not used
+            a = np.tile(np.reshape(rv.values, [1, -1]), [K, 1])  # K x dstates[i] (last dimension repeated)
             a = tf.constant(a, dtype=dtype)  # otherwise tf complains about multiplying int tensor with float tensor
         elif rv.domain_type == 'c':  # cont, assuming Gaussian for now
             c = ghq_weights_KT
@@ -129,22 +129,6 @@ def eval_hfactors_belief(factors, axes, w):
     comp_probs = []
     factor = factors[0]
     n = len(factor.nb)
-    # rvs_domain_types = [rv.domain_type for rv in factor.nb]  # type of rvs (h/d/c) in each factor (same for all factors)
-    # rvs_params_across_factors = [None] * n  # alternatively, can grab the params by indexing into global Pi and Mu/Var
-    # for i, domain_type in enumerate(rvs_domain_types):
-    #     factors_ith_nb = [factor.nb[i] for factor in factors]  # the ith neighbor (rv in clique) across all factors
-    #     params = {}
-    #     if domain_type == 'd':
-    #         params['Pi'] = tf.stack([rv.belief_params_['pi'] for rv in factors_ith_nb],
-    #                                 axis=0)  # C x K x Vi, where Vi is the number of dstates of factor.nb[i]
-    #     elif domain_type == 'c':
-    #         params['Mu'] = tf.stack([rv.belief_params_['mu'] for rv in factors_ith_nb], axis=0)  # C x K
-    #         params['Var'] = tf.stack([rv.belief_params_['var'] for rv in factors_ith_nb], axis=0)  # C x K
-    #     else:
-    #         raise NotImplementedError
-    #     rvs_params_across_factors[i] = params
-
-    # for i, rv in enumerate(factor.nb):
     rvs_domain_types = [rv.domain_type for rv in factor.nb]  # type of rvs (h/d/c) in each factor (same for all factors)
     for i, domain_type in enumerate(rvs_domain_types):
         factors_ith_nb = [factor.nb[i] for factor in factors]  # the ith neighbor (rv in clique) across all factors
@@ -174,7 +158,7 @@ def eval_hfactors_belief(factors, axes, w):
     return tf.reduce_sum(w_broadcast * joint_comp_probs, axis=0)  # C x M x V1 x V2 x ... Vn
 
 
-def hfactors_bfe_obj(factors, T, w):
+def hfactors_bfe_obj(factors, T, w, dtype='float64'):
     """
     Get the contribution to the BFE from multiple hybrid (or continuous) factors that have the same potential function.
     :param factors: length C list of factor objects that have the same potential function (hence the same types of
@@ -188,26 +172,69 @@ def hfactors_bfe_obj(factors, T, w):
     factor = factors[0]
     n = len(factor.nb)
 
-    factors_coefs = [None] * C
-    factors_axes = [None] * C
-    for c, factor in enumerate(factors):
-        coefs, axes = get_hfactor_expectation_coefs_points(factor, K, T)  # [[K, V1], [K, V2], ..., [K, Vn]]
-        factors_coefs[c] = coefs
-        factors_axes[c] = axes
+    ghq_points, ghq_weights = roots_hermite(T)  # assuming Gaussian for now
+    ghq_coef = (np.pi) ** (-0.5)  # from change-of-var
+    ghq_weights = ghq_coef * ghq_weights  # let's fold ghq_coef into the quadrature weights, so no need to worry about it later
+    ghq_weights = tf.constant(ghq_weights, dtype=dtype)
+    ghq_weights_CKT = tf.tile(tf.reshape(ghq_weights, [1, 1, T]), [C, K, 1])  # C x K x T
 
-    coefs = [tf.stack([coefs[i] for coefs in factors_coefs], axis=0)
-             for i in range(n)]  # [[C, K, V1], [C, K, V2], ..., [C, K, Vn]]
-    axes = [tf.stack([axes[i] for axes in factors_axes], axis=0)
-            for i in range(n)]  # [[C, K, V1], [C, K, V2], ..., [C, K, Vn]]
+    coefs = [None] * n  # will be [[C, K, V1], [C, K, V2], ..., [C, K, Vn]]
+    axes = [None] * n  # will be [[C, K, V1], [C, K, V2], ..., [C, K, Vn]]
+
+    rvs_domain_types = [rv.domain_type for rv in factor.nb]  # type of rvs (h/d/c) in each factor (same for all factors)
+    comp_probs = []  # for evaluating beliefs along the way
+    for i, domain_type in enumerate(rvs_domain_types):
+        factors_ith_nb = [factor.nb[i] for factor in factors]  # the ith neighbor (rv in clique) across all factors
+        if domain_type == 'd':
+            rv = factor.nb[i]
+            c = tf.stack([rv.belief_params_['pi'] for rv in factors_ith_nb],
+                         axis=0)  # C x K x Vi, where Vi is the number of dstates of factor.nb[i]
+
+            coefs[i] = c  # the prob params are exactly the inner-prod coefficients in expectations
+            a = np.tile(np.reshape(rv.values, [1, 1, -1]),
+                        [C, K, 1])  # C x K x dstates[i] (last dimension repeated)
+            a = tf.constant(a, dtype=dtype)  # otherwise tf complains about multiplying int tensor with float tensor
+            axes[i] = a
+
+            # eval_hfactors_belief
+            # comp_prob = tf.stack([rv.belief_params_['pi'] for rv in factors_ith_nb],
+            #                      axis=1)  # K x C x Vi, where Vi is the number of dstates of factor.nb[i]
+            comp_prob = tf.transpose(c, [1, 0, 2])  # K x C x Vi
+            comp_prob = comp_prob[:, :, None, :]  # K x C x 1 x Vi
+            comp_prob = tf.tile(comp_prob, [1, 1, K, 1])  # K x C x M(=K) x Vi; same for all M(=K) axes
+        elif domain_type == 'c':
+            Mu_CK = tf.stack([rv.belief_params_['mu'] for rv in factors_ith_nb], axis=0)  # C x K
+            Var_CK = tf.stack([rv.belief_params_['var'] for rv in factors_ith_nb], axis=0)  # C x K
+            coefs[i] = ghq_weights_CKT
+            a = (2 * Var_CK[:, :, None]) ** 0.5 * ghq_points + Mu_CK[:, :, None]  # C x K x T
+            a = tf.stop_gradient(a)  # don't want to differentiate w.r.t. evaluation points
+            axes[i] = a
+
+            # eval_hfactors_belief
+            Mu_KC11 = tf.transpose(Mu_CK)[:, :, None, None]  # K x C x 1 x 1
+            Var_inv_KC11 = tf.stack([rv.belief_params_['var_inv_K1'] for rv in factors_ith_nb], axis=1)[:, :, None]
+            # eval pdf of axes[i] under all K scalar comps of ith nodes in all the cliques; result is K x C x M(=K) x Vi
+            comp_prob = (2 * np.pi) ** (-0.5) * tf.sqrt(Var_inv_KC11) * \
+                        tf.exp(-0.5 * (axes[i] - Mu_KC11) ** 2 * Var_inv_KC11)
+        else:
+            raise NotImplementedError
+        comp_probs.append(comp_prob)
+
+    # eval_hfactors_belief
+    # multiply all dimensions together, then weigh by w
+    einsum_eq = utils.outer_prod_einsum_equation(len(factor.nb), common_first_ndims=3)
+    joint_comp_probs = tf.einsum(einsum_eq, *comp_probs)  # K x C x M x V1 x V2 x ... Vn
+    w_broadcast = tf.reshape(w, [K] + [1] * (len(factor.nb) + 2))
+    belief = tf.reduce_sum(w_broadcast * joint_comp_probs, axis=0)  # C x M x V1 x V2 x ... Vn
+    # above replaces the call belief = eval_hfactors_belief(factors, axes, w)  # C x K x V1 x V2 x ... Vn
+
     einsum_eq = utils.outer_prod_einsum_equation(n, common_first_ndims=2)
     coefs = tf.einsum(einsum_eq, *coefs)  # C x K x V1 x V2 x ... Vn; C x K grids of Hadamard products
 
-    w_broadcast = tf.reshape(w, [-1] + [1] * n)  # K x 1 x 1 ... x 1
-
-    belief = eval_hfactors_belief(factors, axes, w)  # C x K x V1 x V2 x ... Vn
     lpot = utils.eval_fun_grid(factor.log_potential_fun, arrs=axes)  # C x K x V1 x V2 x ... Vn
     log_belief = tf.log(belief)
     F = -lpot + log_belief
+    w_broadcast = tf.reshape(w, [-1] + [1] * n)  # K x 1 x 1 ... x 1
     prod = tf.stop_gradient(w_broadcast * coefs * F)  # weighted component-wise Hadamard products for C x K expectations
     factors_bfes = tf.reduce_sum(prod, axis=list(range(1, n + 2)))  # reduce the last (n+1) dimensions
     factors_aux_objs = tf.reduce_sum(prod * log_belief, axis=list(range(1, n + 2)))  # reduce the last (n+1) dimensions
