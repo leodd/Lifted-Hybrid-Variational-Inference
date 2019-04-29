@@ -16,7 +16,8 @@ utils.set_seed(seed=seed)
 instance_category = []
 instance_bank = []
 # for i in range(100):
-for i in range(50):
+# for i in range(50):
+for i in range(10):
     instance_category.append(f'c{i}')
 for i in range(5):
     instance_bank.append(f'b{i}')
@@ -84,7 +85,7 @@ for _ in range(num_test):
     for key in key_list:
         if key not in data:
             ans[key] = bp.map(rvs_table[key])
-
+    print(ans)
     name = 'OSI'
     K = 10
     T = 20
@@ -102,9 +103,12 @@ for _ in range(num_test):
     time_cost[name] = (time.process_time() - start_time) / num_test + time_cost.get(name, 0)
     print(name, f'time {time.process_time() - start_time}')
     err = []
+    pred = {}
     for key in key_list:
         if key not in data:
+            pred[key] = osi.map(rvs_table[key])
             err.append(abs(osi.map(rvs_table[key]) - ans[key]))
+    print(pred)
     avg_err[name] = np.average(err) / num_test + avg_err.get(name, 0)
     max_err[name] = np.max(err) / num_test + max_err.get(name, 0)
     err_var[name] = np.average(err) ** 2 / num_test + err_var.get(name, 0)
@@ -125,7 +129,9 @@ for _ in range(num_test):
     err = []
     for key in key_list:
         if key not in data:
+            pred[key] = osi.map(rvs_table[key])
             err.append(abs(osi.map(rvs_table[key]) - ans[key]))
+    print(pred)
     avg_err[name] = np.average(err) / num_test + avg_err.get(name, 0)
     max_err[name] = np.max(err) / num_test + max_err.get(name, 0)
     err_var[name] = np.average(err) ** 2 / num_test + err_var.get(name, 0)
@@ -141,7 +147,9 @@ for _ in range(num_test):
     err = []
     for key in key_list:
         if key not in data:
+            pred[key] = bp.map(rvs_table[key])
             err.append(abs(bp.map(rvs_table[key]) - ans[key]))
+    print(pred)
     avg_err[name] = np.average(err) / num_test + avg_err.get(name, 0)
     max_err[name] = np.max(err) / num_test + max_err.get(name, 0)
     err_var[name] = np.average(err) ** 2 / num_test + err_var.get(name, 0)
