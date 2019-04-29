@@ -242,8 +242,8 @@ class EPBP:
 
         # BP iteration
         for i in range(iteration):
+            print(f'iteration: {i + 1}')
             if log_enable:
-                print(f'iteration: {i + 1}')
                 time_start = time.clock()
             # calculate messages from rv to f
             for rv in self.g.rvs:

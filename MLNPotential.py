@@ -35,11 +35,3 @@ class MLNPotential(Potential):
 
     def get(self, parameters):
         return e ** (self.formula(parameters) * self.w)
-
-
-class MLNNodePotential(Potential):
-    def __init__(self):
-        Potential.__init__(self, symmetric=False)
-
-    def get(self, parameters):
-        return e ** (0 if 0 <= parameters[0] <= 1 else -10)

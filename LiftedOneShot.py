@@ -1,3 +1,4 @@
+from CompressedGraph import CompressedGraph
 import numpy as np
 from numpy.polynomial.hermite import hermgauss
 from math import sqrt, pi, e, log
@@ -8,7 +9,8 @@ class OneShot:
     var_threshold = 1
 
     def __init__(self, g, num_mixtures=5, num_quadrature_points=3):
-        self.g = g
+        self.g = CompressedGraph(g)
+        self.g.run()
         self.init_rv()
 
         self.K = num_mixtures
@@ -81,7 +83,7 @@ class OneShot:
             for k in range(self.K):
                 arg = (True, self.eta[rv][k]) if rv.domain.continuous else (False, (rv.domain.values, self.eta[rv][k]))
 
-                g_w[k] -= self.expectation(f_w, arg)
+                g_w[k] -= len(rv.rvs) * self.expectation(f_w, arg)
 
         for f in self.g.factors:
             if len(f.nb) > 1:
@@ -96,7 +98,7 @@ class OneShot:
                         else:
                             args.append((False, (rv.domain.values, self.eta[rv][k])))
 
-                    g_w[k] -= self.expectation(f_w, *args)
+                    g_w[k] -= len(f.factors) * self.expectation(f_w, *args)
 
         return self.w * (g_w - np.sum(g_w * self.w))
 
@@ -164,15 +166,15 @@ class OneShot:
                     g_c[k, d] -= log(phi.potential.get((xi,))) - (1 - rv.N) * log(self.rvs_belief([xi], [rv]))
 
             for f in rv.nb:
+                idx = f.nb.index(rv)
                 args = list()
-                for rv_ in f.nb:
-                    if rv_ is not rv:
+                for i, rv_ in enumerate(f.nb):
+                    if i is not idx:
                         if rv.domain.continuous:
                             args.append((True, self.eta[rv_][k]))
                         else:
                             args.append((False, (rv.domain.values, self.eta[rv_][k])))
 
-                idx = f.nb.index(rv)
                 for d, xi in enumerate(rv.domain.values):
                     if len(f.nb) > 1:
                         def f_c(x):
@@ -200,7 +202,7 @@ class OneShot:
             for k in range(self.K):
                 arg = (True, self.eta[rv][k]) if rv.domain.continuous else (False, (rv.domain.values, self.eta[rv][k]))
 
-                energy -= self.w[k] * self.expectation(f_bfe, arg)
+                energy -= len(rv.rvs) * self.w[k] * self.expectation(f_bfe, arg)
 
         for f in self.g.factors:
             if len(f.nb) > 1:
@@ -215,7 +217,7 @@ class OneShot:
                         else:
                             args.append((False, (rv.domain.values, self.eta[rv][k])))
 
-                    energy -= self.w[k] * self.expectation(f_bfe, *args)
+                    energy -= len(f.factors) * self.w[k] * self.expectation(f_bfe, *args)
 
         return energy
 
@@ -285,9 +287,9 @@ class OneShot:
         # compute condition weight
         self.condition_weight = np.copy(self.w)
 
-        for rv in self.g.rvs:
+        for rv in self.g.g.rvs:
             if rv.value is not None:
-                eta = self.eta[rv]
+                eta = self.eta[rv.cluster]
 
                 if rv.domain.continuous:
                     for k in range(self.K):
@@ -302,7 +304,7 @@ class OneShot:
     def belief(self, x, rv):
         if rv.value is None:
             b = np.copy(self.condition_weight)
-            eta = self.eta[rv]
+            eta = self.eta[rv.cluster]
 
             if rv.domain.continuous:
                 for k in range(self.K):
@@ -320,7 +322,7 @@ class OneShot:
         if rv.value is None:
             if rv.domain.continuous:
                 p = dict()
-                for x in self.eta[rv][:, 0]:
+                for x in self.eta[rv.cluster][:, 0]:
                     p[x] = self.belief(x, rv)
                 res = max(p.keys(), key=(lambda k: p[k]))
             else:

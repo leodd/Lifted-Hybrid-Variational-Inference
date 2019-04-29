@@ -64,7 +64,7 @@ print(rvs_table)
 #     if rv.value is None:  # only test non-evidence nodes
 #         print(key, osi.map(rv))
 
-from OneShot import OneShot
+from LiftedOneShot import OneShot
 
 # np.random.seed(9)
 osi = OneShot(g, num_mixtures=10, num_quadrature_points=8)
