@@ -7,11 +7,11 @@ from EPBPLogVersion import EPBP
 from GaBP import GaBP
 import numpy as np
 import time
-from OneShot import OneShot
+from OneShot import OneShot, LiftedOneShot
+from CompressedGraphSorted import CompressedGraphSorted
 
 seed = 0
 utils.set_seed(seed=seed)
-
 
 instance_category = []
 instance_bank = []
@@ -96,6 +96,27 @@ for _ in range(num_test):
     fix_mix_its = 500
     logging_itv = 50
     osi = OneShot(g=g, K=K, T=T, seed=seed)
+    start_time = time.process_time()
+    osi.run(lr=lr, its=its, fix_mix_its=fix_mix_its, logging_itv=logging_itv)
+    print('Mu =\n', osi.params['Mu'], '\nVar =\n', osi.params['Var'])
+    time_cost[name] = (time.process_time() - start_time) / num_test + time_cost.get(name, 0)
+    print(name, f'time {time.process_time() - start_time}')
+    err = []
+    for key in key_list:
+        if key not in data:
+            err.append(abs(osi.map(rvs_table[key]) - ans[key]))
+    avg_err[name] = np.average(err) / num_test + avg_err.get(name, 0)
+    max_err[name] = np.max(err) / num_test + max_err.get(name, 0)
+    err_var[name] = np.average(err) ** 2 / num_test + err_var.get(name, 0)
+    print(name, f'avg err {np.average(err)}')
+    print(name, f'max err {np.max(err)}')
+
+    name = 'LOSI'
+    cg = CompressedGraphSorted(g)
+    cg.run()
+    print('number of rvs in cg', len(cg.rvs))
+    print('number of factors in cg', len(cg.factors))
+    osi = LiftedOneShot(g=cg, K=K, T=T, seed=seed)
     start_time = time.process_time()
     osi.run(lr=lr, its=its, fix_mix_its=fix_mix_its, logging_itv=logging_itv)
     print('Mu =\n', osi.params['Mu'], '\nVar =\n', osi.params['Var'])
