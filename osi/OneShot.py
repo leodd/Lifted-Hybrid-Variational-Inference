@@ -60,9 +60,10 @@ class OneShot:
                                   name='Rho')  # dnode categorical prob logits
                 Pi = tf.nn.softmax(Rho, name='Pi')
             else:  # general case when each dnode can have different num states
-                Rho = [tf.Variable(tf.zeros([K, rv.dstates], dtype=dtype), trainable=True, name='Rho_%d' % i) for
-                       (i, rv) in
-                       enumerate(g.Vd)]  # dnode categorical prob logits
+                # Rho = [tf.Variable(tf.zeros([K, rv.dstates], dtype=dtype), trainable=True, name='Rho_%d' % i) for
+                #        (i, rv) in enumerate(g.Vd)]  # dnode categorical prob logits
+                Rho = [tf.Variable(tf.random_normal([K, rv.dstates], dtype=dtype), trainable=True, name='Rho_%d' % i)
+                       for (i, rv) in enumerate(g.Vd)]  # dnode categorical prob logits
                 Pi = [tf.nn.softmax(rho, name='Pi_%d' % i) for (i, rho) in enumerate(Rho)]  # convert to probs
 
             # assign symbolic belief vars to rvs
@@ -93,8 +94,20 @@ class OneShot:
                 Mu_bds[:, n] = rv.values[0], rv.values[1]  # lb, ub
             Mu_bds = Mu_bds[:, :, None] + \
                      np.zeros([2, g.Nc, K], dtype='float')  # Mu_bds[0], Mu_bds[1] give lb, ub for Mu; same for all K
-            Mu = tf.Variable(np.random.uniform(low=Mu_bds[0], high=Mu_bds[1], size=[g.Nc, K]),
-                             dtype=dtype, trainable=True, name='Mu')
+            init_grid = True
+            Mu = np.random.uniform(low=Mu_bds[0], high=Mu_bds[1], size=[g.Nc, K])
+            if init_grid:  # try spreading initial means evenly on a grid within the Mu_bds box set
+                I = int(K ** (1 / g.Nc))  # number of points per dimension; need to have I^{Nc} <= K
+                slices = []
+                for n, rv in enumerate(g.Vc):
+                    lb, ub = rv.values[0], rv.values[1]
+                    step = (ub - lb) / (I + 1)
+                    slices.append(slice(lb + step, ub, step))  # no boundary points included
+                grid = np.mgrid[slices]  # Nc x I x I x .. x I (Nc many Is)
+                num_grid_points = int(I ** g.Nc)
+                Mu[:, :num_grid_points] = np.reshape(grid, [g.Nc, num_grid_points])  # the other points r random uniform
+
+            Mu = tf.Variable(Mu, dtype=dtype, trainable=True, name='Mu')
 
             # optimize the log of Var (sigma squared), for numeric stability
             lVar_bds = np.log(Var_bds)
