@@ -642,7 +642,10 @@ def marginal_map(X, obs_rvs, query_rv, w):
     :param w:
     :return:
     """
-    cond_w = calc_cond_mixture_weights(X=X, obs_rvs=obs_rvs, w=w, all_rvs_params=None, g=None)
+    if len(obs_rvs) == 0:  # no observation/conditioning
+        cond_w = w
+    else:
+        cond_w = calc_cond_mixture_weights(X=X, obs_rvs=obs_rvs, w=w, all_rvs_params=None, g=None)
     if query_rv.domain_type == 'd':
         map_state, map_prob = drv_belief_map(cond_w, query_rv.belief_params['pi'])
         # print(query_rv, map_state, map_prob)
