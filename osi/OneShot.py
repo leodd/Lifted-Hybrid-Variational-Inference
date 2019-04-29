@@ -266,6 +266,8 @@ class OneShot:
                 for key in sorted(it_record.keys()):
                     print('%s: %g, ' % (key, it_record[key]), end='')
                 print(sess.run(w))
+                if hasattr(self, 'lifting_reg'):
+                    print(sess.run(self.lifting_reg))
                 print()
             for key in record:
                 record[key].append(it_record[key])
@@ -365,3 +367,40 @@ class LiftedOneShot(OneShot):
         else:
             out = query_rv.value
         return out
+
+
+class LiftedOneShot2(OneShot):
+    def __init__(self, g, cg, K, T, seed=None, Var_bds=None, lifting_reg_coef=0):
+        """
+
+        :param g
+        :param cg: cluster graph, containing cluster nodes and factors; should be of type CompressedGraphSorted
+        :param K:
+        :param T:
+        :param seed:
+        :param Var_bds:
+        """
+        super().__init__(g, K, T, seed, Var_bds)
+        self.cg = cg
+
+        lifting_reg = 0
+        for crv in cg.rvs:
+            if crv.domain_type == 'c':
+                rvs_ind = [g.Vc_idx[rv] for rv in crv.rvs]
+                rvs_comp_means = tf.gather(self.Mu, rvs_ind)
+            elif crv.domain_type == 'd':
+                rvs_ind = [g.Vd_idx[rv] for rv in crv.rvs]
+                # rvs_comp_means = tf.gather(self.Pi, rvs_ind)
+                rvs_comp_means = tf.reduce_sum(
+                    tf.stack([rv.belief_params_['pi'] for rv in crv.rvs], axis=0) * crv.values, axis=-1)
+            else:
+                raise NotImplementedError
+            rvs_means = tf.reduce_sum(rvs_comp_means * self.w, axis=1)
+            lifting_reg += tf.nn.l2_loss(rvs_means - tf.reduce_mean(rvs_means))
+        lifting_reg *= lifting_reg_coef
+
+        self.unreg_bfe = self.bfe
+        self.unreg_aux_obj = self.aux_obj
+        self.bfe += lifting_reg
+        self.aux_obj += lifting_reg
+        self.lifting_reg = lifting_reg
