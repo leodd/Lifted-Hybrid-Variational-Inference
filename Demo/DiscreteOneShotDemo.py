@@ -4,7 +4,7 @@ from MLNPotential import *
 
 instance = [
     'Joey',
-    'Rachel',
+    # 'Rachel',
     'Tim',
 ]
 
