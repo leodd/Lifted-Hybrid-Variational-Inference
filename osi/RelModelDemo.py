@@ -80,7 +80,7 @@ for _ in range(num_test):
     g, rvs_table = rel_g.grounded_graph()
 
     print('checking the validity of the Gaussian MRF...')
-    J, _ = utils.get_info_mat_from_gaussian_mrf(g.factors, sorted(g.rvs))
+    J, _ = utils.get_info_mat_from_gaussian_mrf(g.factors, g.rvs_list)
     print('precision mat is diagonally dominant?', utils.check_diagonally_dominant(J))  # sufficient for normalizability
     print('determinant of the cov mat = ', 1 / np.linalg.det(J))
 

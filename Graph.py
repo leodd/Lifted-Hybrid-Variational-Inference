@@ -1,8 +1,11 @@
 from abc import ABC, abstractmethod
+from builtins import property
+
 from numpy import linspace
 import numpy as np
 from math import log
 import itertools
+import functools
 
 
 class Domain:
@@ -126,8 +129,6 @@ class Graph:
     def __init__(self):
         self.rvs = set()
         self.factors = set()
-        self.rvs_list = []
-        self.factors_list = []
 
     def init_nb(self):
         """
@@ -141,14 +142,30 @@ class Graph:
             for rv in f.nb:
                 rv.nb.append(f)
 
+    @property
+    @functools.lru_cache()
+    def rvs_list(self):
+        """
+        A sorted list of self.rvs
+        :return:
+        """
+        return list(sorted(self.rvs))
+
+    @property
+    @functools.lru_cache()
+    def factors_list(self):
+        """
+        A sorted list of self.factors
+        :return:
+        """
+        return list(sorted(self.factors))
+
     def init_rv_indices(self):
         """
         Get lists of disc/cont rvs, and build indices. These (along with the .rb attributes of rv/f) should be the only
         pieces of information used by OSI.
         :return:
         """
-        self.rvs_list = sorted(self.rvs)
-        self.factors_list = sorted(self.factors)
         Vd = [rv for rv in self.rvs_list if rv.domain_type == 'd']  # list of of discrete rvs
         Vc = [rv for rv in self.rvs_list if rv.domain_type == 'c']  # list of cont rvs
         Vd_idx = {n: i for (i, n) in enumerate(Vd)}
