@@ -20,7 +20,7 @@ except ImportError:
 
 def softmax(a, axis=None):
     """
-    Compute exp(a)/sumexp(a); relying on scipy logsumexp implementation.
+    Compute exp(a)/sumexp(a); relying on scipy logsumexp implementation to avoid numerical issues.
     :param a: ndarray/tensor
     :param axis: axis to sum over; default (None) sums over everything; use negative number to specify axis in reverse
     (last to first) order (see https://docs.scipy.org/doc/numpy/reference/generated/numpy.sum.html)
@@ -92,7 +92,7 @@ def get_partial_function(fun, n, partial_args_vals):
     """
 
     :param fun: a function that takes n args
-    :param n:
+    :param n: number of arguments of fun
     :param partial_args_vals: a dict mapping indices of a subset of args to their values.
     Example: fun takes (x0, x1, x2) as args; if we let pfun = get_partial_function(fun, {2: 0.9}), then pfun defines a
     new function over (x0, x1) alone, s.t. pfun([x0, x1]) = fun([x0, x1, 0.9]).
@@ -100,6 +100,7 @@ def get_partial_function(fun, n, partial_args_vals):
     """
 
     def pfun(args):
+        assert len(args) + len(partial_args_vals) == n
         orig_args = [None] * n
         j = 0
         for i in range(n):
@@ -108,7 +109,6 @@ def get_partial_function(fun, n, partial_args_vals):
             else:
                 orig_args[i] = args[j]
                 j += 1
-        assert len(args) + len(partial_args_vals) == n
         return fun(orig_args)
 
     return pfun
@@ -140,7 +140,7 @@ def condition_factors_on_evidence(factors, evidence):
             f.potential.get = get_partial_function(factor.potential.get, n, partial_args_vals)
             f.log_potential_fun = get_partial_function(factor.log_potential_fun, n,
                                                        partial_args_vals)  # this is what gets used by OSI
-        else:  # reference orig object
+        else:
             f = factor
         cond_factors.append(f)
     return cond_factors
@@ -155,7 +155,7 @@ def get_conditional_mrf(factors, rvs, evidence):
     :return: g, containing unobserved rvs and conditional factors with scopes reduced to the unobserved rvs
     """
     cond_factors = condition_factors_on_evidence(factors, evidence)
-    cond_factors = list(filter(lambda f: len(f.nb) > 0, cond_factors))  # filter out empty factors that contain only evidence rvs
+    cond_factors = list(filter(lambda f: len(f.nb) > 0, cond_factors))  # keep only non-empty factors
     remaining_rvs = [rv for rv in rvs if rv not in evidence]
 
     from Graph import Graph
@@ -166,9 +166,9 @@ def get_conditional_mrf(factors, rvs, evidence):
     return g
 
 
-def get_info_mat_from_gaussian_mrf(factors, rvs_list):
+def get_prec_mat_from_gaussian_mrf(factors, rvs_list):
     """
-    Get the information (precision) matrix of a Gaussian MRF.
+    Get the precision (information) matrix (i.e., inverse of covmat) of a Gaussian MRF.
     :param factors:
     :param rvs_list: a list of N rvs (order is important; will determine the resulting matrix)
     :return:
@@ -176,7 +176,7 @@ def get_info_mat_from_gaussian_mrf(factors, rvs_list):
     from Potential import GaussianPotential
     N = len(rvs_list)
     rvs_idx = {rv: i for (i, rv) in enumerate(rvs_list)}
-    info_mat = np.zeros([N, N], dtype='float')
+    prec_mat = np.zeros([N, N], dtype='float')
     for factor in factors:
         pot = factor.potential
         assert isinstance(pot, GaussianPotential)
@@ -185,11 +185,11 @@ def get_info_mat_from_gaussian_mrf(factors, rvs_list):
         rvs_pos = [rvs_idx[rv] for rv in factor.nb]
         for i in range(n):
             for j in range(n):
-                info_mat[rvs_pos[i], rvs_pos[j]] += J[i, j]
-    return info_mat, rvs_idx
+                prec_mat[rvs_pos[i], rvs_pos[j]] += J[i, j]
+    return prec_mat, rvs_idx
 
 
-def check_diagonally_dominant(mat, strict=True):
+def check_diagonal_dominance(mat, strict=True):
     shape = mat.shape
     assert shape[0] == shape[1], 'must input square matrix'
     tmp = np.copy(mat)
@@ -215,7 +215,7 @@ def outer_prod_einsum_equation(ndim, common_first_ndims=0):
     matrices with shared 0th dimension; similarly for more than 1 common_first_ndims
     :return:
     """
-    # TODO: allow arbitrary number of shared first p dimensions (currently p=1 for mats), like with expand_dims_for_grid
+    assert ndim > 0
     prefix_indices = 'abcdefg'
     indices = 'ijklmnopqrstuvwxyz'
     assert ndim < len(indices) and common_first_ndims < len(prefix_indices), "Ran out of letters for einsum indices!"
@@ -269,10 +269,10 @@ def eval_fun_grid(fun, arrs, sep_args=False):
     return res
 
 
-def calc_num_grad(vs, obj, sess, delta=1e-4):
+def calc_numerical_grad(vs, obj, sess, delta=1e-4):
     """
     Compute numerical gradient using tensorflow.python.ops.gradient_checker.
-    e.g., calc_num_grad(Mu, bfe, sess) gives gradient of the scalar bfe objective w.r.t. Mu, at Mu's current value
+    e.g., calc_numerical_grad(Mu, bfe, sess) gives gradient of the scalar bfe objective w.r.t. Mu, at Mu's current value
     :param vs: list of tf vars, or a single tf var
     :param obj:
     :param sess:

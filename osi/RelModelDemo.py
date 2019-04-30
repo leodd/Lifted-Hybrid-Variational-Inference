@@ -24,13 +24,15 @@ for i in range(5):
 
 d = Domain((-50, 50), continuous=True, integral_points=linspace(-50, 50, 30))
 
-p1 = GaussianPotential([0., 0.], [[10., -7.], [-7., 10.]])
-p2 = GaussianPotential([0., 0.], [[10., 5.], [5., 10.]])
-p3 = GaussianPotential([0., 0.], [[10., 7.], [7., 10.]])
+diag = 10.
+off_diag_coef = 1.
+p1 = GaussianPotential([0., 0.], [[diag, off_diag_coef * -7.], [off_diag_coef * -7., diag]])
+p2 = GaussianPotential([0., 0.], [[diag, off_diag_coef * 5.], [off_diag_coef * 5., diag]])
+p3 = GaussianPotential([0., 0.], [[diag, off_diag_coef * 7.], [off_diag_coef * 7., diag]])
 
-# p1 = GaussianPotential([-20., 0.], [[10., -7.], [-7., 10.]])
-# p2 = GaussianPotential([0., 0.], [[10., 5.], [5., 10.]])
-# p3 = GaussianPotential([0., 20.], [[10., 7.], [7., 10.]])
+# p1 = GaussianPotential([-20., 0.], [[diag, off_diag_coef * -7.], [off_diag_coef * -7., diag]])
+# p2 = GaussianPotential([0., 0.], [[diag, off_diag_coef * 5.], [off_diag_coef * 5., diag]])
+# p3 = GaussianPotential([0., 20.], [[diag, off_diag_coef * 7.], [off_diag_coef * 7., diag]])
 
 lv_recession = LV(('all',))
 lv_category = LV(instance_category)
@@ -80,8 +82,8 @@ for _ in range(num_test):
     g, rvs_table = rel_g.grounded_graph()
 
     print('checking the validity of the Gaussian MRF...')
-    J, _ = utils.get_info_mat_from_gaussian_mrf(g.factors, g.rvs_list)
-    print('precision mat is diagonally dominant?', utils.check_diagonally_dominant(J))  # sufficient for normalizability
+    J, _ = utils.get_prec_mat_from_gaussian_mrf(g.factors, g.rvs_list)
+    print('precision mat is diagonally dominant?', utils.check_diagonal_dominance(J))  # sufficient for normalizability
     print('determinant of precision mat = ', np.linalg.det(J))
 
     ans = dict()
@@ -131,28 +133,28 @@ for _ in range(num_test):
     print(name, f'avg err {np.average(err)}')
     print(name, f'max err {np.max(err)}')
 
-#    name = 'LOSI'
-#    cg = CompressedGraphSorted(g)
-#    cg.run()
-#    print('number of rvs in cg', len(cg.rvs))
-#    print('number of factors in cg', len(cg.factors))
-#    osi = LiftedOneShot(g=cg, K=K, T=T, seed=seed)
-#    start_time = time.process_time()
-#    osi.run(lr=lr, its=its, fix_mix_its=fix_mix_its, logging_itv=logging_itv)
-#    print('Mu =\n', osi.params['Mu'], '\nVar =\n', osi.params['Var'])
-#    time_cost[name] = (time.process_time() - start_time) / num_test + time_cost.get(name, 0)
-#    print(name, f'time {time.process_time() - start_time}')
-#    err = []
-#    for key in key_list:
-#        if key not in data:
-#            pred[key] = osi.map(rvs_table[key])
-#            err.append(abs(osi.map(rvs_table[key]) - ans[key]))
-#    print(pred)
-#    avg_err[name] = np.average(err) / num_test + avg_err.get(name, 0)
-#    max_err[name] = np.max(err) / num_test + max_err.get(name, 0)
-#    err_var[name] = np.average(err) ** 2 / num_test + err_var.get(name, 0)
-#    print(name, f'avg err {np.average(err)}')
-#    print(name, f'max err {np.max(err)}')
+    # name = 'LOSI'
+    # cg = CompressedGraphSorted(g)
+    # cg.run()
+    # print('number of rvs in cg', len(cg.rvs))
+    # print('number of factors in cg', len(cg.factors))
+    # osi = LiftedOneShot(g=cg, K=K, T=T, seed=seed)
+    # start_time = time.process_time()
+    # osi.run(lr=lr, its=its, fix_mix_its=fix_mix_its, logging_itv=logging_itv)
+    # print('Mu =\n', osi.params['Mu'], '\nVar =\n', osi.params['Var'])
+    # time_cost[name] = (time.process_time() - start_time) / num_test + time_cost.get(name, 0)
+    # print(name, f'time {time.process_time() - start_time}')
+    # err = []
+    # for key in key_list:
+    #    if key not in data:
+    #        pred[key] = osi.map(rvs_table[key])
+    #        err.append(abs(osi.map(rvs_table[key]) - ans[key]))
+    # print(pred)
+    # avg_err[name] = np.average(err) / num_test + avg_err.get(name, 0)
+    # max_err[name] = np.max(err) / num_test + max_err.get(name, 0)
+    # err_var[name] = np.average(err) ** 2 / num_test + err_var.get(name, 0)
+    # print(name, f'avg err {np.average(err)}')
+    # print(name, f'max err {np.max(err)}')
 
     run = False
     if run:
