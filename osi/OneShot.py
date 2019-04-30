@@ -18,7 +18,7 @@ class OneShot:
     also maintains all the local variables/results created along the way.
     """
 
-    def __init__(self, g, K, T, seed=None, Var_bds=None):
+    def __init__(self, g, K, T, seed=None, Var_bds=None, evidence=None):
         """
         Define symbolic BFE and auxiliary objective expression to be optimized by tensorflow, given a factor graph.
         We'll use the one default tensorflow computation graph; to make sure we don't redefine it, everytime it'll
@@ -27,14 +27,40 @@ class OneShot:
         on tf tensors
         :param K: num mixture comps
         :param T: num quad points
+        :param seed:
+        :param Var_bds: [lb, ub] on the variance param of Gaussian rvs
+        :param evidence: dict that maps rv (Graph.RV obj) to numerical value; if provided, OSI will be run in the
+        conditional MRF
         """
+        # convert potentials to log_potential_funs (b/c typically caller only sets potentials instead of log pot)
+        # ensure the uniqueness of potentials are reflected in the log_potential_funs
+        unique_potentials = set(f.potential for f in g.factors)
+        print('number of unique potentials (in unconditioned MRF) =', len(unique_potentials))
+        factors_with_unique_potentials = [None] * len(unique_potentials)  # list of lists of factors
+        for i, unique_potential in enumerate(unique_potentials):
+            factors = list(filter(lambda f: f.potential == unique_potential, g.factors_list))
+            factors_with_unique_potentials[i] = factors
+
+            unique_log_potential_fun = utils.get_log_potential_fun_from_Potential(unique_potential)
+            for factor in factors:
+                factor.log_potential_fun = unique_log_potential_fun  # reference the same object
+
+        if evidence:
+            self.uncond_g = g
+            cond_g = utils.get_conditional_mrf(g.factors, g.rvs, evidence)
+            g = cond_g
+
+            # re-check unique pots b/c evidence
+            unique_potentials = set(f.potential for f in g.factors)
+            print('number of unique potentials (in conditioned MRF) =', len(unique_potentials))
+            factors_with_unique_potentials = [None] * len(unique_potentials)  # list of lists of factors
+            for i, unique_potential in enumerate(unique_potentials):
+                factors = list(filter(lambda f: f.potential == unique_potential, g.factors_list))
+                factors_with_unique_potentials[i] = factors
 
         # pre-process graph to make things easier
         g.init_rv_indices()  # will create attributes like Vc, Vc_idx, etc.
         # g.init_nb()  # caller should have always run this (or done sth similar) to ensure g is well defined!
-        for f in g.factors_list:
-            if f.log_potential_fun is None:
-                f.log_potential_fun = utils.get_log_potential_fun_from_Potential(f.potential)
 
         tf.reset_default_graph()  # clear existing
         if seed is not None:  # note that seed that has been set prior to tf.reset_default_graph will be invalidated
@@ -133,12 +159,6 @@ class OneShot:
             bfe += delta_bfe
             aux_obj += delta_aux_obj
 
-        unique_potentials = set(f.potential for f in g.factors)
-        print('number of unique potentials =', len(unique_potentials))
-        factors_with_unique_potentials = [None] * len(unique_potentials)  # list of lists of factors
-        for i, unique_potential in enumerate(unique_potentials):
-            factors = list(filter(lambda f: f.potential == unique_potential, g.factors_list))
-            factors_with_unique_potentials[i] = factors
         for factors in factors_with_unique_potentials:
             factor = factors[0]
             if factor.domain_type == 'd':
@@ -311,16 +331,21 @@ class OneShot:
 
     def map(self, query_rv):
         """
-        Toy method for testing marginal MAP. Can be inefficient b/c cond_w is recomputed every time
+        Toy method for testing marginal MAP. Existing API assumes that self.g.rvs carry .value attributes that indicate
+        observed values. Can be inefficient b/c cond_w is recomputed every time
         :param query_rv:
         :return:
         """
         if query_rv.value is None:
             w = self.params['w']
-            g = self.g
-            obs_rvs = [v for v in g.rvs if v.value is not None]
-            X = np.array([v.value for v in obs_rvs])
-            out = marginal_map(X=X, obs_rvs=obs_rvs, query_rv=query_rv, w=w)
+            if hasattr(self, 'uncond_g'):  # OSI was run in the conditional MRF (already conditioning on evidence)
+                out = marginal_map(X=[], obs_rvs=[], query_rv=query_rv, w=w)  # marginal MAP without additional obs
+                # TODO: still allow conditioning on new evidence in the conditional MRF (i.e., obs_rvs!=[] above)
+            else:
+                g = self.g
+                obs_rvs = [v for v in g.rvs if v.value is not None]
+                X = np.array([v.value for v in obs_rvs])
+                out = marginal_map(X=X, obs_rvs=obs_rvs, query_rv=query_rv, w=w)
         else:
             out = query_rv.value
         return out
@@ -337,7 +362,7 @@ class LiftedOneShot(OneShot):
         :param Var_bds:
         """
         super().__init__(g, K, T, seed, Var_bds)
-        self.orig_g = g.g  # original (uncompressed) graph
+        self.unlifted_g = g.g  # original (uncompressed) graph
 
     def run(self, its=100, lr=5e-2, tf_session=None, optimizer=None, trainable_params=None, grad_check=False,
             logging_itv=10, fix_mix_its=0):
@@ -354,13 +379,14 @@ class LiftedOneShot(OneShot):
 
     def map(self, query_rv):
         """
-        Toy method for testing marginal MAP. Can be inefficient b/c cond_w is recomputed every time
+        Toy method for testing marginal MAP. Existing API assumes that self.g.rvs carry .value attributes that indicate
+        observed values. Can be inefficient b/c cond_w is recomputed every time
         :param query_rv:
         :return:
         """
         if query_rv.value is None:
             w = self.params['w']
-            g = self.orig_g
+            g = self.unlifted_g
             obs_rvs = [v for v in g.rvs if v.value is not None]
             X = np.array([v.value for v in obs_rvs])
             out = marginal_map(X=X, obs_rvs=obs_rvs, query_rv=query_rv, w=w)  # relies on belief_params of rvs in orig_g
