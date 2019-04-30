@@ -155,6 +155,7 @@ def get_conditional_mrf(factors, rvs, evidence):
     :return: g, containing unobserved rvs and conditional factors with scopes reduced to the unobserved rvs
     """
     cond_factors = condition_factors_on_evidence(factors, evidence)
+    cond_factors = list(filter(lambda f: len(f.nb) > 0, cond_factors))  # filter out empty factors that contain only evidence rvs
     remaining_rvs = [rv for rv in rvs if rv not in evidence]
 
     from Graph import Graph

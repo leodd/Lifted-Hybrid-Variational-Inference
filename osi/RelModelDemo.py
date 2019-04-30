@@ -60,8 +60,8 @@ err_var = dict()
 time_cost = dict()
 
 num_test = 5
-evidence_ratio = 0.01
-# evidence_ratio = 0.2
+# evidence_ratio = 0.01
+evidence_ratio = 0.2
 # evidence_ratio = 0.
 
 print('number of vr', len(key_list))
@@ -82,7 +82,7 @@ for _ in range(num_test):
     print('checking the validity of the Gaussian MRF...')
     J, _ = utils.get_info_mat_from_gaussian_mrf(g.factors, g.rvs_list)
     print('precision mat is diagonally dominant?', utils.check_diagonally_dominant(J))  # sufficient for normalizability
-    print('determinant of the cov mat = ', 1 / np.linalg.det(J))
+    print('determinant of precision mat = ', np.linalg.det(J))
 
     ans = dict()
 
@@ -102,10 +102,10 @@ for _ in range(num_test):
     T = 20
     # lr = 1e-1
     lr = 5e-1
-    its = 600
+    its = 1000
     # fix_mix_its = int(its * 0.1)
-    # fix_mix_its = int(its * 1.0)
-    fix_mix_its = 500
+    fix_mix_its = int(its * 1.0)
+    # fix_mix_its = 500
     logging_itv = 50
     # cond = True
     cond = True
