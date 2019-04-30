@@ -88,6 +88,43 @@ def get_log_potential_fun_from_Potential(potential):
     return log_potential_fun
 
 
+def get_info_mat_from_gaussian_mrf(factors, rvs_list):
+    """
+    Get the information (precision) matrix of a Gaussian MRF.
+    :param factors:
+    :param rvs_list: a list of N rvs (order is important; will determine the resulting matrix)
+    :return:
+    """
+    from Potential import GaussianPotential
+    N = len(rvs_list)
+    rvs_idx = {rv: i for (i, rv) in enumerate(rvs_list)}
+    info_mat = np.zeros([N, N], dtype='float')
+    for factor in factors:
+        pot = factor.potential
+        assert isinstance(pot, GaussianPotential)
+        J = np.linalg.inv(pot.sig)  # local precision matrix
+        n = len(factor.nb)
+        rvs_pos = [rvs_idx[rv] for rv in factor.nb]
+        for i in range(n):
+            for j in range(n):
+                info_mat[rvs_pos[i], rvs_pos[j]] += J[i, j]
+    return info_mat, rvs_idx
+
+
+def check_diagonally_dominant(mat, strict=True):
+    shape = mat.shape
+    assert shape[0] == shape[1], 'must input square matrix'
+    tmp = np.copy(mat)
+    np.fill_diagonal(tmp, 0)
+    non_diag_abs_sums = np.sum(np.abs(tmp), axis=1)
+    abs_diag = np.abs(np.diag(mat))
+    if strict:
+        res = np.all(abs_diag > non_diag_abs_sums)
+    else:
+        res = np.all(abs_diag >= non_diag_abs_sums)
+    return res
+
+
 def outer_prod_einsum_equation(ndim, common_first_ndims=0):
     """
     Get the einsum equation for n-dimensional outer/tensor product, of n vectors v1, v2, ..., vn
