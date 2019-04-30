@@ -24,13 +24,13 @@ for i in range(5):
 
 d = Domain((-50, 50), continuous=True, integral_points=linspace(-50, 50, 30))
 
-# p1 = GaussianPotential([0., 0.], [[10., -7.], [-7., 10.]])
-# p2 = GaussianPotential([0., 0.], [[10., 5.], [5., 10.]])
-# p3 = GaussianPotential([0., 0.], [[10., 7.], [7., 10.]])
-
-p1 = GaussianPotential([-20., 0.], [[10., -7.], [-7., 10.]])
+p1 = GaussianPotential([0., 0.], [[10., -7.], [-7., 10.]])
 p2 = GaussianPotential([0., 0.], [[10., 5.], [5., 10.]])
-p3 = GaussianPotential([0., 20.], [[10., 7.], [7., 10.]])
+p3 = GaussianPotential([0., 0.], [[10., 7.], [7., 10.]])
+
+# p1 = GaussianPotential([-20., 0.], [[10., -7.], [-7., 10.]])
+# p2 = GaussianPotential([0., 0.], [[10., 5.], [5., 10.]])
+# p3 = GaussianPotential([0., 20.], [[10., 7.], [7., 10.]])
 
 lv_recession = LV(('all',))
 lv_category = LV(instance_category)
@@ -59,10 +59,10 @@ max_err = dict()
 err_var = dict()
 time_cost = dict()
 
-num_test = 3
-# evidence_ratio = 0.01
+num_test = 5
+evidence_ratio = 0.01
 # evidence_ratio = 0.2
-evidence_ratio = 0.
+# evidence_ratio = 0.
 
 print('number of vr', len(key_list))
 print('number of evidence', int(len(key_list) * evidence_ratio))
@@ -96,8 +96,9 @@ for _ in range(num_test):
         if key not in data:
             ans[key] = bp.map(rvs_table[key])
     print(ans)
+
     name = 'OSI'
-    K = 5
+    K = 3
     T = 20
     # lr = 1e-1
     lr = 5e-1
@@ -106,7 +107,12 @@ for _ in range(num_test):
     # fix_mix_its = int(its * 1.0)
     fix_mix_its = 500
     logging_itv = 50
-    osi = OneShot(g=g, K=K, T=T, seed=seed)
+    # cond = True
+    cond = True
+    if cond:
+        osi = OneShot(g=g, K=K, T=T, seed=seed, evidence={rv: rv.value for rv in g.rvs if rv.value is not None})
+    else:
+        osi = OneShot(g=g, K=K, T=T, seed=seed)
     start_time = time.process_time()
     osi.run(lr=lr, its=its, fix_mix_its=fix_mix_its, logging_itv=logging_itv)
     print('Mu =\n', osi.params['Mu'], '\nVar =\n', osi.params['Var'])
@@ -125,28 +131,28 @@ for _ in range(num_test):
     print(name, f'avg err {np.average(err)}')
     print(name, f'max err {np.max(err)}')
 
-    name = 'LOSI'
-    cg = CompressedGraphSorted(g)
-    cg.run()
-    print('number of rvs in cg', len(cg.rvs))
-    print('number of factors in cg', len(cg.factors))
-    osi = LiftedOneShot(g=cg, K=K, T=T, seed=seed)
-    start_time = time.process_time()
-    osi.run(lr=lr, its=its, fix_mix_its=fix_mix_its, logging_itv=logging_itv)
-    print('Mu =\n', osi.params['Mu'], '\nVar =\n', osi.params['Var'])
-    time_cost[name] = (time.process_time() - start_time) / num_test + time_cost.get(name, 0)
-    print(name, f'time {time.process_time() - start_time}')
-    err = []
-    for key in key_list:
-        if key not in data:
-            pred[key] = osi.map(rvs_table[key])
-            err.append(abs(osi.map(rvs_table[key]) - ans[key]))
-    print(pred)
-    avg_err[name] = np.average(err) / num_test + avg_err.get(name, 0)
-    max_err[name] = np.max(err) / num_test + max_err.get(name, 0)
-    err_var[name] = np.average(err) ** 2 / num_test + err_var.get(name, 0)
-    print(name, f'avg err {np.average(err)}')
-    print(name, f'max err {np.max(err)}')
+#    name = 'LOSI'
+#    cg = CompressedGraphSorted(g)
+#    cg.run()
+#    print('number of rvs in cg', len(cg.rvs))
+#    print('number of factors in cg', len(cg.factors))
+#    osi = LiftedOneShot(g=cg, K=K, T=T, seed=seed)
+#    start_time = time.process_time()
+#    osi.run(lr=lr, its=its, fix_mix_its=fix_mix_its, logging_itv=logging_itv)
+#    print('Mu =\n', osi.params['Mu'], '\nVar =\n', osi.params['Var'])
+#    time_cost[name] = (time.process_time() - start_time) / num_test + time_cost.get(name, 0)
+#    print(name, f'time {time.process_time() - start_time}')
+#    err = []
+#    for key in key_list:
+#        if key not in data:
+#            pred[key] = osi.map(rvs_table[key])
+#            err.append(abs(osi.map(rvs_table[key]) - ans[key]))
+#    print(pred)
+#    avg_err[name] = np.average(err) / num_test + avg_err.get(name, 0)
+#    max_err[name] = np.max(err) / num_test + max_err.get(name, 0)
+#    err_var[name] = np.average(err) ** 2 / num_test + err_var.get(name, 0)
+#    print(name, f'avg err {np.average(err)}')
+#    print(name, f'max err {np.max(err)}')
 
     run = False
     if run:

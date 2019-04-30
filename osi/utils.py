@@ -88,6 +88,83 @@ def get_log_potential_fun_from_Potential(potential):
     return log_potential_fun
 
 
+def get_partial_function(fun, n, partial_args_vals):
+    """
+
+    :param fun: a function that takes n args
+    :param n:
+    :param partial_args_vals: a dict mapping indices of a subset of args to their values.
+    Example: fun takes (x0, x1, x2) as args; if we let pfun = get_partial_function(fun, {2: 0.9}), then pfun defines a
+    new function over (x0, x1) alone, s.t. pfun([x0, x1]) = fun([x0, x1, 0.9]).
+    :return:
+    """
+
+    def pfun(args):
+        orig_args = [None] * n
+        j = 0
+        for i in range(n):
+            if i in partial_args_vals:
+                orig_args[i] = partial_args_vals[i]
+            else:
+                orig_args[i] = args[j]
+                j += 1
+        assert len(args) + len(partial_args_vals) == n
+        return fun(orig_args)
+
+    return pfun
+
+
+def condition_factors_on_evidence(factors, evidence):
+    """
+
+    :param factors: an iterable of factors
+    :param evidence: a dict mapping rvs (Graph.RV objects) to numerical values
+    :return: a new list of factors (original factors won't be modified) reduced to the context of given evidence
+    """
+    from copy import deepcopy
+    cond_factors = []
+    for factor in factors:
+        if any(rv in evidence for rv in factor.nb):  # create new factor (and its potential/log_potential_fun)
+            remaining_rvs = []
+            n = len(factor.nb)
+            partial_args_vals = {}
+            for i, rv in enumerate(factor.nb):
+                if rv in evidence:
+                    partial_args_vals[i] = evidence[rv]
+                else:
+                    remaining_rvs.append(rv)
+            f = deepcopy(factor)
+            f.unconditioned_factor = factor
+            f.nb = remaining_rvs
+            f.potential = deepcopy(factor.potential)  # may be a problem; probly not a full conversion
+            f.potential.get = get_partial_function(factor.potential.get, n, partial_args_vals)
+            f.log_potential_fun = get_partial_function(factor.log_potential_fun, n,
+                                                       partial_args_vals)  # this is what gets used by OSI
+        else:  # reference orig object
+            f = factor
+        cond_factors.append(f)
+    return cond_factors
+
+
+def get_conditional_mrf(factors, rvs, evidence):
+    """
+
+    :param factors: an iterable of factors
+    :param rvs: an iterable of rvs
+    :param evidence: a dict mapping rvs (Graph.RV objects) to numerical values
+    :return: g, containing unobserved rvs and conditional factors with scopes reduced to the unobserved rvs
+    """
+    cond_factors = condition_factors_on_evidence(factors, evidence)
+    remaining_rvs = [rv for rv in rvs if rv not in evidence]
+
+    from Graph import Graph
+    g = Graph()
+    g.rvs = remaining_rvs
+    g.factors = cond_factors
+    g.init_nb()  # update .nb attributes of rvs
+    return g
+
+
 def get_info_mat_from_gaussian_mrf(factors, rvs_list):
     """
     Get the information (precision) matrix of a Gaussian MRF.
