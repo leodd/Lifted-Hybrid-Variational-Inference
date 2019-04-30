@@ -15,18 +15,22 @@ utils.set_seed(seed=seed)
 
 instance_category = []
 instance_bank = []
-# for i in range(100):
+for i in range(100):
 # for i in range(50):
-for i in range(10):
+# for i in range(10):
     instance_category.append(f'c{i}')
 for i in range(5):
     instance_bank.append(f'b{i}')
 
 d = Domain((-50, 50), continuous=True, integral_points=linspace(-50, 50, 30))
 
-p1 = GaussianPotential([0., 0.], [[10., -7.], [-7., 10.]])
+# p1 = GaussianPotential([0., 0.], [[10., -7.], [-7., 10.]])
+# p2 = GaussianPotential([0., 0.], [[10., 5.], [5., 10.]])
+# p3 = GaussianPotential([0., 0.], [[10., 7.], [7., 10.]])
+
+p1 = GaussianPotential([-20., 0.], [[10., -7.], [-7., 10.]])
 p2 = GaussianPotential([0., 0.], [[10., 5.], [5., 10.]])
-p3 = GaussianPotential([0., 0.], [[10., 7.], [7., 10.]])
+p3 = GaussianPotential([0., 20.], [[10., 7.], [7., 10.]])
 
 lv_recession = LV(('all',))
 lv_category = LV(instance_category)
@@ -55,9 +59,10 @@ max_err = dict()
 err_var = dict()
 time_cost = dict()
 
-num_test = 5
+num_test = 3
 # evidence_ratio = 0.01
-evidence_ratio = 0.02
+# evidence_ratio = 0.2
+evidence_ratio = 0.
 
 print('number of vr', len(key_list))
 print('number of evidence', int(len(key_list) * evidence_ratio))
