@@ -92,7 +92,7 @@ for _ in range(num_test):
             ans[key] = bp.map(rvs_table[key])
     print(ans)
     name = 'OSI'
-    K = 10
+    K = 5
     T = 20
     # lr = 1e-1
     lr = 5e-1
@@ -143,23 +143,25 @@ for _ in range(num_test):
     print(name, f'avg err {np.average(err)}')
     print(name, f'max err {np.max(err)}')
 
-    name = 'EPBP'
-    bp = EPBP(g, n=20)
-    start_time = time.process_time()
-    bp.run(15, log_enable=False)
-    time_cost[name] = (time.process_time() - start_time) / num_test + time_cost.get(name, 0)
-    print(name, f'time {time.process_time() - start_time}')
-    err = []
-    for key in key_list:
-        if key not in data:
-            pred[key] = bp.map(rvs_table[key])
-            err.append(abs(bp.map(rvs_table[key]) - ans[key]))
-    print(pred)
-    avg_err[name] = np.average(err) / num_test + avg_err.get(name, 0)
-    max_err[name] = np.max(err) / num_test + max_err.get(name, 0)
-    err_var[name] = np.average(err) ** 2 / num_test + err_var.get(name, 0)
-    print(name, f'avg err {np.average(err)}')
-    print(name, f'max err {np.max(err)}')
+    run = False
+    if run:
+        name = 'EPBP'
+        bp = EPBP(g, n=20)
+        start_time = time.process_time()
+        bp.run(15, log_enable=False)
+        time_cost[name] = (time.process_time() - start_time) / num_test + time_cost.get(name, 0)
+        print(name, f'time {time.process_time() - start_time}')
+        err = []
+        for key in key_list:
+            if key not in data:
+                pred[key] = bp.map(rvs_table[key])
+                err.append(abs(bp.map(rvs_table[key]) - ans[key]))
+        print(pred)
+        avg_err[name] = np.average(err) / num_test + avg_err.get(name, 0)
+        max_err[name] = np.max(err) / num_test + max_err.get(name, 0)
+        err_var[name] = np.average(err) ** 2 / num_test + err_var.get(name, 0)
+        print(name, f'avg err {np.average(err)}')
+        print(name, f'max err {np.max(err)}')
 
 print('######################')
 for name, v in time_cost.items():
