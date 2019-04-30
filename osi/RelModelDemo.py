@@ -24,13 +24,13 @@ for i in range(5):
 
 d = Domain((-50, 50), continuous=True, integral_points=linspace(-50, 50, 30))
 
-# p1 = GaussianPotential([0., 0.], [[10., -7.], [-7., 10.]])
-# p2 = GaussianPotential([0., 0.], [[10., 5.], [5., 10.]])
-# p3 = GaussianPotential([0., 0.], [[10., 7.], [7., 10.]])
-
-p1 = GaussianPotential([-20., 0.], [[10., -7.], [-7., 10.]])
+p1 = GaussianPotential([0., 0.], [[10., -7.], [-7., 10.]])
 p2 = GaussianPotential([0., 0.], [[10., 5.], [5., 10.]])
-p3 = GaussianPotential([0., 20.], [[10., 7.], [7., 10.]])
+p3 = GaussianPotential([0., 0.], [[10., 7.], [7., 10.]])
+
+# p1 = GaussianPotential([-20., 0.], [[10., -7.], [-7., 10.]])
+# p2 = GaussianPotential([0., 0.], [[10., 5.], [5., 10.]])
+# p3 = GaussianPotential([0., 20.], [[10., 7.], [7., 10.]])
 
 lv_recession = LV(('all',))
 lv_category = LV(instance_category)
@@ -60,9 +60,9 @@ err_var = dict()
 time_cost = dict()
 
 num_test = 3
-# evidence_ratio = 0.01
+evidence_ratio = 0.01
 # evidence_ratio = 0.2
-evidence_ratio = 0.
+# evidence_ratio = 0.
 
 print('number of vr', len(key_list))
 print('number of evidence', int(len(key_list) * evidence_ratio))
