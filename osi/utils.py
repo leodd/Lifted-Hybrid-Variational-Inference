@@ -121,7 +121,7 @@ def condition_factors_on_evidence(factors, evidence):
     :param evidence: a dict mapping rvs (Graph.RV objects) to numerical values
     :return: a new list of factors (original factors won't be modified) reduced to the context of given evidence
     """
-    from copy import deepcopy
+    from copy import copy
     cond_factors = []
     for factor in factors:
         if any(rv in evidence for rv in factor.nb):  # create new factor (and its potential/log_potential_fun)
@@ -133,10 +133,10 @@ def condition_factors_on_evidence(factors, evidence):
                     partial_args_vals[i] = evidence[rv]
                 else:
                     remaining_rvs.append(rv)
-            f = deepcopy(factor)
-            f.unconditioned_factor = factor
+            f = copy(factor)    # may need to construct a new factor object instead
+            f.uncond_factor = factor
             f.nb = remaining_rvs
-            f.potential = deepcopy(factor.potential)  # may be a problem; probly not a full conversion
+            f.potential = copy(factor.potential)  # may be a problem; probly not a full conversion
             f.potential.get = get_partial_function(factor.potential.get, n, partial_args_vals)
             f.log_potential_fun = get_partial_function(factor.log_potential_fun, n,
                                                        partial_args_vals)  # this is what gets used by OSI
