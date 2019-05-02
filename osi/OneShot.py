@@ -239,7 +239,13 @@ class OneShot:
 
         sess.run(tf.global_variables_initializer())  # always reinit
         for it in range(its):
-            if grad_check:
+            if not grad_check:
+                # bfe_, grads_and_vars_ = sess.run([bfe, grads_and_vars])
+                # sess.run(grads_update)
+                # note that grads_and_vars_ below will contain updated vars because grads_update is also run
+                bfe_, grads_and_vars_, _ = sess.run([bfe, grads_and_vars, grads_update])
+
+            else:  # gradient check on the 0th iteration
                 if it == 1:
                     break
                 bfe_, grads_and_vars_ = sess.run([bfe, grads_and_vars])  # no need to run grads_update
@@ -249,7 +255,7 @@ class OneShot:
                 print(gvnames)
 
                 print('numerical grads')
-                num_grads = utils.calc_num_grad(trainable_params, bfe, sess, delta=1e-4)
+                num_grads = utils.calc_numerical_grad(trainable_params, bfe, sess, delta=1e-4)
                 print(num_grads)
 
                 print('quad symbolic grads')
@@ -262,12 +268,6 @@ class OneShot:
 
                 num_elems = np.sum([g.size for g in num_grads])
                 print('avg grads absolute err:', np.sum([np.sum(err) for err in rel_errs]) / num_elems)
-
-            else:
-                # bfe_, grads_and_vars_ = sess.run([bfe, grads_and_vars])
-                # sess.run(grads_update)
-                # note that grads_and_vars_ below will contain updated vars because grads_update is also run
-                bfe_, grads_and_vars_, _ = sess.run([bfe, grads_and_vars, grads_update])
 
             sess.run(clip_op)  # does nothing if no cont nodes
             if it < fix_mix_its:
