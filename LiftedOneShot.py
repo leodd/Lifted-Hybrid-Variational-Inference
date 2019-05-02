@@ -151,7 +151,7 @@ class OneShot:
                     g_mu_var[k, 0] -= self.expectation(f_mu, *args) / eta[k][1]
                     g_mu_var[k, 1] -= self.expectation(f_var, *args) / (2 * eta[k][1] ** 2)
 
-        return g_mu_var * self.w[:, np.newaxis]
+        return g_mu_var
 
     def gradient_category_tau(self, rv):
         g_c = np.zeros((self.K, len(rv.domain.values)))
@@ -182,8 +182,6 @@ class OneShot:
                             return log(f.potential.get(new_x)) - log(self.rvs_belief(new_x, f.nb))
 
                         g_c[k, d] -= self.expectation(f_c, *args)
-
-        g_c = g_c * self.w[:, np.newaxis]
 
         return eta * (g_c - np.sum(g_c * eta, 1)[:, np.newaxis])
 

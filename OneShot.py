@@ -149,7 +149,7 @@ class OneShot:
                     g_mu_var[k, 0] -= self.expectation(f_mu, *args) / eta[k][1]
                     g_mu_var[k, 1] -= self.expectation(f_var, *args) / (2 * eta[k][1] ** 2)
 
-        return g_mu_var * self.w[:, np.newaxis]
+        return g_mu_var
 
     def gradient_category_tau(self, rv):
         g_c = np.zeros((self.K, len(rv.domain.values)))
@@ -180,8 +180,6 @@ class OneShot:
                             return log(f.potential.get(new_x)) - log(self.rvs_belief(new_x, f.nb))
 
                         g_c[k, d] -= self.expectation(f_c, *args)
-
-        g_c = g_c * self.w[:, np.newaxis]
 
         return eta * (g_c - np.sum(g_c * eta, 1)[:, np.newaxis])
 
@@ -244,7 +242,7 @@ class OneShot:
                 temp[:, 0] = np.random.rand(self.K) * 3 - 1.5
                 self.eta[rv] = temp
             else:
-                self.eta_tau[rv] = np.random.rand(self.K, len(rv.domain.values)) * 3
+                self.eta_tau[rv] = np.random.rand(self.K, len(rv.domain.values)) * 10
 
         # update w and categorical distribution
         self.w = self.softmax(self.w_tau)
@@ -253,7 +251,7 @@ class OneShot:
 
     def run(self, iteration=100, lr=0.1):
         # initiate parameters
-        self.init_param()
+        # self.init_param()
 
         # Bethe iteration
         for itr in range(iteration):
