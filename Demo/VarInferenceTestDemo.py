@@ -29,20 +29,20 @@ g.rvs = [A, B, C, D, E]
 g.factors = [f_AB, f_BC, f_DC, f_ED]
 g.init_nb()
 
-from OneShot import OneShot
+from VarInference import VarInference
 
 # np.random.seed(9)
-osi = OneShot(g, num_mixtures=10, num_quadrature_points=8)
+vi = VarInference(g, num_mixtures=3, num_quadrature_points=8)
 
-osi.run(200, lr=2)
+vi.run(200, lr=2)
 
-print(osi.free_energy())
+print(vi.free_energy())
 
 for rv in g.rvs:
     if rv.value is None:  # only test non-evidence nodes
         p = dict()
         for x in rv.domain.values:
-            p[x] = osi.belief(x, rv)
+            p[x] = vi.belief(x, rv)
         print(rv, p)
 
 # EPBP inference

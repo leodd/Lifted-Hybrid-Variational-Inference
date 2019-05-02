@@ -251,7 +251,7 @@ class OneShot:
 
     def run(self, iteration=100, lr=0.1):
         # initiate parameters
-        # self.init_param()
+        self.init_param()
 
         # Bethe iteration
         for itr in range(iteration):

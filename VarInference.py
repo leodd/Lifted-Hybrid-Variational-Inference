@@ -236,15 +236,15 @@ class VarInference:
         b = np.copy(self.w)
 
         for i, rv in enumerate(rvs):
-            eta = self.eta[rv]
-
             if rv.value is not None:
                 if x[i] != rv.value:
                     return 0
             elif rv.domain.continuous:
+                eta = self.eta[rv]
                 for k in range(self.K):
                     b[k] *= self.norm_pdf(x[i], eta[k])
             else:
+                eta = self.eta[rv]
                 d = rv.domain.values.index(x[i])
                 for k in range(self.K):
                     b[k] *= eta[k, d]
@@ -271,7 +271,7 @@ class VarInference:
 
     def run(self, iteration=100, lr=0.1):
         # initiate parameters
-        # self.init_param()
+        self.init_param()
 
         # Bethe iteration
         for itr in range(iteration):
