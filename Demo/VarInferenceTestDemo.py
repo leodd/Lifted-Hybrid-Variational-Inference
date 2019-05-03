@@ -16,7 +16,7 @@ p1 = TablePotential({
 A = RV(domain)
 B = RV(domain, 1)
 C = RV(domain)
-D = RV(domain)
+D = RV(domain, 1)
 E = RV(domain)
 
 f_AB = F(p1, [A, B])
@@ -29,10 +29,10 @@ g.rvs = [A, B, C, D, E]
 g.factors = [f_AB, f_BC, f_DC, f_ED]
 g.init_nb()
 
-from VarInference import VarInference
+from LiftedVarInference import VarInference
 
 # np.random.seed(9)
-vi = VarInference(g, num_mixtures=3, num_quadrature_points=8)
+vi = VarInference(g, num_mixtures=5, num_quadrature_points=8)
 
 vi.run(200, lr=2)
 
