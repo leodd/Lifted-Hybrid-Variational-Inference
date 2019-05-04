@@ -22,11 +22,15 @@ class GaussianPotential(Potential):
         p = float(len(mu))
         if det == 0:
             raise NameError("The covariance matrix can't be singular")
-        self.coefficient = w / (pow(2*pi, p*0.5) * pow(det, 0.5))
+        self.coefficient = w / (pow(2 * pi, p * 0.5) * pow(det, 0.5))
 
-    def get(self, parameters):
+    def get(self, parameters, use_coef=False):
         x_mu = np.matrix(np.array(parameters) - self.mu)
-        return self.coefficient * pow(e, -0.5 * (x_mu * self.inv * x_mu.T))
+        coef = self.coefficient if use_coef else 1.
+        return coef * pow(e, -0.5 * (x_mu * self.inv * x_mu.T))
+
+    def __eq__(self, other):
+        return np.all(self.mu == other.mu) and np.all(self.sig == other.sig)  # self.w shouldn't make a difference
 
 
 class LinearGaussianPotential(Potential):

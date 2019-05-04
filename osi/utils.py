@@ -57,7 +57,7 @@ def get_log_potential_fun_from_Potential(potential):
     elif type(potential) == GaussianPotential:
         mu = potential.mu
         sig_inv = potential.inv
-        log_coef = np.log(potential.coefficient)  # optional; can be absorbed into log Z
+        # log_coef = np.log(potential.coefficient)  # optional; can be absorbed into log Z
         p = len(mu)  # num args
 
         def log_potential_fun(args):
@@ -79,7 +79,7 @@ def get_log_potential_fun_from_Potential(potential):
                     else:  # strictly upper triangular terms counted twice
                         quad_form -= sig_inv_coef * (diffs[i] * diffs[j])
 
-            res = quad_form + log_coef
+            res = quad_form  # + log_coef
             return res
     else:
         raise NotImplementedError
@@ -133,7 +133,7 @@ def condition_factors_on_evidence(factors, evidence):
                     partial_args_vals[i] = evidence[rv]
                 else:
                     remaining_rvs.append(rv)
-            f = copy(factor)    # may need to construct a new factor object instead
+            f = copy(factor)  # may need to construct a new factor object instead
             f.uncond_factor = factor
             f.nb = remaining_rvs
             f.potential = copy(factor.potential)  # may be a problem; probly not a full conversion
