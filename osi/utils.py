@@ -42,52 +42,6 @@ def weighted_feature_fun(feature_fun, weight):
     return wf
 
 
-def get_log_potential_fun_from_Potential(potential):
-    """
-    Extract the log potential function (callable) from a given Potential object
-    :param potential:
-    :return:
-    """
-    from MLNPotential import MLNPotential
-    from Potential import GaussianPotential
-    allowed_Potentials = [MLNPotential, GaussianPotential]
-    assert type(potential) in allowed_Potentials, 'currenctly only support %s' % (str(allowed_Potentials))
-    if type(potential) == MLNPotential:
-        log_potential_fun = weighted_feature_fun(potential.formula, potential.w)
-    elif type(potential) == GaussianPotential:
-        mu = potential.mu
-        sig_inv = potential.inv
-        # log_coef = np.log(potential.coefficient)  # optional; can be absorbed into log Z
-        p = len(mu)  # num args
-
-        def log_potential_fun(args):
-            """
-            Gaussian log potential fun; -0.5 ((x-mu)^T * Sig_inv * (x-mu)) + log_coef
-            :param args:
-            :return:
-            """
-            quad_form = 0
-            diffs = [None] * p
-            for i in range(p):
-                diffs[i] = args[i] - mu[i]
-
-            for i in range(p):
-                for j in range(i, p):
-                    sig_inv_coef = sig_inv[i, j]
-                    if i == j:  # diagonal terms only counted once
-                        quad_form -= 0.5 * sig_inv_coef * diffs[i] ** 2
-                    else:  # strictly upper triangular terms counted twice
-                        quad_form -= sig_inv_coef * (diffs[i] * diffs[j])
-
-            res = quad_form  # + log_coef
-            return res
-    else:
-        raise NotImplementedError
-
-    log_potential_fun.potential = potential  # ref for convenience
-    return log_potential_fun
-
-
 def get_partial_function(fun, n, partial_args_vals):
     """
 
@@ -139,40 +93,6 @@ def get_conditional_gaussian(mu, Sig, obs_args_vals):
     cond_mu = mu_a + Sig_ab @ (Sig_bb_inv @ (b_val - mu_b))  # (2.81)
     cond_Sig = Sig_aa - Sig_ab @ Sig_bb_inv @ Sig_ba  # (2.82)
     return cond_mu, cond_Sig
-
-
-# mu = np.array([0., 1])
-# Sig = np.array([[.4, .1], [.1, .4]])
-# mu = np.array([0., 1, -1])
-# Sig = np.array([[.4, .1, 0],
-#                 [.1, .4, 0],
-#                 [0, .0, .4]])
-# get_conditional_gaussian(mu, Sig, {0: -.3})
-
-
-def condition_potential_on_evidence(potential, n, obs_args_vals):
-    """
-
-    :param potential: a Potential object
-    :return: a new potential reduced to the context of given evidence
-    """
-    from MLNPotential import MLNPotential
-    from Potential import GaussianPotential
-    if isinstance(potential, GaussianPotential):
-        mu, sig = get_conditional_gaussian(potential.mu, potential.sig, obs_args_vals)
-        pot = GaussianPotential(mu=mu, sig=sig)
-    elif isinstance(potential, MLNPotential):
-        formula = get_partial_function(potential.formula, n, obs_args_vals)
-        pot = MLNPotential(formula=formula, w=potential.w)
-    else:  # may not be able to construct the conditional potential in closed-form
-        from copy import copy
-        pot = copy(potential)
-        pot.potential.get = get_partial_function(potential.get, n, obs_args_vals)
-
-    if hasattr(potential, 'symmetric'):
-        pot.symmetric = potential.symmetric
-
-    return pot
 
 
 def condition_factors_on_evidence(factors, evidence):

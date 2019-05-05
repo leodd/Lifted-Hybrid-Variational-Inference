@@ -41,7 +41,7 @@ class OneShot:
             factors = list(filter(lambda f: f.potential == unique_potential, g.factors_list))
             factors_with_unique_potentials[i] = factors
 
-            unique_log_potential_fun = utils.get_log_potential_fun_from_Potential(unique_potential)
+            unique_log_potential_fun = unique_potential.to_log_potential()
             for factor in factors:
                 factor.log_potential_fun = unique_log_potential_fun  # reference the same object
 

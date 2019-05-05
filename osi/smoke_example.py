@@ -60,7 +60,7 @@ g.init_rv_indices()
 # define BFE
 for f in g.factors_list:
     if f.log_potential_fun is None:
-        f.log_potential_fun = utils.get_log_potential_fun_from_Potential(f.potential)
+        f.log_potential_fun = f.potential.to_log_potential()
 
 K = 3
 shared_dstates = set(rv.dstates for rv in g.Vd)
