@@ -41,9 +41,10 @@ class OneShot:
             factors = list(filter(lambda f: f.potential == unique_potential, g.factors_list))
             factors_with_unique_potentials[i] = factors
 
-            unique_log_potential_fun = unique_potential.to_log_potential()
-            for factor in factors:
-                factor.log_potential_fun = unique_log_potential_fun  # reference the same object
+            if any(factor.log_potential_fun is None for factor in factors):  # skip if log_potential_fun already defined
+                unique_log_potential_fun = unique_potential.to_log_potential()
+                for factor in factors:
+                    factor.log_potential_fun = unique_log_potential_fun  # reference the same object
 
         if evidence:
             self.uncond_g = g
