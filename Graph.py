@@ -65,11 +65,15 @@ class RV:
 
     @property
     def domain_type(self):
-        return 'c' if self.domain.continuous else 'd'
+        if self.domain.continuous:
+            t = 'c-g'  # currently only support Gaussian ('g' for Gaussian)
+        else:
+            t = 'd-' + str(self.dstates)
+        return t
 
     @property
     def dstates(self):
-        if self.domain_type == 'd':
+        if not self.domain.continuous:
             return len(self.domain.values)
         else:
             return None
@@ -79,7 +83,7 @@ class RV:
         return np.array(self.domain.values)
 
     def __str__(self):
-        return '{}rv #{}'.format(self.domain_type, self.id)
+        return '{} rv #{}'.format(self.domain_type, self.id)
 
     def __lt__(self, other):
         return self.id < other.id
@@ -101,11 +105,15 @@ class F:
         self.sharing_count = 1  # no parameter sharing in the uncompressed/unlifted graph
 
     @property
+    def nb_domain_types(self):
+        return tuple(rv.domain_type for rv in self.nb)
+
+    @property
     def domain_type(self):
-        rv_domain_types = [rv.domain_type for rv in self.nb]
-        if all([t == 'd' for t in rv_domain_types]):
+        nb_domain_types = self.nb_domain_types
+        if all([t[0] == 'd' for t in nb_domain_types]):
             type = 'd'  # disc
-        elif all([t == 'c' for t in rv_domain_types]):
+        elif all([t[0] == 'c' for t in nb_domain_types]):
             type = 'c'  # cont
         elif self.nb:
             type = 'h'  # hybrid
@@ -166,8 +174,8 @@ class Graph:
         pieces of information used by OSI.
         :return:
         """
-        Vd = [rv for rv in self.rvs_list if rv.domain_type == 'd']  # list of of discrete rvs
-        Vc = [rv for rv in self.rvs_list if rv.domain_type == 'c']  # list of cont rvs
+        Vd = [rv for rv in self.rvs_list if rv.domain_type[0] == 'd']  # list of of discrete rvs
+        Vc = [rv for rv in self.rvs_list if rv.domain_type[0] == 'c']  # list of cont rvs
         Vd_idx = {n: i for (i, n) in enumerate(Vd)}
         Vc_idx = {n: i for (i, n) in enumerate(Vc)}
 

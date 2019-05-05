@@ -412,11 +412,11 @@ class LiftedOneShot2(OneShot):
 
         lifting_reg = 0
         for crv in cg.rvs:
-            if crv.domain_type == 'c':
+            if crv.domain_type[0] == 'c':
                 rvs_ind = [g.Vc_idx[rv] for rv in crv.rvs]
                 rvs_comp_means = tf.gather(self.Mu, rvs_ind)
-            elif crv.domain_type == 'd':
-                rvs_ind = [g.Vd_idx[rv] for rv in crv.rvs]
+            elif crv.domain_type[0] == 'd':
+                # rvs_ind = [g.Vd_idx[rv] for rv in crv.rvs]
                 # rvs_comp_means = tf.gather(self.Pi, rvs_ind)
                 rvs_comp_means = tf.reduce_sum(
                     tf.stack([rv.belief_params_['pi'] for rv in crv.rvs], axis=0) * crv.values, axis=-1)

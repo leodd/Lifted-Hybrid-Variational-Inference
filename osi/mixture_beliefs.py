@@ -32,11 +32,11 @@ def get_hfactor_expectation_coefs_points(factor, K, T, dtype='float64'):
     ghq_weights_KT = tf.tile(tf.reshape(ghq_weights, [1, -1]), [K, 1])  # K x T (repeat for K identical rows)
 
     for rv in factor.nb:
-        if rv.domain_type == 'd':  # discrete
+        if rv.domain_type[0] == 'd':  # discrete
             c = rv.belief_params_['pi']  # K x dstates[i] matrix (tf); will be put under stop_gradient later
             a = np.tile(np.reshape(rv.values, [1, -1]), [K, 1])  # K x dstates[i] (last dimension repeated)
             a = tf.constant(a, dtype=dtype)  # otherwise tf complains about multiplying int tensor with float tensor
-        elif rv.domain_type == 'c':  # cont, assuming Gaussian for now
+        elif rv.domain_type[0] == 'c':  # cont, assuming Gaussian for now
             c = ghq_weights_KT
             mean_K1 = rv.belief_params_['mu_K1']
             var_K1 = rv.belief_params_['var_K1']
@@ -63,11 +63,11 @@ def eval_hfactor_belief(factor, axes, w):
     M = int(axes[0].shape[0])  # number of grids
     comp_probs = []
     for i, rv in enumerate(factor.nb):
-        if rv.domain_type == 'd':  # discrete
+        if rv.domain_type[0] == 'd':  # discrete
             comp_prob = rv.belief_params_['pi']  # assuming the states of Xi are sorted, so p_ki(rv.states) = p_ki
             comp_prob = comp_prob[:, None, :]  # K x 1 x Vi
             comp_prob = tf.tile(comp_prob, [1, M, 1])  # K x M x Vi; same for all M axes
-        elif rv.domain_type == 'c':  # cont, assuming Gaussian for now
+        elif rv.domain_type[0] == 'c':  # cont, assuming Gaussian for now
             mean_K1 = rv.belief_params_['mu_K1']
             mean_K11 = mean_K1[:, :, None]
             var_inv_K1 = rv.belief_params_['var_inv_K1']
@@ -129,15 +129,14 @@ def eval_hfactors_belief(factors, axes, w):
     comp_probs = []
     factor = factors[0]
     n = len(factor.nb)
-    rvs_domain_types = [rv.domain_type for rv in factor.nb]  # type of rvs (h/d/c) in each factor (same for all factors)
-    for i, domain_type in enumerate(rvs_domain_types):
+    for i, domain_type in enumerate(factor.nb_domain_types):
         factors_ith_nb = [factor.nb[i] for factor in factors]  # the ith neighbor (rv in clique) across all factors
-        if domain_type == 'd':  # discrete
+        if domain_type[0] == 'd':  # discrete
             comp_prob = tf.stack([rv.belief_params_['pi'] for rv in factors_ith_nb],
                                  axis=1)  # K x C x Vi, where Vi is the number of dstates of factor.nb[i]
             comp_prob = comp_prob[:, :, None, :]  # K x C x 1 x Vi
             comp_prob = tf.tile(comp_prob, [1, 1, M, 1])  # K x C x M x Vi; same for all M axes
-        elif domain_type == 'c':  # cont, assuming Gaussian for now
+        elif domain_type[0] == 'c':  # cont, assuming Gaussian for now
             # Mu = tf.stack([rv.belief_params_['mu'] for rv in factors_ith_nb], axis=0)  # C x K
             # Var_inv = tf.stack([rv.belief_params_['var_inv'] for rv in factors_ith_nb], axis=0)  # C x K
             # Mu_KC11 = tf.reshape(tf.transpose(Mu), [K, C, 1, 1])
@@ -181,11 +180,10 @@ def hfactors_bfe_obj(factors, T, w, dtype='float64'):
     coefs = [None] * n  # will be [[C, K, V1], [C, K, V2], ..., [C, K, Vn]]
     axes = [None] * n  # will be [[C, K, V1], [C, K, V2], ..., [C, K, Vn]]
 
-    rvs_domain_types = [rv.domain_type for rv in factor.nb]  # type of rvs (h/d/c) in each factor (same for all factors)
     comp_probs = []  # for evaluating beliefs along the way
-    for i, domain_type in enumerate(rvs_domain_types):
+    for i, domain_type in enumerate(factor.nb_domain_types):
         factors_ith_nb = [factor.nb[i] for factor in factors]  # the ith neighbor (rv in clique) across all factors
-        if domain_type == 'd':
+        if domain_type[0] == 'd':
             rv = factor.nb[i]
             c = tf.stack([rv.belief_params_['pi'] for rv in factors_ith_nb],
                          axis=0)  # C x K x Vi, where Vi is the number of dstates of factor.nb[i]
@@ -202,7 +200,7 @@ def hfactors_bfe_obj(factors, T, w, dtype='float64'):
             comp_prob = tf.transpose(c, [1, 0, 2])  # K x C x Vi
             comp_prob = comp_prob[:, :, None, :]  # K x C x 1 x Vi
             comp_prob = tf.tile(comp_prob, [1, 1, K, 1])  # K x C x M(=K) x Vi; same for all M(=K) axes
-        elif domain_type == 'c':
+        elif domain_type[0] == 'c':
             Mu_CK = tf.stack([rv.belief_params_['mu'] for rv in factors_ith_nb], axis=0)  # C x K
             Var_CK = tf.stack([rv.belief_params_['var'] for rv in factors_ith_nb], axis=0)  # C x K
             coefs[i] = ghq_weights_CKT
@@ -455,7 +453,7 @@ def get_obs_rvs_domain_types_and_params(obs_rvs, all_rvs_params=None, Vc_idx=Non
     """
     Extract the needed obs_rvs_domain_types and obs_rvs_params for _calc_marg_comp_log_prob
     Will try extracting obs_rvs_params from all_rvs_params first; fall back to the .belief_params attributes
-    of obs_rvs, if all_rvs_params not provided.
+    of obs_rvs, if all_rvs_params not provided. Assuming all continuous rvs are Gaussian.
     :param obs_rvs:
     :param all_rvs_params:
     :param g:
@@ -464,8 +462,8 @@ def get_obs_rvs_domain_types_and_params(obs_rvs, all_rvs_params=None, Vc_idx=Non
     obs_rvs_params = {}
     # N_o = len(obs_rvs)
     obs_rvs_domain_types = [rv.domain_type for rv in obs_rvs]
-    obs_c = np.array([t == 'c' for t in obs_rvs_domain_types])  # indicator vec of length N_o
-    obs_d = np.array([t == 'd' for t in obs_rvs_domain_types])  # indicator vec of length N_o
+    obs_c = np.array([t[0] == 'c' for t in obs_rvs_domain_types])  # indicator vec of length N_o
+    obs_d = np.array([t[0] == 'd' for t in obs_rvs_domain_types])  # indicator vec of length N_o
 
     if all_rvs_params is not None:
         if np.sum(obs_c) > 0:
@@ -505,8 +503,8 @@ def _calc_marg_comp_log_prob(X, obs_rvs_domain_types, obs_rvs_params):
         single_example = True
         X = X[None, :]  # [1, N_o]
 
-    obs_c = np.array([t == 'c' for t in obs_rvs_domain_types])  # indicator vec of length N_o
-    obs_d = np.array([t == 'd' for t in obs_rvs_domain_types])  # indicator vec of length N_o
+    obs_c = np.array([t[0] == 'c' for t in obs_rvs_domain_types])  # indicator vec of length N_o
+    obs_d = np.array([t[0] == 'd' for t in obs_rvs_domain_types])  # indicator vec of length N_o
 
     C = X[:, obs_c]  # M x (num of cont obs)
     D = X[:, obs_d]  # M x (num of disc obs)
@@ -646,12 +644,12 @@ def marginal_map(X, obs_rvs, query_rv, w):
         cond_w = w
     else:
         cond_w = calc_cond_mixture_weights(X=X, obs_rvs=obs_rvs, w=w, all_rvs_params=None, g=None)
-    if query_rv.domain_type == 'd':
+    if query_rv.domain_type[0] == 'd':
         map_state, map_prob = drv_belief_map(cond_w, query_rv.belief_params['pi'])
         # print(query_rv, map_state, map_prob)
         out = query_rv.values[map_state]
     else:
-        assert query_rv.domain_type == 'c'
+        assert query_rv.domain_type[0] == 'c'
         mu, var = query_rv.belief_params['mu'], query_rv.belief_params['var']
         bds = (query_rv.values[0], query_rv.values[1])
         out = crv_belief_map(cond_w, mu, var, bds)
