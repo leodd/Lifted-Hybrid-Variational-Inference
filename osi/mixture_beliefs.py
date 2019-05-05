@@ -114,8 +114,8 @@ def hfactor_bfe_obj(factor, T, w):
 
 def eval_hfactors_belief(factors, axes, w):
     """
-    Evaluate multiple hybrid/continuous factors' belief on grid(s), assuming the factors share potential functions (thus
-    the same kinds of variables in their cliques).
+    Evaluate multiple hybrid/continuous factors' belief on grid(s), assuming the factors have the same nb_domain_type
+    (i.e., the same kinds of variables in their cliques) so the dimensions match.
     :param factors:
     :param axes: list of mats [C x M x V1, C x M x V2, ..., C x M x Vn]; we allow the flexibility to evaluate on M > 1
     ndgrids for each factor simultaneously
@@ -159,13 +159,18 @@ def eval_hfactors_belief(factors, axes, w):
 
 def hfactors_bfe_obj(factors, T, w, dtype='float64'):
     """
-    Get the contribution to the BFE from multiple hybrid (or continuous) factors that have the same potential function.
-    :param factors: length C list of factor objects that have the same potential function (hence the same types of
-    variables in their cliques).
+    Get the contribution to the BFE from multiple hybrid (or continuous) factors that have the same types of neighboring
+    rvs.
+    :param factors: length C list of factor objects that have the same nb_domain_type.
     :param T:
     :param w:
     :return:
     """
+    # group factors with the same types of log potentials together for efficient evaluation later
+    factors_with_unique_log_potential_fun_types, unique_log_potential_fun_types = \
+        utils.get_unique_subsets(factors, key=lambda f: type(f.log_potential_fun))
+    factors = sum(factors_with_unique_log_potential_fun_types, [])  # join together into flat list
+
     K = np.prod(w.shape)
     C = len(factors)
     factor = factors[0]
@@ -229,7 +234,8 @@ def hfactors_bfe_obj(factors, T, w, dtype='float64'):
     einsum_eq = utils.outer_prod_einsum_equation(n, common_first_ndims=2)
     coefs = tf.einsum(einsum_eq, *coefs)  # C x K x V1 x V2 x ... Vn; C x K grids of Hadamard products
 
-    lpot = utils.eval_fun_grid(factor.log_potential_fun, arrs=axes)  # C x K x V1 x V2 x ... Vn
+    lpot = group_eval_log_potential_funs(factors_with_unique_log_potential_fun_types, unique_log_potential_fun_types,
+                                         axes)  # C x K x V1 x V2 x ... Vn
     log_belief = tf.log(belief)
     F = -lpot + log_belief
     w_broadcast = tf.reshape(w, [-1] + [1] * n)  # K x 1 x 1 ... x 1
@@ -280,12 +286,22 @@ def dfactor_bfe_obj(factor, w):
 
 def dfactors_bfe_obj(factors, w):
     """
-    Get the contribution to the BFE from multiple discrete factors that have the same potential function.
-    :param factors: length C list of factor objects that have the same potential function (hence the same types of
-    variables in their cliques).
+    Get the contribution to the BFE from multiple discrete factors that have the same kinds of neighboring rvs (i.e.,
+    the rvs in factor.nb should have the same number of dstates).
+    :param factors: length C list of factor objects that have the same factor.nb_domain_types.
     :param w:
     :return:
     """
+    # group factors with the same types of log potentials together for efficient evaluation later
+    # unique_log_potential_types = set(type(factor.log_potential_fun) for factor in factors)
+    # factors_with_unique_log_potential_types = [None] * len(unique_log_potential_types)  # list of lists of factors
+    # for i, log_potential_type in unique_log_potential_types:
+    #     like_factors = list(filter(lambda f: type(factor.log_potential_fun) == log_potential_type, factors))
+    #     factors_with_unique_log_potential_types[i] = like_factors
+    factors_with_unique_log_potential_fun_types, unique_log_potential_fun_types = \
+        utils.get_unique_subsets(factors, key=lambda f: type(f.log_potential_fun))
+    factors = sum(factors_with_unique_log_potential_fun_types, [])  # join together into flat list
+
     C = len(factors)
     factor = factors[0]
     n = len(factor.nb)
@@ -299,7 +315,8 @@ def dfactors_bfe_obj(factors, w):
     belief = tf.reduce_sum(w_broadcast * joint_comp_probs, axis=1)  # C x V1 x V2 x ... Vn
     axes = [np.stack([f.nb[i].values for f in factors], axis=0) for i in range(n)]  # [C x V1, C x V2, ..., C x Vn]
 
-    lpot = utils.eval_fun_grid(factor.log_potential_fun, axes)  # C x V1 x V2 x ... Vn
+    lpot = group_eval_log_potential_funs(factors_with_unique_log_potential_fun_types, unique_log_potential_fun_types,
+                                         axes)  # C x V1 x V2 x ... Vn
     log_belief = tf.log(belief)
     F = - lpot + log_belief
     prod = tf.stop_gradient(belief * F)  # stop_gradient is needed for aux_obj
@@ -312,6 +329,69 @@ def dfactors_bfe_obj(factors, w):
     aux_obj = tf.reduce_sum(sharing_counts * factors_aux_objs)
 
     return bfe, aux_obj
+
+
+def group_eval_log_potential_funs(factors_with_unique_log_potential_fun_types, unique_log_potential_fun_types, axes):
+    """
+    Evaluate multiple log potentials on corresponding slices of axes, grouping the evaluation of same types of log
+    potentials together for efficiency.
+    This extends the call of 'lpot = utils.eval_fun_grid(log_potential_fun, axes)  # C x ??? x V1 x V2 x ... Vn'
+    to the case when log_potential_fun is no longer shared across all C slices of axes.
+    :param factors_with_unique_log_potential_fun_types:
+    :param unique_log_potential_fun_types:
+    :param axes: [C x ??? x V1, C x ??? x V2, ... C x ??? x Vn], where ??? is any number of identical dimensions
+    :return:
+    """
+    n = len(axes)  # all the factors have n args (nb) in scope
+    from Potential import GaussianLogPotential
+    from MLNPotential import MLNLogPotential
+    lpots = [None] * len(unique_log_potential_fun_types)
+    j = 0
+    for i, log_potential_fun_type in enumerate(unique_log_potential_fun_types):
+        like_factors = factors_with_unique_log_potential_fun_types[i]  # all have the same type of log_potential_funs
+        like_log_potential_funs = [f.log_potential_fun for f in like_factors]
+        c = len(like_factors)
+        like_axes = [a[j:(j + c)] for a in axes]
+
+        if log_potential_fun_type == GaussianLogPotential:
+            like_axes = utils.broadcast_arrs_to_common_shape(utils.expand_dims_for_fun_grid(
+                like_axes))  # length n list, having common shape [c x ??? x V1 x V2 x ... Vn]
+            v = tf.stack(like_axes)  # n x c x ...
+            mu = np.stack([f.mu for f in like_log_potential_funs], axis=-1)  # n x c
+            mu = np.reshape(mu, [n, c] + [1] * (len(v.shape) - 2))  # n x c x ones
+            sig_inv = np.stack([f.sig_inv for f in like_log_potential_funs], axis=-1)  # n x n x c
+            sig_inv = np.reshape(sig_inv, [n, n, c] + [1] * (len(v.shape) - 2))  # n x n x c x ones
+
+            diff = v - mu  # n x c x ... , same shape as v
+            outer_prods = diff[None, ...] * diff[:, None, ...]  # n x n x c x ...
+            quad_form = tf.reduce_sum(outer_prods * sig_inv, axis=[0, 1])
+            lpot = -.5 * quad_form
+        elif log_potential_fun_type == MLNLogPotential:
+            formulas = [f.formula for f in like_log_potential_funs]
+            unique_formulas = list(set(formulas))  # need a better way to check formula equality than object id
+            assert len(unique_formulas) == 1, 'currently only support identical formula'
+            shared_formula = unique_formulas[0]
+            lpot = utils.eval_fun_grid(shared_formula, axes)  # c x ??? x V1 x V2 x ... Vn
+            weights = np.array([f.w for f in like_log_potential_funs])
+            weights = np.reshape(weights, [c] + [1] * (len(lpot.shape) - 1))
+            # or, use weights[(slice(None),) + (None,)*len(lpot.shape-1)]
+            lpot = lpot * weights  # c x ??? x V1 x V2 x ... Vn
+        else:
+            # lpot = [utils.eval_fun_grid(like_log_potential_funs[l], [a[l] for a in like_axes]) for l in range(c)]
+            lpot = []
+            for l in range(c):
+                lpot.append(utils.eval_fun_grid(like_log_potential_funs[l], [a[l] for a in like_axes]))
+            lpot = tf.stack(lpot, axis=0)
+
+        lpots[i] = lpot
+        j = j + c
+
+    if len(lpots) == 1:
+        lpot = lpots[0]
+    else:
+        lpot = tf.concat(lpots, 0)  # C x V1 x V2 x ... Vn
+
+    return lpot
 
 
 def drv_bfe_obj(rv, w):

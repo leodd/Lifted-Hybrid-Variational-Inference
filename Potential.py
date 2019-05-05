@@ -49,7 +49,7 @@ class GaussianLogPotential:
     def __call__(self, args):
         """
 
-        :param args: list of p tensors or numpy arrays; must all have the same shape, or must be broadcastable to the
+        :param args: list of n tensors or numpy arrays; must all have the same shape, or must be broadcastable to the
         largest common shape (e.g., if args have shapes [1, 3, 1] and [2, 1, 3], they'll first be broadcasted to having
         shape [2, 3, 3], then the result will be computed element-wise and will also have shape [2, 3, 3]
         :return:
@@ -66,20 +66,22 @@ class GaussianLogPotential:
             else:
                 backend = np
 
-            args_shapes = [tuple(map(int, arg.shape)) for arg in args]
-            if not len(set(args_shapes)) == 1:
-                assert len(set([len(s) for s in args_shapes])) == 1, 'args should have the same number of dimensions'
-                args_shapes = np.array(args_shapes)
-                # n, args_ndim = args_shapes.shape
-                common_shape = tuple(np.max(args_shapes, axis=0))
-                args = [backend.broadcast_to(arg, common_shape) for arg in args]  # now all have the same shape
+            # args_shapes = [tuple(map(int, arg.shape)) for arg in args]
+            # if not len(set(args_shapes)) == 1:
+            #     assert len(set([len(s) for s in args_shapes])) == 1, 'args should have the same number of dimensions'
+            #     args_shapes = np.array(args_shapes)
+            #     # n, args_ndim = args_shapes.shape
+            #     common_shape = tuple(np.max(args_shapes, axis=0))
+            #     args = [backend.broadcast_to(arg, common_shape) for arg in args]  # now all have the same shape
+            import utils
+            args = utils.broadcast_arrs_to_common_shape(args)
 
-            v = backend.stack(args)  # p x ...
+            v = backend.stack(args)  # n x ...
             args_ndim = len(v.shape) - 1
             mu = backend.reshape(mu, [n] + [1] * args_ndim)
             sig_inv = backend.reshape(sig_inv, [n, n] + [1] * args_ndim)
             diff = v - mu
-            outer_prods = diff[None, ...] * diff[:, None, ...]  # p x p x ...
+            outer_prods = diff[None, ...] * diff[:, None, ...]  # n x n x ...
             if backend is tf:
                 quad_form = tf.reduce_sum(outer_prods * sig_inv, axis=[0, 1])
             else:

@@ -42,6 +42,45 @@ def weighted_feature_fun(feature_fun, weight):
     return wf
 
 
+def get_unique_subsets(items, key):
+    unique_properties = list(set(key(item) for item in items))  # order may change, might be an issue
+    subsets_with_unique_properties = [None] * len(unique_properties)
+    for i, unique_prop in enumerate(unique_properties):
+        subset = list(filter(lambda item: key(item) == unique_prop, items))
+        subsets_with_unique_properties[i] = subset
+    return subsets_with_unique_properties, unique_properties
+
+
+def set_log_potential_funs(factors):
+    """
+    Set the log_potential_fun attribute of factors, ensuring that factors with the same potentials will have the same
+    log potentials. This is a pre-processing step for OSI, as the graph construction/compression code typically work
+    with potential objects instead of log potentials.
+    :param factors: list of factors (whose log_potential_fun will be modified if not already set (i.e., is None))
+    :return:
+    """
+    # unique_potentials = set(f.potential for f in factors)
+    # factors_with_unique_potentials = [None] * len(unique_potentials)  # list of lists of factors
+    # for i, unique_potential in enumerate(unique_potentials):
+    #     like_factors = list(filter(lambda f: f.potential == unique_potential, factors))
+    #     factors_with_unique_potentials[i] = like_factors
+    #
+    #     if any(factor.log_potential_fun is None
+    #            for factor in like_factors):  # skip if log_potential_fun already defined
+    #         unique_log_potential_fun = unique_potential.to_log_potential()
+    #         for factor in like_factors:
+    #             factor.log_potential_fun = unique_log_potential_fun  # reference the same object
+
+    factors_with_unique_potentials, unique_potentials = get_unique_subsets(factors, lambda f: f.potential)
+    for i, unique_potential in enumerate(unique_potentials):
+        like_factors = factors_with_unique_potentials[i]
+        if any(factor.log_potential_fun is None for factor in
+               like_factors):  # skip if log_potential_fun already defined
+            unique_log_potential_fun = unique_potential.to_log_potential()
+            for factor in like_factors:
+                factor.log_potential_fun = unique_log_potential_fun  # reference the same object
+
+
 def get_partial_function(fun, n, partial_args_vals):
     """
 
@@ -246,6 +285,22 @@ def expand_dims_for_grid(arrs, first_ndims_to_keep=0):
             enumerate(arrs)]
 
 
+def expand_dims_for_fun_grid(arrs):
+    """
+    Preprocessing helper for eval_fun_grid. arrs should be the list of arguments to a function R^n -> R.
+    See eval_fun_grid for comments.
+    :param arrs:
+    :return:
+    """
+    arrs_shapes_except_last = [a.shape[:-1] for a in arrs]
+    arrs_shapes_except_last = [tuple(s.as_list()) if isinstance(s, tf.TensorShape) else s
+                               for s in arrs_shapes_except_last]  # convert tf tensor shapes (np shapes already tuples)
+    assert len(set(arrs_shapes_except_last)) == 1, 'Shapes of input tensors can only differ in the last dimension!'
+    common_first_ndims = len(arrs_shapes_except_last[0])  # form grid based on the last dimension
+    expanded_arrs = expand_dims_for_grid(arrs, common_first_ndims)
+    return expanded_arrs
+
+
 def eval_fun_grid(fun, arrs, sep_args=False):
     """
     Evaluate a function R^n -> R on the tensor (outer) product of vectors [v1, v2, ..., vn];
@@ -258,18 +313,46 @@ def eval_fun_grid(fun, arrs, sep_args=False):
     :param sep_args: whether fun takes iterable (instead of *args) as arguments, i.e., f(xyz) vs f(x,y,z)
     :return:
     """
-    arrs_shapes_except_last = [a.shape[:-1] for a in arrs]
-    arrs_shapes_except_last = [tuple(s.as_list()) if isinstance(s, tf.TensorShape) else s
-                               for s in arrs_shapes_except_last]  # convert tf tensor shapes (np shapes already tuples)
-    assert len(set(arrs_shapes_except_last)) == 1, 'Shapes of input tensors can only differ in the last dimension!'
-    common_first_ndims = len(arrs_shapes_except_last[0])  # form grid based on the last dimension
-    expanded_arrs = expand_dims_for_grid(arrs, common_first_ndims)
+    # arrs_shapes_except_last = [a.shape[:-1] for a in arrs]
+    # arrs_shapes_except_last = [tuple(s.as_list()) if isinstance(s, tf.TensorShape) else s
+    #                            for s in arrs_shapes_except_last]  # convert tf tensor shapes (np shapes already tuples)
+    # assert len(set(arrs_shapes_except_last)) == 1, 'Shapes of input tensors can only differ in the last dimension!'
+    # common_first_ndims = len(arrs_shapes_except_last[0])  # form grid based on the last dimension
+    # expanded_arrs = expand_dims_for_grid(arrs, common_first_ndims)
+    expanded_arrs = expand_dims_for_fun_grid(arrs)
 
     if sep_args:
         res = fun(*expanded_arrs)
     else:
         res = fun(expanded_arrs)  # should evaluate on the Cartesian product (ndgrid) of axes by broadcasting
     return res
+
+
+def broadcast_arrs_to_common_shape(arrs):
+    """
+    Return a list of arrays that are all broadcasted to a common shape.
+    e.g., if arrs have shapes [1, 3, 1] and [2, 1, 3], result will be a list of 2 arrays both with shape [2, 3, 3]
+    :param arrs: list of arrays/tensors broadcastable to the same largest shape.
+    :return:
+    """
+    # if len(arrs) == 1:
+    #     return arrs
+    arrs_shapes = [tuple(map(int, arg.shape)) for arg in arrs]
+    if len(set(arrs_shapes)) == 1:  # all have the same shapes
+        out = arrs
+    else:
+        if isinstance(arrs[0], (tf.Variable, tf.Tensor)):
+            backend = tf
+        else:
+            backend = np
+
+        assert len(set([len(s) for s in arrs_shapes])) == 1, 'arrs should have the same number of dimensions'
+        arrs_shapes = np.array(arrs_shapes)
+        # n, arrs_ndim = arrs_shapes.shape
+        common_shape = tuple(np.max(arrs_shapes, axis=0))
+        out = [backend.broadcast_to(arg, common_shape) for arg in arrs]  # now all have the same shape
+
+    return out
 
 
 def calc_numerical_grad(vs, obj, sess, delta=1e-4):

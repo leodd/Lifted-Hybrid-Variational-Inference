@@ -34,32 +34,31 @@ class OneShot:
         """
         # convert potentials to log_potential_funs (b/c typically caller only sets potentials instead of log pot)
         # ensure the uniqueness of potentials are reflected in the log_potential_funs
-        unique_potentials = set(f.potential for f in g.factors)
-        print('number of unique potentials (in unconditioned MRF) =', len(unique_potentials))
-        factors_with_unique_potentials = [None] * len(unique_potentials)  # list of lists of factors
-        for i, unique_potential in enumerate(unique_potentials):
-            factors = list(filter(lambda f: f.potential == unique_potential, g.factors_list))
-            factors_with_unique_potentials[i] = factors
+        # unique_potentials = set(f.potential for f in g.factors)
+        # print('number of unique potentials (in unconditioned MRF) =', len(unique_potentials))
+        # factors_with_unique_potentials = [None] * len(unique_potentials)  # list of lists of factors
+        # for i, unique_potential in enumerate(unique_potentials):
+        #     factors = list(filter(lambda f: f.potential == unique_potential, g.factors_list))
+        #     factors_with_unique_potentials[i] = factors
+        #
+        #     if any(factor.log_potential_fun is None for factor in factors):  # skip if log_potential_fun already defined
+        #         unique_log_potential_fun = unique_potential.to_log_potential()
+        #         for factor in factors:
+        #             factor.log_potential_fun = unique_log_potential_fun  # reference the same object
 
-            if any(factor.log_potential_fun is None for factor in factors):  # skip if log_potential_fun already defined
-                unique_log_potential_fun = unique_potential.to_log_potential()
-                for factor in factors:
-                    factor.log_potential_fun = unique_log_potential_fun  # reference the same object
+        utils.set_log_potential_funs(g.factors_list)
 
         if evidence:
             self.uncond_g = g
             cond_g = utils.get_conditional_mrf(g.factors, g.rvs, evidence)
             g = cond_g
 
-            # re-check unique pots b/c evidence
-            unique_potentials = set(f.potential for f in g.factors)
-            print('number of unique potentials (in conditioned MRF) =', len(unique_potentials))
-            factors_with_unique_potentials = [None] * len(unique_potentials)  # list of lists of factors
-            for i, unique_potential in enumerate(unique_potentials):
-                factors = list(filter(lambda f: f.potential == unique_potential, g.factors_list))
-                factors_with_unique_potentials[i] = factors
+        # group factors together whose log potential functions have the same call signatures
+        factors_with_unique_nb_domain_types, unique_nb_domain_types = \
+            utils.get_unique_subsets(g.factors_list, lambda f: f.nb_domain_types)
+        print('number of unique factor domain types =', len(unique_nb_domain_types))
+        print(unique_nb_domain_types)
 
-        # pre-process graph to make things easier
         g.init_rv_indices()  # will create attributes like Vc, Vc_idx, etc.
         # g.init_nb()  # caller should have always run this (or done sth similar) to ensure g is well defined!
 
@@ -160,7 +159,7 @@ class OneShot:
             bfe += delta_bfe
             aux_obj += delta_aux_obj
 
-        for factors in factors_with_unique_potentials:
+        for factors in factors_with_unique_nb_domain_types:
             factor = factors[0]
             if factor.domain_type == 'd':
                 delta_bfe, delta_aux_obj = dfactors_bfe_obj(factors, w)
