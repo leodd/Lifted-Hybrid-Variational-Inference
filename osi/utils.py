@@ -120,25 +120,29 @@ def condition_factors_on_evidence(factors, evidence):
             f.uncond_factor = factor
             f.nb = remaining_rvs
 
-            potential = factor.potential
-            if isinstance(potential, GaussianPotential):
-                mu, sig = get_conditional_gaussian(potential.mu, potential.sig, partial_args_vals)
-                pot = GaussianPotential(mu=mu, sig=sig)
-                log_pot = pot.to_log_potential()
-            elif isinstance(potential, MLNPotential):
-                formula = get_partial_function(potential.formula, n, partial_args_vals)
-                pot = MLNPotential(formula=formula, w=potential.w)
-                log_pot = pot.to_log_potential()
-            else:  # may not be able to construct the conditional potential in closed-form
-                pot = copy(potential)
-                pot.potential.get = get_partial_function(potential.get, n, partial_args_vals)
-                log_pot = get_partial_function(factor.log_potential_fun, n, partial_args_vals)
+            if len(f.nb) == 0:  # entire factor is observed, then it just reduces to a constant
+                f.potential = None
+                f.log_potential_fun = lambda x: factor.log_potential_fun([evidence[rv] for rv in factor.nb])
+            else:
+                potential = factor.potential
+                if isinstance(potential, GaussianPotential):
+                    mu, sig = get_conditional_gaussian(potential.mu, potential.sig, partial_args_vals)
+                    pot = GaussianPotential(mu=mu, sig=sig)
+                    log_pot = pot.to_log_potential()
+                elif isinstance(potential, MLNPotential):
+                    formula = get_partial_function(potential.formula, n, partial_args_vals)
+                    pot = MLNPotential(formula=formula, w=potential.w)
+                    log_pot = pot.to_log_potential()
+                else:  # may not be able to construct the conditional potential in closed-form
+                    pot = copy(potential)
+                    pot.potential.get = get_partial_function(potential.get, n, partial_args_vals)
+                    log_pot = get_partial_function(factor.log_potential_fun, n, partial_args_vals)
 
-            if hasattr(potential, 'symmetric'):
-                pot.symmetric = potential.symmetric
+                if hasattr(potential, 'symmetric'):
+                    pot.symmetric = potential.symmetric
 
-            f.potential = pot
-            f.log_potential_fun = log_pot
+                f.potential = pot
+                f.log_potential_fun = log_pot
         else:
             f = factor
         cond_factors.append(f)
