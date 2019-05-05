@@ -17,7 +17,7 @@ class GaussianPotential(Potential):
         Potential.__init__(self, symmetric=False)
         self.mu = np.array(mu)
         self.sig = np.matrix(sig)
-        self.inv = self.sig.I
+        self.sig_inv = self.sig.I
         det = np.linalg.det(self.sig)
         p = float(len(mu))
         if det == 0:
@@ -27,7 +27,7 @@ class GaussianPotential(Potential):
     def get(self, parameters, use_coef=False):
         x_mu = np.matrix(np.array(parameters) - self.mu)
         coef = self.coefficient if use_coef else 1.
-        return coef * pow(e, -0.5 * (x_mu * self.inv * x_mu.T))
+        return coef * pow(e, -0.5 * (x_mu * self.sig_inv * x_mu.T))
 
     def to_log_potential(self):
         return GaussianLogPotential(self.mu, self.sig)
