@@ -32,11 +32,11 @@ class GaussianPotential(Potential):
     def to_log_potential(self):
         return GaussianLogPotential(self.mu, self.sig)
 
-    # def __eq__(self, other):
-    #     return np.all(self.mu == other.mu) and np.all(self.sig == other.sig)  # self.w shouldn't make a difference
-    #
-    # def __hash__(self):
-    #     return hash((self.mu, self.sig))
+        # def __eq__(self, other):
+        #     return np.all(self.mu == other.mu) and np.all(self.sig == other.sig)  # self.w shouldn't make a difference
+        #
+        # def __hash__(self):
+        #     return hash((self.mu, self.sig))
 
 
 class GaussianLogPotential:
@@ -47,22 +47,37 @@ class GaussianLogPotential:
         self.sig_inv = np.linalg.inv(sig)
 
     def __call__(self, args):
-        p = len(args)
+        """
+
+        :param args: list of p tensors or numpy arrays; must all have the same shape, or must be broadcastable to the
+        largest common shape (e.g., if args have shapes [1, 3, 1] and [2, 1, 3], they'll first be broadcasted to having
+        shape [2, 3, 3], then the result will be computed element-wise and will also have shape [2, 3, 3]
+        :return:
+        """
+        n = len(args)
         mu = self.mu
         sig_inv = self.sig_inv
         import tensorflow as tf
-        if p == 1:
+        if n == 1:
             res = -0.5 * sig_inv[0, 0] * (args[0] - mu[0]) ** 2
         else:
             if isinstance(args[0], (tf.Variable, tf.Tensor)):
                 backend = tf
             else:
                 backend = np
-            # assuming args all have identical shapes
+
+            args_shapes = [tuple(map(int, arg.shape)) for arg in args]
+            if not len(set(args_shapes)) == 1:
+                assert len(set([len(s) for s in args_shapes])) == 1, 'args should have the same number of dimensions'
+                args_shapes = np.array(args_shapes)
+                # n, args_ndim = args_shapes.shape
+                common_shape = tuple(np.max(args_shapes, axis=0))
+                args = [backend.broadcast_to(arg, common_shape) for arg in args]  # now all have the same shape
+
             v = backend.stack(args)  # p x ...
             args_ndim = len(v.shape) - 1
-            mu = backend.reshape(mu, [p] + [1] * args_ndim)
-            sig_inv = backend.reshape(sig_inv, [p, p] + [1] * args_ndim)
+            mu = backend.reshape(mu, [n] + [1] * args_ndim)
+            sig_inv = backend.reshape(sig_inv, [n, n] + [1] * args_ndim)
             diff = v - mu
             outer_prods = diff[None, ...] * diff[:, None, ...]  # p x p x ...
             if backend is tf:
@@ -73,11 +88,11 @@ class GaussianLogPotential:
 
         return res
 
-    # def __eq__(self, other):
-    #     return np.all(self.mu == other.mu) and np.all(self.sig == other.sig)
-    #
-    # def __hash__(self):
-    #     return hash((self.mu, self.sig))
+        # def __eq__(self, other):
+        #     return np.all(self.mu == other.mu) and np.all(self.sig == other.sig)
+        #
+        # def __hash__(self):
+        #     return hash((self.mu, self.sig))
 
 
 class LinearGaussianPotential(Potential):
