@@ -361,11 +361,9 @@ def group_eval_log_potential_funs(factors_with_unique_log_potential_fun_types, u
             outer_prods = diff[None, ...] * diff[:, None, ...]  # n x n x c x ...
             quad_form = tf.reduce_sum(outer_prods * sig_inv, axis=[0, 1])
             lpot = -.5 * quad_form
-        elif log_potential_fun_type == MLNLogPotential:
-            formulas = [f.formula for f in like_log_potential_funs]
-            unique_formulas = list(set(formulas))  # need a better way to check formula equality than object id
-            assert len(unique_formulas) == 1, 'currently only support identical formula'
-            shared_formula = unique_formulas[0]
+        elif log_potential_fun_type == MLNLogPotential and len(set([f.formula for f in like_log_potential_funs])) == 1:
+            # need a better/smarter way to check formula equality
+            shared_formula = like_log_potential_funs[0].formula  # assume all have the same formula
             lpot = utils.eval_fun_grid(shared_formula, axes)  # c x ??? x V1 x V2 x ... Vn
             weights = np.array([f.w for f in like_log_potential_funs])
             weights = np.reshape(weights, [c] + [1] * (len(lpot.shape) - 1))
