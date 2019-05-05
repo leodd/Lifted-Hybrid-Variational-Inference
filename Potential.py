@@ -32,8 +32,11 @@ class GaussianPotential(Potential):
     def to_log_potential(self):
         return GaussianLogPotential(self.mu, self.sig)
 
-    def __eq__(self, other):
-        return np.all(self.mu == other.mu) and np.all(self.sig == other.sig)  # self.w shouldn't make a difference
+    # def __eq__(self, other):
+    #     return np.all(self.mu == other.mu) and np.all(self.sig == other.sig)  # self.w shouldn't make a difference
+    #
+    # def __hash__(self):
+    #     return hash((self.mu, self.sig))
 
 
 class GaussianLogPotential:
@@ -70,8 +73,11 @@ class GaussianLogPotential:
 
         return res
 
-    def __eq__(self, other):
-        return np.all(self.mu == other.mu) and np.all(self.sig == other.sig)
+    # def __eq__(self, other):
+    #     return np.all(self.mu == other.mu) and np.all(self.sig == other.sig)
+    #
+    # def __hash__(self):
+    #     return hash((self.mu, self.sig))
 
 
 class LinearGaussianPotential(Potential):
