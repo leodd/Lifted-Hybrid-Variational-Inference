@@ -59,18 +59,6 @@ def set_log_potential_funs(factors):
     :param factors: list of factors (whose log_potential_fun will be modified if not already set (i.e., is None))
     :return:
     """
-    # unique_potentials = set(f.potential for f in factors)
-    # factors_with_unique_potentials = [None] * len(unique_potentials)  # list of lists of factors
-    # for i, unique_potential in enumerate(unique_potentials):
-    #     like_factors = list(filter(lambda f: f.potential == unique_potential, factors))
-    #     factors_with_unique_potentials[i] = like_factors
-    #
-    #     if any(factor.log_potential_fun is None
-    #            for factor in like_factors):  # skip if log_potential_fun already defined
-    #         unique_log_potential_fun = unique_potential.to_log_potential()
-    #         for factor in like_factors:
-    #             factor.log_potential_fun = unique_log_potential_fun  # reference the same object
-
     factors_with_unique_potentials, unique_potentials = get_unique_subsets(factors, lambda f: f.potential)
     for i, unique_potential in enumerate(unique_potentials):
         like_factors = factors_with_unique_potentials[i]
@@ -313,12 +301,6 @@ def eval_fun_grid(fun, arrs, sep_args=False):
     :param sep_args: whether fun takes iterable (instead of *args) as arguments, i.e., f(xyz) vs f(x,y,z)
     :return:
     """
-    # arrs_shapes_except_last = [a.shape[:-1] for a in arrs]
-    # arrs_shapes_except_last = [tuple(s.as_list()) if isinstance(s, tf.TensorShape) else s
-    #                            for s in arrs_shapes_except_last]  # convert tf tensor shapes (np shapes already tuples)
-    # assert len(set(arrs_shapes_except_last)) == 1, 'Shapes of input tensors can only differ in the last dimension!'
-    # common_first_ndims = len(arrs_shapes_except_last[0])  # form grid based on the last dimension
-    # expanded_arrs = expand_dims_for_grid(arrs, common_first_ndims)
     expanded_arrs = expand_dims_for_fun_grid(arrs)
 
     if sep_args:

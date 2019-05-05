@@ -33,19 +33,6 @@ class OneShot:
         conditional MRF
         """
         # convert potentials to log_potential_funs (b/c typically caller only sets potentials instead of log pot)
-        # ensure the uniqueness of potentials are reflected in the log_potential_funs
-        # unique_potentials = set(f.potential for f in g.factors)
-        # print('number of unique potentials (in unconditioned MRF) =', len(unique_potentials))
-        # factors_with_unique_potentials = [None] * len(unique_potentials)  # list of lists of factors
-        # for i, unique_potential in enumerate(unique_potentials):
-        #     factors = list(filter(lambda f: f.potential == unique_potential, g.factors_list))
-        #     factors_with_unique_potentials[i] = factors
-        #
-        #     if any(factor.log_potential_fun is None for factor in factors):  # skip if log_potential_fun already defined
-        #         unique_log_potential_fun = unique_potential.to_log_potential()
-        #         for factor in factors:
-        #             factor.log_potential_fun = unique_log_potential_fun  # reference the same object
-
         utils.set_log_potential_funs(g.factors_list)
 
         if evidence:

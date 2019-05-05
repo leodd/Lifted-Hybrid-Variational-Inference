@@ -293,11 +293,6 @@ def dfactors_bfe_obj(factors, w):
     :return:
     """
     # group factors with the same types of log potentials together for efficient evaluation later
-    # unique_log_potential_types = set(type(factor.log_potential_fun) for factor in factors)
-    # factors_with_unique_log_potential_types = [None] * len(unique_log_potential_types)  # list of lists of factors
-    # for i, log_potential_type in unique_log_potential_types:
-    #     like_factors = list(filter(lambda f: type(factor.log_potential_fun) == log_potential_type, factors))
-    #     factors_with_unique_log_potential_types[i] = like_factors
     factors_with_unique_log_potential_fun_types, unique_log_potential_fun_types = \
         utils.get_unique_subsets(factors, key=lambda f: type(f.log_potential_fun))
     factors = sum(factors_with_unique_log_potential_fun_types, [])  # join together into flat list

@@ -61,21 +61,13 @@ class GaussianLogPotential:
         if n == 1:
             res = -0.5 * sig_inv[0, 0] * (args[0] - mu[0]) ** 2
         else:
+            import utils
+            args = utils.broadcast_arrs_to_common_shape(args)
+
             if isinstance(args[0], (tf.Variable, tf.Tensor)):
                 backend = tf
             else:
                 backend = np
-
-            # args_shapes = [tuple(map(int, arg.shape)) for arg in args]
-            # if not len(set(args_shapes)) == 1:
-            #     assert len(set([len(s) for s in args_shapes])) == 1, 'args should have the same number of dimensions'
-            #     args_shapes = np.array(args_shapes)
-            #     # n, args_ndim = args_shapes.shape
-            #     common_shape = tuple(np.max(args_shapes, axis=0))
-            #     args = [backend.broadcast_to(arg, common_shape) for arg in args]  # now all have the same shape
-            import utils
-            args = utils.broadcast_arrs_to_common_shape(args)
-
             v = backend.stack(args)  # n x ...
             args_ndim = len(v.shape) - 1
             mu = backend.reshape(mu, [n] + [1] * args_ndim)
