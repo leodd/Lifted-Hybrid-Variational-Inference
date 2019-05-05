@@ -114,6 +114,67 @@ def get_partial_function(fun, n, partial_args_vals):
     return pfun
 
 
+def get_conditional_gaussian(mu, Sig, obs_args_vals):
+    """
+    Get the mean and covariance matrix of a conditional Gaussian distribution p(x_a | x_b), given the joint distribution
+    over (x_a, x_b). Based on section 2.3.1, p 87 of PRML textbook.
+    :param mu:  joint mean
+    :param Sig: joint covmat
+    :param obs_args_vals: a dict mapping indices of variables in the observed subector (x_b) to their obs values.
+    :return:
+    """
+    Sig = np.asarray(Sig)
+    n = len(mu)
+    b_ind = np.array(list(obs_args_vals.keys()), dtype=int)
+    b_val = np.array([obs_args_vals[i] for i in b_ind])
+    a_ind = np.setdiff1d(np.arange(n), b_ind)
+    mu_b = mu[b_ind]
+    mu_a = mu[a_ind]
+    Sig_bb = Sig[np.ix_(b_ind, b_ind)]
+    Sig_bb_inv = np.linalg.inv(Sig_bb)
+    Sig_aa = Sig[np.ix_(a_ind, a_ind)]
+    Sig_ab = Sig[np.ix_(a_ind, b_ind)]
+    Sig_ba = Sig_ab.T
+
+    cond_mu = mu_a + Sig_ab @ (Sig_bb_inv @ (b_val - mu_b))  # (2.81)
+    cond_Sig = Sig_aa - Sig_ab @ Sig_bb_inv @ Sig_ba  # (2.82)
+    return cond_mu, cond_Sig
+
+
+# mu = np.array([0., 1])
+# Sig = np.array([[.4, .1], [.1, .4]])
+# mu = np.array([0., 1, -1])
+# Sig = np.array([[.4, .1, 0],
+#                 [.1, .4, 0],
+#                 [0, .0, .4]])
+# get_conditional_gaussian(mu, Sig, {0: -.3})
+
+
+def condition_potential_on_evidence(potential, n, obs_args_vals):
+    """
+
+    :param potential: a Potential object
+    :return: a new potential reduced to the context of given evidence
+    """
+    from MLNPotential import MLNPotential
+    from Potential import GaussianPotential
+    if isinstance(potential, GaussianPotential):
+        mu, sig = get_conditional_gaussian(potential.mu, potential.sig, obs_args_vals)
+        pot = GaussianPotential(mu=mu, sig=sig)
+    elif isinstance(potential, MLNPotential):
+        formula = get_partial_function(potential.formula, n, obs_args_vals)
+        pot = MLNPotential(formula=formula, w=potential.w)
+    else:  # may not be able to construct the conditional potential in closed-form
+        from copy import copy
+        pot = copy(potential)
+        pot.potential.get = get_partial_function(potential.get, n, obs_args_vals)
+
+    if hasattr(potential, 'symmetric'):
+        pot.symmetric = potential.symmetric
+
+    return pot
+
+
 def condition_factors_on_evidence(factors, evidence):
     """
 
@@ -121,6 +182,8 @@ def condition_factors_on_evidence(factors, evidence):
     :param evidence: a dict mapping rvs (Graph.RV objects) to numerical values
     :return: a new list of factors (original factors won't be modified) reduced to the context of given evidence
     """
+    from MLNPotential import MLNPotential
+    from Potential import GaussianPotential
     from copy import copy
     cond_factors = []
     for factor in factors:
@@ -136,10 +199,26 @@ def condition_factors_on_evidence(factors, evidence):
             f = copy(factor)  # may need to construct a new factor object instead
             f.uncond_factor = factor
             f.nb = remaining_rvs
-            f.potential = copy(factor.potential)  # may be a problem; probly not a full conversion
-            f.potential.get = get_partial_function(factor.potential.get, n, partial_args_vals)
-            f.log_potential_fun = get_partial_function(factor.log_potential_fun, n,
-                                                       partial_args_vals)  # this is what gets used by OSI
+
+            potential = factor.potential
+            if isinstance(potential, GaussianPotential):
+                mu, sig = get_conditional_gaussian(potential.mu, potential.sig, partial_args_vals)
+                pot = GaussianPotential(mu=mu, sig=sig)
+                log_pot = pot.to_log_potential()
+            elif isinstance(potential, MLNPotential):
+                formula = get_partial_function(potential.formula, n, partial_args_vals)
+                pot = MLNPotential(formula=formula, w=potential.w)
+                log_pot = pot.to_log_potential()
+            else:  # may not be able to construct the conditional potential in closed-form
+                pot = copy(potential)
+                pot.potential.get = get_partial_function(potential.get, n, partial_args_vals)
+                log_pot = get_partial_function(factor.log_potential_fun, n, partial_args_vals)
+
+            if hasattr(potential, 'symmetric'):
+                pot.symmetric = potential.symmetric
+
+            f.potential = pot
+            f.log_potential_fun = log_pot
         else:
             f = factor
         cond_factors.append(f)
