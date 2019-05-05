@@ -100,6 +100,7 @@ for _ in range(num_test):
     print(ans)
 
     name = 'OSI'
+    utils.set_log_potential_funs(g.factors_list)  # OSI assumes factors have callable .log_potential_fun
     K = 3
     T = 20
     # lr = 1e-1
@@ -109,10 +110,13 @@ for _ in range(num_test):
     fix_mix_its = int(its * 1.0)
     # fix_mix_its = 500
     logging_itv = 50
+    obs_rvs = [v for v in g.rvs if v.value is not None]
+    evidence = {rv: rv.value for rv in obs_rvs}
     # cond = True
     cond = True
     if cond:
-        osi = OneShot(g=g, K=K, T=T, seed=seed, evidence={rv: rv.value for rv in g.rvs if rv.value is not None})
+        cond_g = utils.get_conditional_mrf(g.factors, g.rvs, evidence)  # this will also condition log_potential_funs
+        osi = OneShot(g=cond_g, K=K, T=T, seed=seed)
     else:
         osi = OneShot(g=g, K=K, T=T, seed=seed)
     start_time = time.process_time()
@@ -124,8 +128,11 @@ for _ in range(num_test):
     pred = {}
     for key in key_list:
         if key not in data:
-            pred[key] = osi.map(rvs_table[key])
-            err.append(abs(osi.map(rvs_table[key]) - ans[key]))
+            if cond:
+                pred[key] = osi.map(obs_rvs=[], query_rv=rvs_table[key])  # already conditional
+            else:
+                pred[key] = osi.map(obs_rvs=obs_rvs, query_rv=rvs_table[key])
+            err.append(abs(pred[key] - ans[key]))
     print(pred)
     avg_err[name] = np.average(err) / num_test + avg_err.get(name, 0)
     max_err[name] = np.max(err) / num_test + max_err.get(name, 0)
@@ -133,28 +140,34 @@ for _ in range(num_test):
     print(name, f'avg err {np.average(err)}')
     print(name, f'max err {np.max(err)}')
 
-    # name = 'LOSI'
-    # cg = CompressedGraphSorted(g)
-    # cg.run()
-    # print('number of rvs in cg', len(cg.rvs))
-    # print('number of factors in cg', len(cg.factors))
-    # osi = LiftedOneShot(g=cg, K=K, T=T, seed=seed)
-    # start_time = time.process_time()
-    # osi.run(lr=lr, its=its, fix_mix_its=fix_mix_its, logging_itv=logging_itv)
-    # print('Mu =\n', osi.params['Mu'], '\nVar =\n', osi.params['Var'])
-    # time_cost[name] = (time.process_time() - start_time) / num_test + time_cost.get(name, 0)
-    # print(name, f'time {time.process_time() - start_time}')
-    # err = []
-    # for key in key_list:
-    #    if key not in data:
-    #        pred[key] = osi.map(rvs_table[key])
-    #        err.append(abs(osi.map(rvs_table[key]) - ans[key]))
-    # print(pred)
-    # avg_err[name] = np.average(err) / num_test + avg_err.get(name, 0)
-    # max_err[name] = np.max(err) / num_test + max_err.get(name, 0)
-    # err_var[name] = np.average(err) ** 2 / num_test + err_var.get(name, 0)
-    # print(name, f'avg err {np.average(err)}')
-    # print(name, f'max err {np.max(err)}')
+    name = 'LOSI'
+    if cond:
+        cg = CompressedGraphSorted(cond_g)
+    else:
+        cg = CompressedGraphSorted(g)  # technically incorrect; currently we should run LOSI on the conditional MRF
+    cg.run()
+    print('number of rvs in cg', len(cg.rvs))
+    print('number of factors in cg', len(cg.factors))
+    osi = LiftedOneShot(g=cg, K=K, T=T, seed=seed)
+    start_time = time.process_time()
+    osi.run(lr=lr, its=its, fix_mix_its=fix_mix_its, logging_itv=logging_itv)
+    print('Mu =\n', osi.params['Mu'], '\nVar =\n', osi.params['Var'])
+    time_cost[name] = (time.process_time() - start_time) / num_test + time_cost.get(name, 0)
+    print(name, f'time {time.process_time() - start_time}')
+    err = []
+    for key in key_list:
+        if key not in data:
+            if cond:
+                pred[key] = osi.map(obs_rvs=[], query_rv=rvs_table[key])  # already conditional
+            else:
+                pred[key] = osi.map(obs_rvs=obs_rvs, query_rv=rvs_table[key])  # obs_rvs from the original graph
+            err.append(abs(pred[key] - ans[key]))
+    print(pred)
+    avg_err[name] = np.average(err) / num_test + avg_err.get(name, 0)
+    max_err[name] = np.max(err) / num_test + max_err.get(name, 0)
+    err_var[name] = np.average(err) ** 2 / num_test + err_var.get(name, 0)
+    print(name, f'avg err {np.average(err)}')
+    print(name, f'max err {np.max(err)}')
 
     run = False
     if run:
@@ -168,7 +181,7 @@ for _ in range(num_test):
         for key in key_list:
             if key not in data:
                 pred[key] = bp.map(rvs_table[key])
-                err.append(abs(bp.map(rvs_table[key]) - ans[key]))
+                err.append(abs(pred[key] - ans[key]))
         print(pred)
         avg_err[name] = np.average(err) / num_test + avg_err.get(name, 0)
         max_err[name] = np.max(err) / num_test + max_err.get(name, 0)

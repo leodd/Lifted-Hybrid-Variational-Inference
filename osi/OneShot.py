@@ -18,7 +18,7 @@ class OneShot:
     also maintains all the local variables/results created along the way.
     """
 
-    def __init__(self, g, K, T, seed=None, Var_bds=None, evidence=None):
+    def __init__(self, g, K, T, seed=None, Var_bds=None):
         """
         Define symbolic BFE and auxiliary objective expression to be optimized by tensorflow, given a factor graph.
         We'll use the one default tensorflow computation graph; to make sure we don't redefine it, everytime it'll
@@ -29,16 +29,10 @@ class OneShot:
         :param T: num quad points
         :param seed:
         :param Var_bds: [lb, ub] on the variance param of Gaussian rvs
-        :param evidence: dict that maps rv (Graph.RV obj) to numerical value; if provided, OSI will be run in the
-        conditional MRF
         """
         # convert potentials to log_potential_funs (b/c typically caller only sets potentials instead of log pot)
-        utils.set_log_potential_funs(g.factors_list)
-
-        if evidence:
-            self.uncond_g = g
-            cond_g = utils.get_conditional_mrf(g.factors, g.rvs, evidence)
-            g = cond_g
+        # utils.set_log_potential_funs(g.factors_list)
+        assert all([callable(f.log_potential_fun) for f in g.factors]), 'factors must have valid log_potential_fun'
 
         # group factors together whose log potential functions have the same call signatures
         factors_with_unique_nb_domain_types, unique_nb_domain_types = \
@@ -316,23 +310,18 @@ class OneShot:
         result = {'record': record, **params}
         return result
 
-    def map(self, query_rv):
+    def map(self, obs_rvs, query_rv):
         """
-        Toy method for testing marginal MAP. Existing API assumes that self.g.rvs carry .value attributes that indicate
+        Convenience method testing marginal MAP. Existing API assumes that obs_rvs carry .value attributes that indicate
         observed values. Can be inefficient b/c cond_w is recomputed every time
+        :param obs_rvs: list
         :param query_rv:
         :return:
         """
         if query_rv.value is None:
             w = self.params['w']
-            if hasattr(self, 'uncond_g'):  # OSI was run in the conditional MRF (already conditioning on evidence)
-                out = marginal_map(X=[], obs_rvs=[], query_rv=query_rv, w=w)  # marginal MAP without additional obs
-                # TODO: still allow conditioning on new evidence in the conditional MRF (i.e., obs_rvs!=[] above)
-            else:
-                g = self.g
-                obs_rvs = [v for v in g.rvs if v.value is not None]
-                X = np.array([v.value for v in obs_rvs])
-                out = marginal_map(X=X, obs_rvs=obs_rvs, query_rv=query_rv, w=w)
+            X = np.array([v.value for v in obs_rvs])
+            out = marginal_map(X=X, obs_rvs=obs_rvs, query_rv=query_rv, w=w)
         else:
             out = query_rv.value
         return out
@@ -363,23 +352,6 @@ class LiftedOneShot(OneShot):
                 orig_rv.belief_params = rv.belief_params
 
         return res
-
-    def map(self, query_rv):
-        """
-        Toy method for testing marginal MAP. Existing API assumes that self.g.rvs carry .value attributes that indicate
-        observed values. Can be inefficient b/c cond_w is recomputed every time
-        :param query_rv:
-        :return:
-        """
-        if query_rv.value is None:
-            w = self.params['w']
-            g = self.unlifted_g
-            obs_rvs = [v for v in g.rvs if v.value is not None]
-            X = np.array([v.value for v in obs_rvs])
-            out = marginal_map(X=X, obs_rvs=obs_rvs, query_rv=query_rv, w=w)  # relies on belief_params of rvs in orig_g
-        else:
-            out = query_rv.value
-        return out
 
 
 class LiftedOneShot2(OneShot):

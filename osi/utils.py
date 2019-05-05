@@ -163,6 +163,8 @@ def condition_factors_on_evidence(factors, evidence):
                 else:  # may not be able to construct the conditional potential in closed-form
                     pot = copy(potential)
                     pot.potential.get = get_partial_function(potential.get, n, partial_args_vals)
+                    assert factor.log_potential_fun is not None, \
+                        "factor.log_potential_fun hasn't been set in the original graph, don't know how to condition"
                     log_pot = get_partial_function(factor.log_potential_fun, n, partial_args_vals)
 
                 if hasattr(potential, 'symmetric'):
