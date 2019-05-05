@@ -35,3 +35,15 @@ class MLNPotential(Potential):
 
     def get(self, parameters):
         return e ** (self.formula(parameters) * self.w)
+
+    def to_log_potential(self):
+        return MLNLogPotential(self.formula, self.w)
+
+
+class MLNLogPotential:
+    def __init__(self, formula, w=1):
+        self.formula = formula
+        self.w = w
+
+    def __call__(self, args):
+        return self.formula(args) * self.w

@@ -29,8 +29,49 @@ class GaussianPotential(Potential):
         coef = self.coefficient if use_coef else 1.
         return coef * pow(e, -0.5 * (x_mu * self.inv * x_mu.T))
 
+    def to_log_potential(self):
+        return GaussianLogPotential(self.mu, self.sig)
+
     def __eq__(self, other):
         return np.all(self.mu == other.mu) and np.all(self.sig == other.sig)  # self.w shouldn't make a difference
+
+
+class GaussianLogPotential:
+    def __init__(self, mu, sig):
+        self.mu = np.array(mu)
+        sig = np.array(sig)  # must be ndarray
+        self.sig = sig
+        self.sig_inv = np.linalg.inv(sig)
+
+    def __call__(self, args):
+        p = len(args)
+        mu = self.mu
+        sig_inv = self.sig_inv
+        import tensorflow as tf
+        if p == 1:
+            res = -0.5 * sig_inv[0, 0] * (args[0] - mu[0]) ** 2
+        else:
+            if isinstance(args[0], (tf.Variable, tf.Tensor)):
+                backend = tf
+            else:
+                backend = np
+            # assuming args all have identical shapes
+            v = backend.stack(args)  # p x ...
+            args_ndim = len(v.shape) - 1
+            mu = backend.reshape(mu, [p] + [1] * args_ndim)
+            sig_inv = backend.reshape(sig_inv, [p, p] + [1] * args_ndim)
+            diff = v - mu
+            outer_prods = diff[None, ...] * diff[:, None, ...]  # p x p x ...
+            if backend is tf:
+                quad_form = tf.reduce_sum(outer_prods * sig_inv, axis=[0, 1])
+            else:
+                quad_form = np.sum(outer_prods * sig_inv, axis=(0, 1))
+            res = -.5 * quad_form
+
+        return res
+
+    def __eq__(self, other):
+        return np.all(self.mu == other.mu) and np.all(self.sig == other.sig)
 
 
 class LinearGaussianPotential(Potential):
