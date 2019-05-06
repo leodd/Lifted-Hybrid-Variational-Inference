@@ -338,7 +338,7 @@ def group_eval_log_potential_funs(factors_with_unique_log_potential_fun_types, u
     :return:
     """
     n = len(axes)  # all the factors have n args (nb) in scope
-    from Potential import GaussianLogPotential
+    from Potential import QuadraticLogPotential, GaussianLogPotential
     from MLNPotential import MLNLogPotential
     lpots = [None] * len(unique_log_potential_fun_types)
     j = 0
@@ -347,8 +347,24 @@ def group_eval_log_potential_funs(factors_with_unique_log_potential_fun_types, u
         like_log_potential_funs = [f.log_potential_fun for f in like_factors]
         c = len(like_factors)
         like_axes = [a[j:(j + c)] for a in axes]
+        if log_potential_fun_type == QuadraticLogPotential:
+            like_axes = utils.broadcast_arrs_to_common_shape(utils.expand_dims_for_fun_grid(
+                like_axes), backend=tf)  # length n list, having common shape [c x ??? x V1 x V2 x ... Vn]
+            v = tf.stack(like_axes)  # n x c x ...
+            b = np.stack([f.b for f in like_log_potential_funs], axis=-1)  # n x c
+            b = np.reshape(b, [n, c] + [1] * (len(v.shape) - 2))  # n x c x ones
+            A = np.stack([f.A for f in like_log_potential_funs], axis=-1)  # n x n x c
+            A = np.reshape(A, [n, n, c] + [1] * (len(v.shape) - 2))  # n x n x c x ones
 
-        if log_potential_fun_type == GaussianLogPotential:
+            outer_prods = v[None, ...] * v[:, None, ...]  # n x n x c x ...
+            quad_form = tf.reduce_sum(outer_prods * A, axis=[0, 1]) + tf.reduce_sum(b * v, axis=0)
+            ignore_const = False
+            if not ignore_const:
+                const = np.array([f.c for f in like_log_potential_funs])
+                const = np.reshape(const, [c] + [1] * (len(v.shape) - 2))  # c x ones
+                quad_form += const
+            lpot = quad_form
+        elif log_potential_fun_type == GaussianLogPotential:
             like_axes = utils.broadcast_arrs_to_common_shape(utils.expand_dims_for_fun_grid(
                 like_axes), backend=tf)  # length n list, having common shape [c x ??? x V1 x V2 x ... Vn]
             v = tf.stack(like_axes)  # n x c x ...

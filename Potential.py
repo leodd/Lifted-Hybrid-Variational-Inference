@@ -3,6 +3,14 @@ import numpy as np
 from math import pow, pi, e, sqrt, exp
 
 
+def mu_prec_to_quad_params(mu, prec):
+    mu, prec = np.asarray(mu), np.asarray(prec)
+    A = -0.5 * prec
+    b = prec @ mu
+    c = -0.5 * np.dot(mu, b)
+    return A, b, c
+
+
 class TablePotential(Potential):
     def __init__(self, table, symmetric=False):
         Potential.__init__(self, symmetric=symmetric)
@@ -29,14 +37,67 @@ class GaussianPotential(Potential):
         coef = self.coefficient if use_coef else 1.
         return coef * pow(e, -0.5 * (x_mu * self.prec * x_mu.T))
 
+    def get_quadratic_params(self):
+        return mu_prec_to_quad_params(self.mu, self.prec)
+
     def to_log_potential(self):
-        return GaussianLogPotential(self.mu, self.prec)
+        return QuadraticLogPotential(*self.get_quadratic_params())
 
         # def __eq__(self, other):
         #     return np.all(self.mu == other.mu) and np.all(self.sig == other.sig)  # self.w shouldn't make a difference
         #
         # def __hash__(self):
         #     return hash((self.mu, self.sig))
+
+
+class QuadraticLogPotential:
+    def __init__(self, A, b, c=0):
+        """
+        Implement the function x^T A x + b^T x + c, over n variables.
+        :param A: n x n arr
+        :param b: n arr
+        :param c: scalar
+        """
+        self.A = A
+        self.b = b
+        self.c = c
+
+    def __call__(self, args, ignore_const=True):
+        """
+
+        :param args: list of n tensors or numpy arrays; must all have the same shape, or must be broadcastable to the
+        largest common shape (e.g., if args have shapes [1, 3, 1] and [2, 1, 3], they'll first be broadcasted to having
+        shape [2, 3, 3], then the result will be computed element-wise and will also have shape [2, 3, 3]
+        :return:
+        """
+        n = len(args)
+        A = self.A
+        b = self.b
+        c = self.c
+        if ignore_const:
+            c = 0
+        import tensorflow as tf
+        if n == 1:
+            res = A[0, 0] * args[0] ** 2 + b[0] * args[0]
+        else:
+            import utils
+            if any(isinstance(a, (tf.Variable, tf.Tensor)) for a in args):
+                backend = tf
+            else:
+                backend = np
+            args = utils.broadcast_arrs_to_common_shape(args, backend=backend)
+            v = backend.stack(args)  # n x ...
+            args_ndim = len(v.shape) - 1
+            b = backend.reshape(b, [n] + [1] * args_ndim)
+            A = backend.reshape(A, [n, n] + [1] * args_ndim)
+            outer_prods = v[None, ...] * v[:, None, ...]  # n x n x ...
+            if backend is tf:
+                res = tf.reduce_sum(outer_prods * A, axis=[0, 1]) + tf.reduce_sum(b * v, axis=0)
+            else:
+                res = np.sum(outer_prods * A, axis=(0, 1)) + np.sum(b * v, axis=0)
+        if c != 0:
+            res += c
+        return res
 
 
 class GaussianLogPotential:
@@ -105,15 +166,15 @@ class LinearGaussianPotential(Potential):
             self.sig == other.sig
         )
 
-    def get_gaussian_pot_params(self):
-        # get params of an equivalent Gaussian potential
+    def get_quadratic_params(self):
+        # get params of an equivalent quadratic log potential
         mu = np.zeros(2)
         a = self.coeff
         prec = np.array([[a ** 2, -a], [-a, 1.]]) / self.sig
-        return mu, prec
+        return mu_prec_to_quad_params(mu, prec)
 
     def to_log_potential(self):
-        return GaussianLogPotential(*self.get_gaussian_pot_params())
+        return QuadraticLogPotential(*self.get_quadratic_params())
 
 
 class X2Potential(Potential):
@@ -135,15 +196,15 @@ class X2Potential(Potential):
             self.sig == other.sig
         )
 
-    def get_gaussian_pot_params(self):
-        # get params of an equivalent Gaussian potential
+    def get_quadratic_params(self):
+        # get params of an equivalent quadratic log potential
         mu = np.zeros(1)
         prec = np.zeros([1, 1])
         prec[0, 0] = self.coeff / self.sig
-        return mu, prec
+        return mu_prec_to_quad_params(mu, prec)
 
     def to_log_potential(self):
-        return GaussianLogPotential(*self.get_gaussian_pot_params())
+        return QuadraticLogPotential(*self.get_quadratic_params())
 
 
 class XYPotential(Potential):
@@ -165,14 +226,14 @@ class XYPotential(Potential):
             self.sig == other.sig
         )
 
-    def get_gaussian_pot_params(self):
-        # get params of an equivalent Gaussian potential
+    def get_quadratic_params(self):
+        # get params of an equivalent quadratic log potential
         mu = np.zeros(2)
         prec = np.array([[0., 0.5], [0.5, 0.]]) * self.coeff / self.sig
-        return mu, prec
+        return mu_prec_to_quad_params(mu, prec)
 
     def to_log_potential(self):
-        return GaussianLogPotential(*self.get_gaussian_pot_params())
+        return QuadraticLogPotential(*self.get_quadratic_params())
 
 
 class ImageNodePotential(Potential):
