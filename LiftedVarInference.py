@@ -307,6 +307,7 @@ class VarInference:
                     self.eta_tau[rv] = table
                     self.eta[rv] = self.softmax(table, 1)
 
+            # print('iteration:', itr)
             print(self.free_energy())
 
     def belief(self, x, rv):

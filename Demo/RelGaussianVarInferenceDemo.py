@@ -1,7 +1,5 @@
 from RelationalGraph import *
 from Potential import GaussianPotential
-from EPBPLogVersion import EPBP
-from GaBP import GaBP
 import numpy as np
 import time
 
@@ -17,12 +15,15 @@ for row in X:
     else:
         instance_bank.append(row[1])
 
+instance_category = instance_category[:100]
+instance_bank = instance_bank[:5]
+
 data = dict()
 for row in D:
     key = tuple([x.strip() for x in row[0].split(',')])
     if key[0] == 'revenue': continue
     data[key] = float(row[1])
-data[('recession', 'all')] = 50
+# data[('recession', 'all')] = 50
 
 domain_percentage = Domain((-100, 100), continuous=True, integral_points=linspace(-100, 100, 30))
 domain_billion = Domain((-50, 50), continuous=True, integral_points=linspace(-50, 50, 30))
@@ -52,26 +53,29 @@ rel_g.data = data
 rel_g.init_nb()
 g, rvs_table = rel_g.grounded_graph()
 
-print(rvs_table)
-
 key_table = []
 j = 0
 for key in rvs_table:
     key_table.append(key)
     j += 1
-num_test = 5
+num_test = 1
 result_table = np.zeros((len(rvs_table), num_test))
 time_table = []
 
+from EPBPLogVersion import EPBP
+from LiftedVarInference import VarInference
+from GaBP import GaBP
+
 for i in range(num_test):
-    bp = EPBP(g, n=10, proposal_approximation='simple')
+    infer = EPBP(g, n=10, proposal_approximation='simple')
+    # infer = VarInference(g, num_mixtures=5, num_quadrature_points=3)
     start_time = time.clock()
-    bp.run(10, log_enable=False)
+    infer.run(20, log_enable=True)
     time_table.append(time.clock() - start_time)
 
     j = 0
     for key, rv in rvs_table.items():
-        result_table[j, i] = bp.map(rv)
+        result_table[j, i] = infer.map(rv)
         j += 1
 
 print('average time', np.mean(time_table))
@@ -82,8 +86,8 @@ for i in range(len(rvs_table)):
     variance = np.var(result_table[i])
     print(key, mean, variance)
 
-# bp = GaBP(g)
-# bp.run(20, log_enable=False)
-#
-# for key, rv in rvs_table.items():
-#     print(key, bp.map(rv))
+bp = GaBP(g)
+bp.run(20, log_enable=False)
+
+for key, rv in rvs_table.items():
+    print(key, bp.map(rv))
