@@ -113,6 +113,44 @@ for i in range(num_test):
             else:
                 result[idx, i] = osi.map(obs_rvs=obs_rvs, query_rv=rv)
 
+    elif algo == 'LOSI':
+        utils.set_log_potential_funs(g.factors_list)  # OSI assumes factors have callable .log_potential_fun
+        K = 3
+        T = 20
+        # lr = 1e-1
+        lr = 5e-1
+        its = 1000
+        # fix_mix_its = int(its * 0.1)
+        fix_mix_its = int(its * 1.0)
+        # fix_mix_its = 500
+        logging_itv = 50
+        obs_rvs = [v for v in g.rvs if v.value is not None]
+        evidence = {rv: rv.value for rv in obs_rvs}
+        # cond = True
+        cond = True
+        if cond:
+            cond_g = utils.get_conditional_mrf(g.factors_list, g.rvs,
+                                               evidence)  # this will also condition log_potential_funs
+        if cond:
+            cg = CompressedGraphSorted(cond_g)
+        else:
+            cg = CompressedGraphSorted(g)  # technically incorrect; currently we should run LOSI on the conditional MRF
+        cg.run()
+        print('number of rvs in cg', len(cg.rvs))
+        print('number of factors in cg', len(cg.factors))
+        osi = LiftedOneShot(g=cg, K=K, T=T, seed=seed)
+        start_time = time.process_time()
+        osi.run(lr=lr, its=its, fix_mix_its=fix_mix_its, logging_itv=logging_itv)
+        time_cost.append(time.process_time() - start_time)
+        print('Mu =\n', osi.params['Mu'], '\nVar =\n', osi.params['Var'])
+        print(algo, f'time {time_cost[-1]}')
+
+        for idx, rv in enumerate(rvs_table[t - 1]):
+            if cond:
+                result[idx, i] = osi.map(obs_rvs=[], query_rv=rv)
+            else:
+                result[idx, i] = osi.map(obs_rvs=obs_rvs, query_rv=rv)
+
     # bp = GaLBP(g)
     # bp.run(20, log_enable=False)
     #
@@ -138,6 +176,7 @@ err2 = abs(result - ans)
 err2 = np.average(err2, axis=0)
 
 print('########################')
+print(algo)
 print(f'avg time {np.average(time_cost)}')
 print(f'avg err {np.average(err)}')
 print(f'err std {np.std(err)}')
