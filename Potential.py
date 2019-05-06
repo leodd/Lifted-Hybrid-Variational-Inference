@@ -50,6 +50,28 @@ class GaussianPotential(Potential):
         #     return hash((self.mu, self.sig))
 
 
+class QuadraticPotential(Potential):
+    """
+    exp(x^T A x + b^T x + c)
+    """
+
+    def __init__(self, A, b, c):
+        Potential.__init__(self, symmetric=False)
+        self.A = np.array(A)
+        self.b = np.array(b)
+        self.c = c
+        self.log_potential = QuadraticLogPotential(A, b, c)
+
+    def to_log_potential(self):
+        return self.log_potential
+
+    def get(self, args, ignore_const=True):
+        return e ** self.log_potential(args, ignore_const)
+
+    def __call__(self, *args, **kwargs):
+        return self.get(*args, **kwargs)
+
+
 class QuadraticLogPotential:
     def __init__(self, A, b, c=0):
         """

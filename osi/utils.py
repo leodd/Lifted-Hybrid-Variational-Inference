@@ -95,7 +95,36 @@ def get_partial_function(fun, n, partial_args_vals):
     return pfun
 
 
-# TODO: implement conditioning in terms of precision matrices instead
+def get_conditional_quadratic(A, b, c, obs_args_vals):
+    """
+    Given a joint quadratic and values of a subset of the variables y, return parameters of the quadratic over the
+    remaining variables x.
+    [x y]^T A [x y] + b^T [x y] + c = x^T A_xx x + x^T A_xy y + y^T A_yx x + y^T A_yy y + b_x^T x + b_y^T y + c
+    = x^T A_xx x + (A_xy y + y^T A_yx + b_x)^T x + y^T A_yy y + b_y^T y + c
+    :param A:
+    :param b:
+    :param c:
+    :param obs_args_vals:
+    :return:
+    """
+    A = np.asarray(A)
+    n = len(b)
+    y_ind = np.array(list(obs_args_vals.keys()), dtype=int)
+    y = np.array([obs_args_vals[i] for i in y_ind])
+    x_ind = np.setdiff1d(np.arange(n), y_ind)
+    b_y = b[y_ind]
+    b_x = b[x_ind]
+    A_yy = A[np.ix_(y_ind, y_ind)]
+    A_xx = A[np.ix_(x_ind, x_ind)]
+    A_xy = A[np.ix_(x_ind, y_ind)]
+    A_yx = A[np.ix_(y_ind, x_ind)]
+
+    A_cond = A_xx
+    b_cond = A_xy @ y + (A_yx.T @ y).T + b_x
+    c_cond = np.dot(y, A_yy @ y) + np.dot(b_y, y) + c
+    return A_cond, b_cond, c_cond
+
+
 def get_conditional_gaussian(mu, Sig, obs_args_vals):
     """
     Get the mean and covariance matrix of a conditional Gaussian distribution p(x_a | x_b), given the joint distribution
@@ -131,7 +160,7 @@ def condition_factors_on_evidence(factors, evidence):
     :return: a new list of factors (original factors won't be modified) reduced to the context of given evidence
     """
     from MLNPotential import MLNPotential
-    from Potential import GaussianPotential
+    from Potential import GaussianPotential, LinearGaussianPotential, X2Potential, XYPotential, QuadraticPotential
     from copy import copy
     cond_factors = []
     for factor in factors:
@@ -153,9 +182,11 @@ def condition_factors_on_evidence(factors, evidence):
                 f.log_potential_fun = lambda x: factor.log_potential_fun([evidence[rv] for rv in factor.nb])
             else:
                 potential = factor.potential
-                if isinstance(potential, GaussianPotential):
-                    mu, sig = get_conditional_gaussian(potential.mu, potential.sig, partial_args_vals)
-                    pot = GaussianPotential(mu=mu, sig=sig)
+                if isinstance(potential, (GaussianPotential, LinearGaussianPotential, X2Potential, XYPotential)):
+                    # potential = QuadraticPotential(*potential.get_quadratic_params())
+                    A, b, c = potential.get_quadratic_params()
+                    A_cond, b_cond, c_cond = get_conditional_quadratic(A, b, c, partial_args_vals)
+                    pot = QuadraticPotential(A_cond, b_cond, c_cond)
                     log_pot = pot.to_log_potential()
                 elif isinstance(potential, MLNPotential):
                     formula = get_partial_function(potential.formula, n, partial_args_vals)
