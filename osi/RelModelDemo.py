@@ -62,8 +62,8 @@ err_var = dict()
 time_cost = dict()
 
 num_test = 5
-# evidence_ratio = 0.01
-evidence_ratio = 0.2
+evidence_ratio = 0.01
+# evidence_ratio = 0.2
 # evidence_ratio = 0.
 
 print('number of vr', len(key_list))
@@ -99,7 +99,7 @@ for test_num in range(num_test):
     for key in key_list:
         if key not in data:
             ans[key] = bp.map(rvs_table[key])
-    print(ans)
+    # print(ans)
 
     name = 'OSI'
     utils.set_log_potential_funs(g.factors_list)  # OSI assumes factors have callable .log_potential_fun
@@ -111,7 +111,7 @@ for test_num in range(num_test):
     # fix_mix_its = int(its * 0.1)
     fix_mix_its = int(its * 1.0)
     # fix_mix_its = 500
-    logging_itv = 50
+    logging_itv = 100
     obs_rvs = [v for v in g.rvs if v.value is not None]
     evidence = {rv: rv.value for rv in obs_rvs}
     # cond = True
@@ -135,7 +135,7 @@ for test_num in range(num_test):
             else:
                 pred[key] = osi.map(obs_rvs=obs_rvs, query_rv=rvs_table[key])
             err.append(abs(pred[key] - ans[key]))
-    print(pred)
+    # print(pred)
     avg_err[name] = np.average(err) / num_test + avg_err.get(name, 0)
     max_err[name] = np.max(err) / num_test + max_err.get(name, 0)
     err_var[name] = np.average(err) ** 2 / num_test + err_var.get(name, 0)
@@ -164,7 +164,7 @@ for test_num in range(num_test):
             else:
                 pred[key] = osi.map(obs_rvs=obs_rvs, query_rv=rvs_table[key])  # obs_rvs from the original graph
             err.append(abs(pred[key] - ans[key]))
-    print(pred)
+    # print(pred)
     avg_err[name] = np.average(err) / num_test + avg_err.get(name, 0)
     max_err[name] = np.max(err) / num_test + max_err.get(name, 0)
     err_var[name] = np.average(err) ** 2 / num_test + err_var.get(name, 0)
