@@ -1,6 +1,8 @@
 import utils
 
 utils.set_path()
+seed = 0
+utils.set_seed(seed=seed)
 
 from KalmanFilter import KalmanFilter
 from Graph import Domain
@@ -12,6 +14,8 @@ import numpy as np
 import scipy.io
 import time
 import matplotlib.pyplot as plt
+from OneShot import OneShot, LiftedOneShot
+from CompressedGraphSorted import CompressedGraphSorted
 
 cluster_mat = scipy.io.loadmat('Data/cluster_NcutDiscrete.mat')['NcutDiscrete']
 well_t = scipy.io.loadmat('Data/well_t.mat')['well_t']
@@ -48,6 +52,8 @@ result = np.zeros([n_sum, num_test])
 ans2 = np.zeros([n_sum, num_test])
 time_cost = list()
 for i in range(num_test):
+    utils.set_seed(seed=seed + i)
+
     kmf = KalmanFilter(domain,
                        np.eye(n_sum) * param[2, i] + 0.01,
                        param[0, i],
@@ -55,21 +61,57 @@ for i in range(num_test):
                        param[1, i])
 
     g, rvs_table = kmf.grounded_graph(t, data)
-    bp = EPBP(g, n=50, proposal_approximation='simple')
-    print('number of vr', len(g.rvs))
-    num_evidence = 0
-    for rv in g.rvs:
-        if rv.value is not None:
-            num_evidence += 1
-    print('number of evidence', num_evidence)
 
-    start_time = time.process_time()
-    bp.run(20, log_enable=False)
-    time_cost.append(time.process_time() - start_time)
-    print('time lapse', time.process_time() - start_time)
+    algo = 'OSI'
+    if algo == 'EPBP':
+        bp = EPBP(g, n=50, proposal_approximation='simple')
+        print('number of vr', len(g.rvs))
+        num_evidence = 0
+        for rv in g.rvs:
+            if rv.value is not None:
+                num_evidence += 1
+        print('number of evidence', num_evidence)
 
-    for idx, rv in enumerate(rvs_table[t - 1]):
-        result[idx, i] = bp.map(rv)
+        start_time = time.process_time()
+        bp.run(20, log_enable=False)
+        time_cost.append(time.process_time() - start_time)
+        print('time lapse', time.process_time() - start_time)
+
+        for idx, rv in enumerate(rvs_table[t - 1]):
+            result[idx, i] = bp.map(rv)
+
+    elif algo == 'OSI':
+        utils.set_log_potential_funs(g.factors_list)  # OSI assumes factors have callable .log_potential_fun
+        K = 3
+        T = 20
+        # lr = 1e-1
+        lr = 5e-1
+        its = 1000
+        # fix_mix_its = int(its * 0.1)
+        fix_mix_its = int(its * 1.0)
+        # fix_mix_its = 500
+        logging_itv = 50
+        obs_rvs = [v for v in g.rvs if v.value is not None]
+        evidence = {rv: rv.value for rv in obs_rvs}
+        # cond = True
+        cond = True
+        if cond:
+            cond_g = utils.get_conditional_mrf(g.factors, g.rvs,
+                                               evidence)  # this will also condition log_potential_funs
+            osi = OneShot(g=cond_g, K=K, T=T, seed=seed)
+        else:
+            osi = OneShot(g=g, K=K, T=T, seed=seed)
+        start_time = time.process_time()
+        osi.run(lr=lr, its=its, fix_mix_its=fix_mix_its, logging_itv=logging_itv)
+        time_cost.append(time.process_time() - start_time)
+        print('Mu =\n', osi.params['Mu'], '\nVar =\n', osi.params['Var'])
+        print(algo, f'time {time_cost[-1]}')
+
+        for idx, rv in enumerate(rvs_table[t - 1]):
+            if cond:
+                result[idx, i] = osi.map(obs_rvs=[], query_rv=rv)
+            else:
+                result[idx, i] = osi.map(obs_rvs=obs_rvs, query_rv=rv)
 
     # bp = GaLBP(g)
     # bp.run(20, log_enable=False)
