@@ -1,6 +1,7 @@
 from CompressedGraphWithObs import CompressedGraph
 import numpy as np
 from numpy.polynomial.hermite import hermgauss
+from scipy.optimize import fminbound
 from math import sqrt, pi, e, log
 from itertools import product
 
@@ -314,10 +315,16 @@ class VarInference:
     def map(self, rv):
         if rv.value is None:
             if rv.domain.continuous:
-                p = dict()
-                for x in self.eta[rv][:, 0]:
-                    p[x] = self.belief(x, rv)
-                res = max(p.keys(), key=(lambda k: p[k]))
+                # p = dict()
+                # for x in self.eta[rv.cluster][:, 0]:
+                #     p[x] = self.belief(x, rv)
+                # res = max(p.keys(), key=(lambda k: p[k]))
+
+                res = fminbound(
+                    lambda val: -self.belief(val, rv),
+                    rv.domain.values[0], rv.domain.values[1],
+                    disp=False
+                )
             else:
                 p = dict()
                 for x in rv.domain.values:

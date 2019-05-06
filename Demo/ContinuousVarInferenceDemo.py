@@ -5,14 +5,14 @@ from GaBP import GaBP
 
 instance = [
     'Joey',
-    # 'Rachel',
-    # 'Tim',
+    'Rachel',
+    'Tim',
 ]
 
 data = {
     ('X', 'Joey'): 20,
     ('X', 'Tim'): 40,
-    ('X', 'Rachel'): -20,
+    # ('X', 'Rachel'): -20,
     # ('Y', 'Tim'): 0,
     # ('Y', 'Joey'): 1,
     # ('Y', 'Rachel'): 0,
@@ -38,22 +38,14 @@ g, rvs_table = rel_g.grounded_graph()
 
 print(rvs_table)
 
-from OneShot import OneShot
+from LiftedVarInference import VarInference
 
 np.random.seed(9)
-osi = OneShot(g, num_mixtures=15, num_quadrature_points=3)
+vi = VarInference(g, num_mixtures=5, num_quadrature_points=3)
 
-# osi.init_param()
-# rv = next(iter(osi.g.rvs))
-# print(osi.gradient_mu_var(rv))
-# old_energy = osi.free_energy()
-# osi.eta[rv][0, :] += [0, 0.0001]
-# new_energy = osi.free_energy()
-# print(old_energy, new_energy, (new_energy-old_energy)/0.0001)
+vi.run(50, lr=1)
 
-osi.run(200, lr=1)
-
-print(osi.free_energy())
+print(vi.free_energy())
 
 for key, rv in sorted(rvs_table.items()):
     if rv.value is None:  # only test non-evidence nodes
@@ -61,12 +53,12 @@ for key, rv in sorted(rvs_table.items()):
         # for x in rv.domain.values:
         #     p[x] = osi.belief(x, rv)
         # print(key, p)
-        print(key, osi.map(rv))
+        print(key, vi.map(rv))
 
 # EPBP inference
 from EPBPLogVersion import EPBP
 
-bp = EPBP(g, n=50, proposal_approximation='simple')
+bp = EPBP(g, n=20, proposal_approximation='simple')
 bp.run(20, log_enable=False)
 
 for key, rv in sorted(rvs_table.items()):
@@ -76,4 +68,18 @@ for key, rv in sorted(rvs_table.items()):
         #     p[x] = bp.belief(x, rv)
         # print(key, p)
         print(key, bp.map(rv))
+
+# GaBP inference
+# from GaBP import GaBP
+#
+# bp = GaBP(g)
+# bp.run(20, log_enable=False)
+#
+# for key, rv in sorted(rvs_table.items()):
+#     if rv.value is None:  # only test non-evidence nodes
+#         # p = dict()
+#         # for x in rv.domain.values:
+#         #     p[x] = bp.belief(x, rv)
+#         # print(key, p)
+#         print(key, bp.map(rv))
 
