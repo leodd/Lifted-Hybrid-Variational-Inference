@@ -69,7 +69,9 @@ evidence_ratio = 0.2
 print('number of vr', len(key_list))
 print('number of evidence', int(len(key_list) * evidence_ratio))
 
-for _ in range(num_test):
+for test_num in range(num_test):
+    utils.set_seed(seed=seed + test_num)
+
     data.clear()
     idx_evidence = np.random.choice(len(key_list), int(len(key_list) * evidence_ratio), replace=False)
     for i in idx_evidence:
