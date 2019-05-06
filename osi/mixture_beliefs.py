@@ -354,12 +354,12 @@ def group_eval_log_potential_funs(factors_with_unique_log_potential_fun_types, u
             v = tf.stack(like_axes)  # n x c x ...
             mu = np.stack([f.mu for f in like_log_potential_funs], axis=-1)  # n x c
             mu = np.reshape(mu, [n, c] + [1] * (len(v.shape) - 2))  # n x c x ones
-            sig_inv = np.stack([f.sig_inv for f in like_log_potential_funs], axis=-1)  # n x n x c
-            sig_inv = np.reshape(sig_inv, [n, n, c] + [1] * (len(v.shape) - 2))  # n x n x c x ones
+            prec = np.stack([f.prec for f in like_log_potential_funs], axis=-1)  # n x n x c
+            prec = np.reshape(prec, [n, n, c] + [1] * (len(v.shape) - 2))  # n x n x c x ones
 
             diff = v - mu  # n x c x ... , same shape as v
             outer_prods = diff[None, ...] * diff[:, None, ...]  # n x n x c x ...
-            quad_form = tf.reduce_sum(outer_prods * sig_inv, axis=[0, 1])
+            quad_form = tf.reduce_sum(outer_prods * prec, axis=[0, 1])
             lpot = -.5 * quad_form
         elif log_potential_fun_type == MLNLogPotential and len(set([f.formula for f in like_log_potential_funs])) == 1:
             # need a better/smarter way to check formula equality

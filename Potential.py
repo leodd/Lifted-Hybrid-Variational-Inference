@@ -17,7 +17,7 @@ class GaussianPotential(Potential):
         Potential.__init__(self, symmetric=False)
         self.mu = np.array(mu)
         self.sig = np.matrix(sig)
-        self.sig_inv = self.sig.I
+        self.prec = self.sig.I
         det = np.linalg.det(self.sig)
         p = float(len(mu))
         if det == 0:
@@ -27,10 +27,10 @@ class GaussianPotential(Potential):
     def get(self, parameters, use_coef=False):
         x_mu = np.matrix(np.array(parameters) - self.mu)
         coef = self.coefficient if use_coef else 1.
-        return coef * pow(e, -0.5 * (x_mu * self.sig_inv * x_mu.T))
+        return coef * pow(e, -0.5 * (x_mu * self.prec * x_mu.T))
 
     def to_log_potential(self):
-        return GaussianLogPotential(self.mu, self.sig_inv)
+        return GaussianLogPotential(self.mu, self.prec)
 
         # def __eq__(self, other):
         #     return np.all(self.mu == other.mu) and np.all(self.sig == other.sig)  # self.w shouldn't make a difference
@@ -40,9 +40,9 @@ class GaussianPotential(Potential):
 
 
 class GaussianLogPotential:
-    def __init__(self, mu, sig_inv):
+    def __init__(self, mu, prec):
         self.mu = np.array(mu)
-        self.sig_inv = np.array(sig_inv)  # must be ndarray
+        self.prec = np.array(prec)  # must be ndarray
 
     def __call__(self, args):
         """
@@ -54,10 +54,10 @@ class GaussianLogPotential:
         """
         n = len(args)
         mu = self.mu
-        sig_inv = self.sig_inv
+        prec = self.prec
         import tensorflow as tf
         if n == 1:
-            res = -0.5 * sig_inv[0, 0] * (args[0] - mu[0]) ** 2
+            res = -0.5 * prec[0, 0] * (args[0] - mu[0]) ** 2
         else:
             import utils
             if any(isinstance(a, (tf.Variable, tf.Tensor)) for a in args):
@@ -68,22 +68,22 @@ class GaussianLogPotential:
             v = backend.stack(args)  # n x ...
             args_ndim = len(v.shape) - 1
             mu = backend.reshape(mu, [n] + [1] * args_ndim)
-            sig_inv = backend.reshape(sig_inv, [n, n] + [1] * args_ndim)
+            prec = backend.reshape(prec, [n, n] + [1] * args_ndim)
             diff = v - mu
             outer_prods = diff[None, ...] * diff[:, None, ...]  # n x n x ...
             if backend is tf:
-                quad_form = tf.reduce_sum(outer_prods * sig_inv, axis=[0, 1])
+                quad_form = tf.reduce_sum(outer_prods * prec, axis=[0, 1])
             else:
-                quad_form = np.sum(outer_prods * sig_inv, axis=(0, 1))
+                quad_form = np.sum(outer_prods * prec, axis=(0, 1))
             res = -.5 * quad_form
 
         return res
 
         # def __eq__(self, other):
-        #     return np.all(self.mu == other.mu) and np.all(self.sig_inv == other.sig_inv)
+        #     return np.all(self.mu == other.mu) and np.all(self.prec == other.prec)
         #
         # def __hash__(self):
-        #     return hash((self.mu, self.sig_inv))
+        #     return hash((self.mu, self.prec))
 
 
 class LinearGaussianPotential(Potential):
@@ -109,8 +109,8 @@ class LinearGaussianPotential(Potential):
         # get params of an equivalent Gaussian potential
         mu = np.zeros(2)
         a = self.coeff
-        sig_inv = np.array([[a ** 2, -a], [-a, 1.]]) / self.sig
-        return mu, sig_inv
+        prec = np.array([[a ** 2, -a], [-a, 1.]]) / self.sig
+        return mu, prec
 
     def to_log_potential(self):
         return GaussianLogPotential(*self.get_gaussian_pot_params())
@@ -138,9 +138,9 @@ class X2Potential(Potential):
     def get_gaussian_pot_params(self):
         # get params of an equivalent Gaussian potential
         mu = np.zeros(1)
-        sig_inv = np.zeros([1, 1])
-        sig_inv[0, 0] = self.coeff / self.sig
-        return mu, sig_inv
+        prec = np.zeros([1, 1])
+        prec[0, 0] = self.coeff / self.sig
+        return mu, prec
 
     def to_log_potential(self):
         return GaussianLogPotential(*self.get_gaussian_pot_params())
@@ -168,8 +168,8 @@ class XYPotential(Potential):
     def get_gaussian_pot_params(self):
         # get params of an equivalent Gaussian potential
         mu = np.zeros(2)
-        sig_inv = np.array([[0., 0.5], [0.5, 0.]]) * self.coeff / self.sig
-        return mu, sig_inv
+        prec = np.array([[0., 0.5], [0.5, 0.]]) * self.coeff / self.sig
+        return mu, prec
 
     def to_log_potential(self):
         return GaussianLogPotential(*self.get_gaussian_pot_params())
