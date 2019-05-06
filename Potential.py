@@ -108,6 +108,14 @@ class LinearGaussianPotential(Potential):
             self.sig == other.sig
         )
 
+    def to_log_potential(self):
+        # convert to equivalent Gaussian
+        mu = np.zeros(2)
+        a = self.coeff
+        sig_inv = np.array([[a ** 2, -a], [-a, 1.]]) / self.sig
+        sig = np.linalg.inv(sig_inv)
+        return GaussianLogPotential(mu, sig)
+
 
 class X2Potential(Potential):
     def __init__(self, coeff, sig):
@@ -128,6 +136,13 @@ class X2Potential(Potential):
             self.sig == other.sig
         )
 
+    def to_log_potential(self):
+        # convert to equivalent Gaussian
+        mu = np.zeros(1)
+        sig = np.zeros([1, 1])
+        sig[0] = self.sig / self.coeff
+        return GaussianLogPotential(mu, sig)
+
 
 class XYPotential(Potential):
     def __init__(self, coeff, sig):
@@ -147,6 +162,13 @@ class XYPotential(Potential):
             self.coeff == other.coeff and
             self.sig == other.sig
         )
+
+    def to_log_potential(self):
+        # convert to equivalent Gaussian
+        mu = np.zeros(2)
+        sig_inv = np.array([[0., 0.5], [0.5, 0.]]) * self.coeff / self.sig
+        sig = np.linalg.inv(sig_inv)
+        return GaussianLogPotential(mu, sig)
 
 
 class ImageNodePotential(Potential):

@@ -163,6 +163,8 @@ def condition_factors_on_evidence(factors, evidence):
                 else:  # may not be able to construct the conditional potential in closed-form
                     pot = copy(potential)
                     pot.potential.get = get_partial_function(potential.get, n, partial_args_vals)
+                    assert factor.log_potential_fun is not None, \
+                        "factor.log_potential_fun hasn't been set in the original graph, don't know how to condition"
                     log_pot = get_partial_function(factor.log_potential_fun, n, partial_args_vals)
 
                 if hasattr(potential, 'symmetric'):
@@ -319,7 +321,14 @@ def broadcast_arrs_to_common_shape(arrs):
     """
     # if len(arrs) == 1:
     #     return arrs
-    arrs_shapes = [tuple(map(int, arg.shape)) for arg in arrs]
+    arrs_shapes = []
+    for arr in arrs:
+        if hasattr(arr, 'shape'):
+            shape = tuple(map(int, arr.shape))
+        else:
+            shape = np.array(arr).shape
+        arrs_shapes.append(shape)
+
     if len(set(arrs_shapes)) == 1:  # all have the same shapes
         out = arrs
     else:
@@ -327,7 +336,7 @@ def broadcast_arrs_to_common_shape(arrs):
             backend = tf
         else:
             backend = np
-
+        # TODO: allow arrs with different number of dimensions (prepend empty dimensions when needed)
         assert len(set([len(s) for s in arrs_shapes])) == 1, 'arrs should have the same number of dimensions'
         arrs_shapes = np.array(arrs_shapes)
         # n, arrs_ndim = arrs_shapes.shape

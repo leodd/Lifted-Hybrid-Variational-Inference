@@ -70,6 +70,7 @@ class SuperF:
         self.potential = factor0.potential
         self.log_potential_fun = factor0.log_potential_fun
         self.domain_type = factor0.domain_type
+        self.nb_domain_types = factor0.nb_domain_types
         self.nb = None
         for f in factors:
             f.cluster = self
@@ -195,8 +196,8 @@ class CompressedGraphSorted:
         pieces of information used by OSI.
         :return:
         """
-        Vd = [rv for rv in self.rvs_list if rv.domain_type == 'd']  # list of of discrete rvs
-        Vc = [rv for rv in self.rvs_list if rv.domain_type == 'c']  # list of cont rvs
+        Vd = [rv for rv in self.rvs_list if rv.domain_type[0] == 'd']  # list of of discrete rvs
+        Vc = [rv for rv in self.rvs_list if rv.domain_type[0] == 'c']  # list of cont rvs
         Vd_idx = {n: i for (i, n) in enumerate(Vd)}
         Vc_idx = {n: i for (i, n) in enumerate(Vc)}
 
