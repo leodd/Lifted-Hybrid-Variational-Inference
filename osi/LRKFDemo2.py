@@ -55,8 +55,29 @@ for i in range(num_test):
                        param[1, i])
 
     g, rvs_table = kmf.grounded_graph(t, data)
+    print('num rvs in g', len(g.rvs))
+    print('num factors in g', len(g.factors))
 
-    algo = 'OSI'
+    algo = 'LOSI'
+    if algo in ('OSI', 'LOSI'):
+        utils.set_log_potential_funs(g.factors_list)  # OSI assumes factors have callable .log_potential_fun
+        K = 3
+        T = 20
+        # lr = 1e-1
+        lr = 5e-1
+        its = 1000
+        # fix_mix_its = int(its * 0.1)
+        fix_mix_its = int(its * 1.0)
+        # fix_mix_its = 500
+        logging_itv = 50
+        obs_rvs = [v for v in g.rvs if v.value is not None]
+        evidence = {rv: rv.value for rv in obs_rvs}
+        # cond = True
+        cond = True
+        if cond:
+            cond_g = utils.get_conditional_mrf(g.factors_list, g.rvs,
+                                               evidence)  # this will also condition log_potential_funs
+
     if algo == 'EPBP':
         bp = EPBP(g, n=50, proposal_approximation='simple')
         print('number of vr', len(g.rvs))
@@ -75,23 +96,7 @@ for i in range(num_test):
             result[idx, i] = bp.map(rv)
 
     elif algo == 'OSI':
-        utils.set_log_potential_funs(g.factors_list)  # OSI assumes factors have callable .log_potential_fun
-        K = 3
-        T = 20
-        # lr = 1e-1
-        lr = 5e-1
-        its = 1000
-        # fix_mix_its = int(its * 0.1)
-        fix_mix_its = int(its * 1.0)
-        # fix_mix_its = 500
-        logging_itv = 50
-        obs_rvs = [v for v in g.rvs if v.value is not None]
-        evidence = {rv: rv.value for rv in obs_rvs}
-        # cond = True
-        cond = True
         if cond:
-            cond_g = utils.get_conditional_mrf(g.factors_list, g.rvs,
-                                               evidence)  # this will also condition log_potential_funs
             osi = OneShot(g=cond_g, K=K, T=T, seed=seed)
         else:
             osi = OneShot(g=g, K=K, T=T, seed=seed)
@@ -108,23 +113,6 @@ for i in range(num_test):
                 result[idx, i] = osi.map(obs_rvs=obs_rvs, query_rv=rv)
 
     elif algo == 'LOSI':
-        utils.set_log_potential_funs(g.factors_list)  # OSI assumes factors have callable .log_potential_fun
-        K = 3
-        T = 20
-        # lr = 1e-1
-        lr = 5e-1
-        its = 1000
-        # fix_mix_its = int(its * 0.1)
-        fix_mix_its = int(its * 1.0)
-        # fix_mix_its = 500
-        logging_itv = 50
-        obs_rvs = [v for v in g.rvs if v.value is not None]
-        evidence = {rv: rv.value for rv in obs_rvs}
-        # cond = True
-        cond = True
-        if cond:
-            cond_g = utils.get_conditional_mrf(g.factors_list, g.rvs,
-                                               evidence)  # this will also condition log_potential_funs
         if cond:
             cg = CompressedGraphSorted(cond_g)
         else:
