@@ -338,7 +338,7 @@ def group_eval_log_potential_funs(factors_with_unique_log_potential_fun_types, u
     :return:
     """
     n = len(axes)  # all the factors have n args (nb) in scope
-    from Potential import GaussianLogPotential
+    from Potential import QuadraticLogPotential, GaussianLogPotential
     from MLNPotential import MLNLogPotential
     lpots = [None] * len(unique_log_potential_fun_types)
     j = 0
@@ -347,19 +347,35 @@ def group_eval_log_potential_funs(factors_with_unique_log_potential_fun_types, u
         like_log_potential_funs = [f.log_potential_fun for f in like_factors]
         c = len(like_factors)
         like_axes = [a[j:(j + c)] for a in axes]
-
-        if log_potential_fun_type == GaussianLogPotential:
+        if log_potential_fun_type == QuadraticLogPotential:
             like_axes = utils.broadcast_arrs_to_common_shape(utils.expand_dims_for_fun_grid(
-                like_axes))  # length n list, having common shape [c x ??? x V1 x V2 x ... Vn]
+                like_axes), backend=tf)  # length n list, having common shape [c x ??? x V1 x V2 x ... Vn]
+            v = tf.stack(like_axes)  # n x c x ...
+            b = np.stack([f.b for f in like_log_potential_funs], axis=-1)  # n x c
+            b = np.reshape(b, [n, c] + [1] * (len(v.shape) - 2))  # n x c x ones
+            A = np.stack([f.A for f in like_log_potential_funs], axis=-1)  # n x n x c
+            A = np.reshape(A, [n, n, c] + [1] * (len(v.shape) - 2))  # n x n x c x ones
+
+            outer_prods = v[None, ...] * v[:, None, ...]  # n x n x c x ...
+            quad_form = tf.reduce_sum(outer_prods * A, axis=[0, 1]) + tf.reduce_sum(b * v, axis=0)
+            ignore_const = True
+            if not ignore_const:
+                const = np.array([f.c for f in like_log_potential_funs])
+                const = np.reshape(const, [c] + [1] * (len(v.shape) - 2))  # c x ones
+                quad_form += const
+            lpot = quad_form
+        elif log_potential_fun_type == GaussianLogPotential:
+            like_axes = utils.broadcast_arrs_to_common_shape(utils.expand_dims_for_fun_grid(
+                like_axes), backend=tf)  # length n list, having common shape [c x ??? x V1 x V2 x ... Vn]
             v = tf.stack(like_axes)  # n x c x ...
             mu = np.stack([f.mu for f in like_log_potential_funs], axis=-1)  # n x c
             mu = np.reshape(mu, [n, c] + [1] * (len(v.shape) - 2))  # n x c x ones
-            sig_inv = np.stack([f.sig_inv for f in like_log_potential_funs], axis=-1)  # n x n x c
-            sig_inv = np.reshape(sig_inv, [n, n, c] + [1] * (len(v.shape) - 2))  # n x n x c x ones
+            prec = np.stack([f.prec for f in like_log_potential_funs], axis=-1)  # n x n x c
+            prec = np.reshape(prec, [n, n, c] + [1] * (len(v.shape) - 2))  # n x n x c x ones
 
             diff = v - mu  # n x c x ... , same shape as v
             outer_prods = diff[None, ...] * diff[:, None, ...]  # n x n x c x ...
-            quad_form = tf.reduce_sum(outer_prods * sig_inv, axis=[0, 1])
+            quad_form = tf.reduce_sum(outer_prods * prec, axis=[0, 1])
             lpot = -.5 * quad_form
         elif log_potential_fun_type == MLNLogPotential and len(set([f.formula for f in like_log_potential_funs])) == 1:
             # need a better/smarter way to check formula equality
@@ -370,6 +386,7 @@ def group_eval_log_potential_funs(factors_with_unique_log_potential_fun_types, u
             # or, use weights[(slice(None),) + (None,)*len(lpot.shape-1)]
             lpot = lpot * weights  # c x ??? x V1 x V2 x ... Vn
         else:
+            print('  warning: unable to group-eval', c, log_potential_fun_type, 'resorting to loop')
             # lpot = [utils.eval_fun_grid(like_log_potential_funs[l], [a[l] for a in like_axes]) for l in range(c)]
             lpot = []
             for l in range(c):

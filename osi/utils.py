@@ -95,6 +95,36 @@ def get_partial_function(fun, n, partial_args_vals):
     return pfun
 
 
+def get_conditional_quadratic(A, b, c, obs_args_vals):
+    """
+    Given a joint quadratic and values of a subset of the variables y, return parameters of the quadratic over the
+    remaining variables x.
+    [x y]^T A [x y] + b^T [x y] + c = x^T A_xx x + x^T A_xy y + y^T A_yx x + y^T A_yy y + b_x^T x + b_y^T y + c
+    = x^T A_xx x + (A_xy y + y^T A_yx + b_x)^T x + y^T A_yy y + b_y^T y + c
+    :param A:
+    :param b:
+    :param c:
+    :param obs_args_vals:
+    :return:
+    """
+    A = np.asarray(A)
+    n = len(b)
+    y_ind = np.array(list(obs_args_vals.keys()), dtype=int)
+    y = np.array([obs_args_vals[i] for i in y_ind])
+    x_ind = np.setdiff1d(np.arange(n), y_ind)
+    b_y = b[y_ind]
+    b_x = b[x_ind]
+    A_yy = A[np.ix_(y_ind, y_ind)]
+    A_xx = A[np.ix_(x_ind, x_ind)]
+    A_xy = A[np.ix_(x_ind, y_ind)]
+    A_yx = A[np.ix_(y_ind, x_ind)]
+
+    A_cond = A_xx
+    b_cond = A_xy @ y + (A_yx.T @ y).T + b_x
+    c_cond = np.dot(y, A_yy @ y) + np.dot(b_y, y) + c
+    return A_cond, b_cond, c_cond
+
+
 def get_conditional_gaussian(mu, Sig, obs_args_vals):
     """
     Get the mean and covariance matrix of a conditional Gaussian distribution p(x_a | x_b), given the joint distribution
@@ -130,7 +160,7 @@ def condition_factors_on_evidence(factors, evidence):
     :return: a new list of factors (original factors won't be modified) reduced to the context of given evidence
     """
     from MLNPotential import MLNPotential
-    from Potential import GaussianPotential
+    from Potential import GaussianPotential, LinearGaussianPotential, X2Potential, XYPotential, QuadraticPotential
     from copy import copy
     cond_factors = []
     for factor in factors:
@@ -152,9 +182,11 @@ def condition_factors_on_evidence(factors, evidence):
                 f.log_potential_fun = lambda x: factor.log_potential_fun([evidence[rv] for rv in factor.nb])
             else:
                 potential = factor.potential
-                if isinstance(potential, GaussianPotential):
-                    mu, sig = get_conditional_gaussian(potential.mu, potential.sig, partial_args_vals)
-                    pot = GaussianPotential(mu=mu, sig=sig)
+                if isinstance(potential, (GaussianPotential, LinearGaussianPotential, X2Potential, XYPotential)):
+                    # potential = QuadraticPotential(*potential.get_quadratic_params())
+                    A, b, c = potential.get_quadratic_params()
+                    A_cond, b_cond, c_cond = get_conditional_quadratic(A, b, c, partial_args_vals)
+                    pot = QuadraticPotential(A_cond, b_cond, c_cond)
                     log_pot = pot.to_log_potential()
                 elif isinstance(potential, MLNPotential):
                     formula = get_partial_function(potential.formula, n, partial_args_vals)
@@ -162,7 +194,7 @@ def condition_factors_on_evidence(factors, evidence):
                     log_pot = pot.to_log_potential()
                 else:  # may not be able to construct the conditional potential in closed-form
                     pot = copy(potential)
-                    pot.potential.get = get_partial_function(potential.get, n, partial_args_vals)
+                    pot.get = get_partial_function(potential.get, n, partial_args_vals)
                     assert factor.log_potential_fun is not None, \
                         "factor.log_potential_fun hasn't been set in the original graph, don't know how to condition"
                     log_pot = get_partial_function(factor.log_potential_fun, n, partial_args_vals)
@@ -312,7 +344,7 @@ def eval_fun_grid(fun, arrs, sep_args=False):
     return res
 
 
-def broadcast_arrs_to_common_shape(arrs):
+def broadcast_arrs_to_common_shape(arrs, backend):
     """
     Return a list of arrays that are all broadcasted to a common shape.
     e.g., if arrs have shapes [1, 3, 1] and [2, 1, 3], result will be a list of 2 arrays both with shape [2, 3, 3]
@@ -332,12 +364,13 @@ def broadcast_arrs_to_common_shape(arrs):
     if len(set(arrs_shapes)) == 1:  # all have the same shapes
         out = arrs
     else:
-        if isinstance(arrs[0], (tf.Variable, tf.Tensor)):
-            backend = tf
-        else:
-            backend = np
-        # TODO: allow arrs with different number of dimensions (prepend empty dimensions when needed)
-        assert len(set([len(s) for s in arrs_shapes])) == 1, 'arrs should have the same number of dimensions'
+        max_ndims = max([len(s) for s in arrs_shapes])
+        for i in range(len(arrs)):  # prepend empty dims if necessary
+            shape = arrs_shapes[i]
+            prepend_ndims = max_ndims - len(shape)
+            if prepend_ndims > 0:
+                arrs[i] = backend.reshape(arrs[i], (1,) * prepend_ndims + shape)
+        # assert len(set([len(s) for s in arrs_shapes])) == 1, 'arrs should have the same number of dimensions'
         arrs_shapes = np.array(arrs_shapes)
         # n, arrs_ndim = arrs_shapes.shape
         common_shape = tuple(np.max(arrs_shapes, axis=0))

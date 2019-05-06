@@ -117,7 +117,7 @@ for test_num in range(num_test):
     # cond = True
     cond = True
     if cond:
-        cond_g = utils.get_conditional_mrf(g.factors, g.rvs, evidence)  # this will also condition log_potential_funs
+        cond_g = utils.get_conditional_mrf(g.factors_list, g.rvs, evidence)  # this will also condition log_potential_funs
         osi = OneShot(g=cond_g, K=K, T=T, seed=seed)
     else:
         osi = OneShot(g=g, K=K, T=T, seed=seed)
