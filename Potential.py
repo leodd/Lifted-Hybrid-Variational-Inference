@@ -30,7 +30,7 @@ class GaussianPotential(Potential):
         return coef * pow(e, -0.5 * (x_mu * self.sig_inv * x_mu.T))
 
     def to_log_potential(self):
-        return GaussianLogPotential(self.mu, self.sig)
+        return GaussianLogPotential(self.mu, self.sig_inv)
 
         # def __eq__(self, other):
         #     return np.all(self.mu == other.mu) and np.all(self.sig == other.sig)  # self.w shouldn't make a difference
@@ -40,11 +40,9 @@ class GaussianPotential(Potential):
 
 
 class GaussianLogPotential:
-    def __init__(self, mu, sig):
+    def __init__(self, mu, sig_inv):
         self.mu = np.array(mu)
-        sig = np.array(sig)  # must be ndarray
-        self.sig = sig
-        self.sig_inv = np.linalg.inv(sig)
+        self.sig_inv = np.array(sig_inv)  # must be ndarray
 
     def __call__(self, args):
         """
@@ -62,12 +60,11 @@ class GaussianLogPotential:
             res = -0.5 * sig_inv[0, 0] * (args[0] - mu[0]) ** 2
         else:
             import utils
-            args = utils.broadcast_arrs_to_common_shape(args)
-
-            if isinstance(args[0], (tf.Variable, tf.Tensor)):
+            if any(isinstance(a, (tf.Variable, tf.Tensor)) for a in args):
                 backend = tf
             else:
                 backend = np
+            args = utils.broadcast_arrs_to_common_shape(args, backend=backend)
             v = backend.stack(args)  # n x ...
             args_ndim = len(v.shape) - 1
             mu = backend.reshape(mu, [n] + [1] * args_ndim)
@@ -83,10 +80,10 @@ class GaussianLogPotential:
         return res
 
         # def __eq__(self, other):
-        #     return np.all(self.mu == other.mu) and np.all(self.sig == other.sig)
+        #     return np.all(self.mu == other.mu) and np.all(self.sig_inv == other.sig_inv)
         #
         # def __hash__(self):
-        #     return hash((self.mu, self.sig))
+        #     return hash((self.mu, self.sig_inv))
 
 
 class LinearGaussianPotential(Potential):
@@ -113,8 +110,7 @@ class LinearGaussianPotential(Potential):
         mu = np.zeros(2)
         a = self.coeff
         sig_inv = np.array([[a ** 2, -a], [-a, 1.]]) / self.sig
-        sig = np.linalg.inv(sig_inv)
-        return GaussianLogPotential(mu, sig)
+        return GaussianLogPotential(mu, sig_inv)
 
 
 class X2Potential(Potential):
@@ -139,9 +135,9 @@ class X2Potential(Potential):
     def to_log_potential(self):
         # convert to equivalent Gaussian
         mu = np.zeros(1)
-        sig = np.zeros([1, 1])
-        sig[0] = self.sig / self.coeff
-        return GaussianLogPotential(mu, sig)
+        sig_inv = np.zeros([1, 1])
+        sig_inv[0, 0] = self.coeff / self.sig
+        return GaussianLogPotential(mu, sig_inv)
 
 
 class XYPotential(Potential):
@@ -167,8 +163,7 @@ class XYPotential(Potential):
         # convert to equivalent Gaussian
         mu = np.zeros(2)
         sig_inv = np.array([[0., 0.5], [0.5, 0.]]) * self.coeff / self.sig
-        sig = np.linalg.inv(sig_inv)
-        return GaussianLogPotential(mu, sig)
+        return GaussianLogPotential(mu, sig_inv)
 
 
 class ImageNodePotential(Potential):

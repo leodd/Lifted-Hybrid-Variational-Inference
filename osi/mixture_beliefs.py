@@ -350,7 +350,7 @@ def group_eval_log_potential_funs(factors_with_unique_log_potential_fun_types, u
 
         if log_potential_fun_type == GaussianLogPotential:
             like_axes = utils.broadcast_arrs_to_common_shape(utils.expand_dims_for_fun_grid(
-                like_axes))  # length n list, having common shape [c x ??? x V1 x V2 x ... Vn]
+                like_axes), backend=tf)  # length n list, having common shape [c x ??? x V1 x V2 x ... Vn]
             v = tf.stack(like_axes)  # n x c x ...
             mu = np.stack([f.mu for f in like_log_potential_funs], axis=-1)  # n x c
             mu = np.reshape(mu, [n, c] + [1] * (len(v.shape) - 2))  # n x c x ones

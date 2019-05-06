@@ -95,6 +95,7 @@ def get_partial_function(fun, n, partial_args_vals):
     return pfun
 
 
+# TODO: implement conditioning in terms of precision matrices instead
 def get_conditional_gaussian(mu, Sig, obs_args_vals):
     """
     Get the mean and covariance matrix of a conditional Gaussian distribution p(x_a | x_b), given the joint distribution
@@ -162,7 +163,7 @@ def condition_factors_on_evidence(factors, evidence):
                     log_pot = pot.to_log_potential()
                 else:  # may not be able to construct the conditional potential in closed-form
                     pot = copy(potential)
-                    pot.potential.get = get_partial_function(potential.get, n, partial_args_vals)
+                    pot.get = get_partial_function(potential.get, n, partial_args_vals)
                     assert factor.log_potential_fun is not None, \
                         "factor.log_potential_fun hasn't been set in the original graph, don't know how to condition"
                     log_pot = get_partial_function(factor.log_potential_fun, n, partial_args_vals)
@@ -312,7 +313,7 @@ def eval_fun_grid(fun, arrs, sep_args=False):
     return res
 
 
-def broadcast_arrs_to_common_shape(arrs):
+def broadcast_arrs_to_common_shape(arrs, backend):
     """
     Return a list of arrays that are all broadcasted to a common shape.
     e.g., if arrs have shapes [1, 3, 1] and [2, 1, 3], result will be a list of 2 arrays both with shape [2, 3, 3]
@@ -332,12 +333,13 @@ def broadcast_arrs_to_common_shape(arrs):
     if len(set(arrs_shapes)) == 1:  # all have the same shapes
         out = arrs
     else:
-        if isinstance(arrs[0], (tf.Variable, tf.Tensor)):
-            backend = tf
-        else:
-            backend = np
-        # TODO: allow arrs with different number of dimensions (prepend empty dimensions when needed)
-        assert len(set([len(s) for s in arrs_shapes])) == 1, 'arrs should have the same number of dimensions'
+        max_ndims = max([len(s) for s in arrs_shapes])
+        for i in range(len(arrs)):  # prepend empty dims if necessary
+            shape = arrs_shapes[i]
+            prepend_ndims = max_ndims - len(shape)
+            if prepend_ndims > 0:
+                arrs[i] = backend.reshape(arrs[i], (1,) * prepend_ndims + shape)
+        # assert len(set([len(s) for s in arrs_shapes])) == 1, 'arrs should have the same number of dimensions'
         arrs_shapes = np.array(arrs_shapes)
         # n, arrs_ndim = arrs_shapes.shape
         common_shape = tuple(np.max(arrs_shapes, axis=0))
