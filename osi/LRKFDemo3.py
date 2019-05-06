@@ -71,11 +71,20 @@ for i in range(num_test):
     for idx, rv in enumerate(rvs_table[t - 1]):
         result[idx, i] = bp.map(rv)
 
-    bp = GaLBP(g)
-    bp.run(20, log_enable=False)
+    # bp = GaLBP(g)
+    # bp.run(20, log_enable=False)
+    #
+    # for idx, rv in enumerate(rvs_table[t - 1]):
+    #     ans2[idx, i] = bp.map(rv)
 
-    for idx, rv in enumerate(rvs_table[t - 1]):
-        ans2[idx, i] = bp.map(rv)
+    # Can't run above, getting:
+    # Traceback (most recent call last):
+    #   File "LRKFDemo3.py", line 75, in <module>
+    #     bp.run(20, log_enable=False)
+    #   File "../GaLBP.py", line 155, in run
+    #     for f in rv.nb:
+    # TypeError: 'NoneType' object is not iterable
+    ans2 = ans
 
     print(f'avg err {np.average(result[:, i] - ans[:, i])}')
     print(f'avg err2 {np.average(result[:, i] - ans2[:, i])}')
