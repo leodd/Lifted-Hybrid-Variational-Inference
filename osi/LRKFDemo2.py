@@ -67,11 +67,12 @@ for i in range(num_test):
     # algo = 'EPBP'
     if algo in ('OSI', 'LOSI'):
         utils.set_log_potential_funs(g.factors_list)  # OSI assumes factors have callable .log_potential_fun
-        K = 3
+        K = 1
         T = 20
         # lr = 1e-1
         lr = 5e-1
-        its = 1000
+        # its = 1000
+        its = 300
         # fix_mix_its = int(its * 0.1)
         fix_mix_its = int(its * 1.0)
         # fix_mix_its = 500
