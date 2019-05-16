@@ -16,7 +16,7 @@ p1 = TablePotential({
 A = RV(domain)
 B = RV(domain, 1)
 C = RV(domain)
-D = RV(domain, 1)
+D = RV(domain)
 E = RV(domain)
 
 f_AB = F(p1, [A, B])

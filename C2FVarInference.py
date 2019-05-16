@@ -8,10 +8,13 @@ from itertools import product
 
 class VarInference:
     var_threshold = 0.01
+    k_mean_k = 2
+    k_mean_its = 10
+    update_obs_its = 20
+    min_obs_var = 0
 
     def __init__(self, g, num_mixtures=5, num_quadrature_points=3):
         self.g = CompressedGraph(g)
-        self.g.run()
 
         self.K = num_mixtures
         self.T = num_quadrature_points
@@ -22,6 +25,33 @@ class VarInference:
         self.w = np.zeros(self.K)
         self.eta_tau = dict()
         self.eta = dict()  # key=rv, value={continuous eta: [k, [mu, var]], discrete eta: [k, d]}
+
+    def split_rvs(self):
+        for rv in tuple(self.g.rvs):
+            # split rvs
+            new_rvs = rv.split_by_structure()
+            if rv.value is not None:
+                if len(new_rvs) > 1:
+                    self.g.clustered_evidence |= new_rvs
+                elif len(next(iter(new_rvs)).rvs) == 1:
+                    self.g.clustered_evidence -= new_rvs
+            else:
+                # update parameters
+                if rv.domain.continuous:
+                    for rv_ in new_rvs:
+                        self.eta[rv_] = self.eta[rv]
+                else:
+                    for rv_ in new_rvs:
+                        self.eta[rv_] = self.eta[rv]
+                        self.eta_tau[rv_] = self.eta_tau[rv]
+            self.g.rvs |= new_rvs
+
+    def cp_run(self):
+        prev_rvs_num = -1
+        while prev_rvs_num != len(self.g.rvs):
+            prev_rvs_num = len(self.g.rvs)
+            self.g.split_factors()
+            self.split_rvs()
 
     @staticmethod
     def norm_pdf(x, eta):
@@ -234,11 +264,31 @@ class VarInference:
             self.eta[rv] = self.softmax(table, 1)
 
     def run(self, iteration=100, lr=0.1):
+        # initiate compressed graph
+        self.g.init_cluster(is_split_cont_evidence=False)
+
         # initiate parameters
         self.init_param()
 
+        # initial color passing run
+        self.cp_run()
+
+        epsilon = 0
+        for rv in self.g.rvs:
+            if rv.value is not None:
+                epsilon = max(rv.get_variance(), epsilon)
+        d = epsilon * self.update_obs_its / iteration
+        epsilon -= d
+
         # Bethe iteration
         for itr in range(iteration):
+            # split evidence
+            if itr % self.update_obs_its == 0:
+                self.g.split_evidence(self.k_mean_k, self.k_mean_its, epsilon)
+                self.cp_run()
+                epsilon = max(epsilon - d, self.min_obs_var)
+                print('split, num of rvs:', len(self.g.rvs))
+
             # compute gradient
             w_tau_g = self.gradient_w_tau() * lr
             eta_g = dict()
@@ -274,11 +324,6 @@ class VarInference:
     def map(self, rv):
         if rv.value is None:
             if rv.domain.continuous:
-                # p = dict()
-                # for x in self.eta[rv.cluster][:, 0]:
-                #     p[x] = self.belief(x, rv)
-                # res = max(p.keys(), key=(lambda k: p[k]))
-
                 res = fminbound(
                     lambda val: -self.belief(val, rv),
                     rv.domain.values[0], rv.domain.values[1],

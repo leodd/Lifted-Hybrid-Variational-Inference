@@ -6,11 +6,10 @@ from itertools import product
 
 
 class VarInference:
-    var_threshold = 1
+    var_threshold = 0.01
 
     def __init__(self, g, num_mixtures=5, num_quadrature_points=3):
         self.g = g
-        self.init_rv()
 
         self.K = num_mixtures
         self.T = num_quadrature_points
@@ -20,18 +19,7 @@ class VarInference:
         self.w_tau = np.zeros(self.K)
         self.w = np.zeros(self.K)
         self.eta_tau = dict()
-        self.eta = dict()  # key=rv, value={continuous eta: [, [mu, var]], discrete eta: [k, d]}
-
-    def init_rv(self):
-        for rv in self.g.rvs:
-            rv.N = 0
-            rv.node_factor = None
-        for f in self.g.factors:
-            if len(f.nb) > 1:
-                for rv in f.nb:
-                    rv.N += 1
-            else:
-                f.nb[0].node_factor = f
+        self.eta = dict()  # key=rv, value={continuous eta: [k, [mu, var]], discrete eta: [k, d]}
 
     @staticmethod
     def norm_pdf(x, eta):
@@ -68,13 +56,8 @@ class VarInference:
         g_w = np.zeros(self.K)
 
         for rv in self.g.rvs:
-            phi = rv.node_factor
-            if phi is None:
-                def f_w(x):
-                    return (rv.N - 1) * log(self.rvs_belief(x, [rv]))
-            else:
-                def f_w(x):
-                    return log(phi.potential.get(x)) - (1 - rv.N) * log(self.rvs_belief(x, [rv]))
+            def f_w(x):
+                return (rv.N - 1) * log(self.rvs_belief(x, [rv]))
 
             for k in range(self.K):
                 if rv.value is not None:
@@ -87,21 +70,20 @@ class VarInference:
                 g_w[k] -= self.expectation(f_w, arg)
 
         for f in self.g.factors:
-            if len(f.nb) > 1:
-                def f_w(x):
-                    return log(f.potential.get(x)) - log(self.rvs_belief(x, f.nb))
+            def f_w(x):
+                return log(f.potential.get(x)) - log(self.rvs_belief(x, f.nb))
 
-                for k in range(self.K):
-                    args = list()
-                    for rv in f.nb:
-                        if rv.value is not None:
-                            args.append((False, ((rv.value,), (1,))))
-                        elif rv.domain.continuous:
-                            args.append((True, self.eta[rv][k]))
-                        else:
-                            args.append((False, (rv.domain.values, self.eta[rv][k])))
+            for k in range(self.K):
+                args = list()
+                for rv in f.nb:
+                    if rv.value is not None:
+                        args.append((False, ((rv.value,), (1,))))
+                    elif rv.domain.continuous:
+                        args.append((True, self.eta[rv][k]))
+                    else:
+                        args.append((False, (rv.domain.values, self.eta[rv][k])))
 
-                    g_w[k] -= self.expectation(f_w, *args)
+                g_w[k] -= self.expectation(f_w, *args)
 
         return self.w * (g_w - np.sum(g_w * self.w))
 
@@ -109,23 +91,12 @@ class VarInference:
         g_mu_var = np.zeros((self.K, 2))
         eta = self.eta[rv]
 
-        phi = rv.node_factor
-
         for k in range(self.K):
-            if phi is None:
-                def f_mu(x):
-                    return ((rv.N - 1) * log(self.rvs_belief(x, [rv]))) * (x[0] - eta[k][0])
+            def f_mu(x):
+                return ((rv.N - 1) * log(self.rvs_belief(x, [rv]))) * (x[0] - eta[k][0])
 
-                def f_var(x):
-                    return ((rv.N - 1) * log(self.rvs_belief(x, [rv]))) * ((x[0] - eta[k][0]) ** 2 - eta[k][1])
-            else:
-                def f_mu(x):
-                    return (log(f.potential.get(x)) - (1 - rv.N) * log(self.rvs_belief(x, phi.nb))) * \
-                           (x[0] - eta[k][0]) ** 2
-
-                def f_var(x):
-                    return (log(f.potential.get(x)) - (1 - rv.N) * log(self.rvs_belief(x, phi.nb))) * \
-                           ((x[0] - eta[k][0]) ** 2 - eta[k][1])
+            def f_var(x):
+                return ((rv.N - 1) * log(self.rvs_belief(x, [rv]))) * ((x[0] - eta[k][0]) ** 2 - eta[k][1])
 
             arg = (True, self.eta[rv][k])
 
@@ -133,28 +104,27 @@ class VarInference:
             g_mu_var[k, 1] -= self.expectation(f_var, arg) / (2 * eta[k][1] ** 2)
 
         for f in rv.nb:
-            if len(f.nb) > 1:
-                idx = f.nb.index(rv)
-                for k in range(self.K):
-                    def f_mu(x):
-                        return (log(f.potential.get(x)) - log(self.rvs_belief(x, f.nb))) * \
-                               (x[idx] - eta[k][0])
+            idx = f.nb.index(rv)
+            for k in range(self.K):
+                def f_mu(x):
+                    return (log(f.potential.get(x)) - log(self.rvs_belief(x, f.nb))) * \
+                           (x[idx] - eta[k][0])
 
-                    def f_var(x):
-                        return (log(f.potential.get(x)) - log(self.rvs_belief(x, f.nb))) * \
-                               ((x[idx] - eta[k][0]) ** 2 - eta[k][1])
+                def f_var(x):
+                    return (log(f.potential.get(x)) - log(self.rvs_belief(x, f.nb))) * \
+                           ((x[idx] - eta[k][0]) ** 2 - eta[k][1])
 
-                    args = list()
-                    for rv_ in f.nb:
-                        if rv_.value is not None:
-                            args.append((False, ((rv_.value,), (1,))))
-                        elif rv_.domain.continuous:
-                            args.append((True, self.eta[rv_][k]))
-                        else:
-                            args.append((False, (rv_.domain.values, self.eta[rv_][k])))
+                args = list()
+                for rv_ in f.nb:
+                    if rv_.value is not None:
+                        args.append((False, ((rv_.value,), (1,))))
+                    elif rv_.domain.continuous:
+                        args.append((True, self.eta[rv_][k]))
+                    else:
+                        args.append((False, (rv_.domain.values, self.eta[rv_][k])))
 
-                    g_mu_var[k, 0] -= self.expectation(f_mu, *args) / eta[k][1]
-                    g_mu_var[k, 1] -= self.expectation(f_var, *args) / (2 * eta[k][1] ** 2)
+                g_mu_var[k, 0] -= self.expectation(f_mu, *args) / eta[k][1]
+                g_mu_var[k, 1] -= self.expectation(f_var, *args) / (2 * eta[k][1] ** 2)
 
         return g_mu_var
 
@@ -164,11 +134,7 @@ class VarInference:
 
         for k in range(self.K):
             for d, (xi, v) in enumerate(zip(rv.domain.values, eta[k])):
-                phi = rv.node_factor
-                if phi is None:
-                    g_c[k, d] -= (rv.N - 1) * log(self.rvs_belief([xi], [rv]))
-                else:
-                    g_c[k, d] -= log(phi.potential.get((xi,))) - (1 - rv.N) * log(self.rvs_belief([xi], [rv]))
+                g_c[k, d] -= (rv.N - 1) * log(self.rvs_belief([xi], [rv]))
 
             for f in rv.nb:
                 args = list()
@@ -183,12 +149,11 @@ class VarInference:
 
                 idx = f.nb.index(rv)
                 for d, xi in enumerate(rv.domain.values):
-                    if len(f.nb) > 1:
-                        def f_c(x):
-                            new_x = x[:idx] + (xi,) + x[idx:]
-                            return log(f.potential.get(new_x)) - log(self.rvs_belief(new_x, f.nb))
+                    def f_c(x):
+                        new_x = x[:idx] + (xi,) + x[idx:]
+                        return log(f.potential.get(new_x)) - log(self.rvs_belief(new_x, f.nb))
 
-                        g_c[k, d] -= self.expectation(f_c, *args)
+                    g_c[k, d] -= self.expectation(f_c, *args)
 
         return eta * (g_c - np.sum(g_c * eta, 1)[:, np.newaxis])
 
@@ -196,13 +161,8 @@ class VarInference:
         energy = 0
 
         for rv in self.g.rvs:
-            phi = rv.node_factor
-            if phi is None:
-                def f_bfe(x):
-                    return (rv.N - 1) * log(self.rvs_belief(x, [rv]))
-            else:
-                def f_bfe(x):
-                    return log(phi.potential.get(x)) - (1 - rv.N) * log(self.rvs_belief(x, [rv]))
+            def f_bfe(x):
+                return (rv.N - 1) * log(self.rvs_belief(x, [rv]))
 
             for k in range(self.K):
                 if rv.value is not None:
@@ -215,21 +175,20 @@ class VarInference:
                 energy -= self.w[k] * self.expectation(f_bfe, arg)
 
         for f in self.g.factors:
-            if len(f.nb) > 1:
-                def f_bfe(x):
-                    return log(f.potential.get(x)) - log(self.rvs_belief(x, f.nb))
+            def f_bfe(x):
+                return log(f.potential.get(x)) - log(self.rvs_belief(x, f.nb))
 
-                for k in range(self.K):
-                    args = list()
-                    for rv in f.nb:
-                        if rv.value is not None:
-                            args.append((False, ((rv.value,), (1,))))
-                        elif rv.domain.continuous:
-                            args.append((True, self.eta[rv][k]))
-                        else:
-                            args.append((False, (rv.domain.values, self.eta[rv][k])))
+            for k in range(self.K):
+                args = list()
+                for rv in f.nb:
+                    if rv.value is not None:
+                        args.append((False, ((rv.value,), (1,))))
+                    elif rv.domain.continuous:
+                        args.append((True, self.eta[rv][k]))
+                    else:
+                        args.append((False, (rv.domain.values, self.eta[rv][k])))
 
-                    energy -= self.w[k] * self.expectation(f_bfe, *args)
+                energy -= self.w[k] * self.expectation(f_bfe, *args)
 
         return energy
 

@@ -10,7 +10,9 @@ class SuperRV:
         self.rvs = rvs
         self.domain = next(iter(rvs)).domain if domain is None else domain
         self.value = self.get_value(rvs) if value is None and not (next(iter(rvs)).value is None) else value
+        self.variance = None if self.value is None else self.get_variance()
         self.nb = None
+        self.N = 0
         self.count = None
         for rv in rvs:
             rv.cluster = self
@@ -40,6 +42,7 @@ class SuperRV:
         rv = next(iter(self.rvs))
         self.count = Counter(map(self.get_cluster, rv.nb))
         self.nb = tuple(self.count)
+        self.N = rv.N
 
     def split_by_structure(self):
         clusters = dict()
@@ -57,6 +60,7 @@ class SuperRV:
         self.rvs = clusters[next(i)]
         if self.value is not None:
             self.value = self.get_value(self.rvs)
+            self.variance = self.get_variance()
         res.add(self)
 
         for _ in range(1, len(clusters)):
@@ -111,6 +115,7 @@ class SuperRV:
         # reuse THIS super rv instance
         self.rvs = clusters[0]
         self.value = centroids[0]
+        self.variance = self.get_variance()
         res.add(self)
 
         for idx in range(1, k):
@@ -174,12 +179,12 @@ class CompressedGraph:
         self.g = graph
         self.rvs = set()
         self.factors = set()
-        self.continuous_evidence = set()
+        self.clustered_evidence = set()
 
     def init_cluster(self, is_split_cont_evidence=True):
         self.rvs.clear()
         self.factors.clear()
-        self.continuous_evidence.clear()
+        self.clustered_evidence.clear()
 
         # group rvs according to domain
         color_table = dict()
@@ -203,7 +208,7 @@ class CompressedGraph:
                     # without considering the actual value
                     rv = SuperRV(evidence)
                     self.rvs.add(rv)
-                    self.continuous_evidence.add(rv)
+                    self.clustered_evidence.add(rv)
                 else:
                     # for each evidence, we cluster them by their value
                     value_table = dict()
@@ -225,31 +230,31 @@ class CompressedGraph:
         for _, cluster in color_table.items():
             self.factors.add(SuperF(cluster))
 
-    def split_evidence(self, k=2, iteration=10):
-        temp = set()
-        for rv in self.continuous_evidence:
-            new_rvs = rv.split_by_evidence(k, iteration)
-            if len(new_rvs) > 1:
-                temp |= new_rvs
-        self.continuous_evidence = temp
-        self.rvs |= temp
+    def split_evidence(self, k=2, iteration=10, epsilon=0):
+        for rv in tuple(self.clustered_evidence):
+            if rv.variance > epsilon:
+                # split evidence
+                new_rvs = rv.split_by_evidence(k, iteration)
+                if len(new_rvs) > 1:
+                    self.clustered_evidence |= new_rvs
+                elif len(next(iter(new_rvs)).rvs) == 1:
+                    self.clustered_evidence -= new_rvs
+                self.rvs |= new_rvs
 
     def split_rvs(self):
-        temp = set()
-        temp_cont = set()
-        for rv in self.rvs:
+        for rv in tuple(self.rvs):
+            # split rvs
             new_rvs = rv.split_by_structure()
-            temp |= new_rvs
-            if rv.value is not None and rv in self.continuous_evidence:
-                temp_cont |= new_rvs
-        self.rvs = temp
-        self.continuous_evidence = temp_cont
+            if rv.value is not None:
+                if len(new_rvs) > 1:
+                    self.clustered_evidence |= new_rvs
+                elif len(next(iter(new_rvs)).rvs) == 1:
+                    self.clustered_evidence -= new_rvs
+            self.rvs |= new_rvs
 
     def split_factors(self):
-        temp = set()
-        for f in self.factors:
-            temp |= f.split_by_structure()
-        self.factors = temp
+        for f in tuple(self.factors):
+            self.factors |= f.split_by_structure()
 
     def run(self):
         self.init_cluster(is_split_cont_evidence=True)

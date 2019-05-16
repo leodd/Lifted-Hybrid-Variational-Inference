@@ -59,6 +59,7 @@ class RV:
         self.value = value
         self.id = next(self.id_counter)
         self.nb = []
+        self.N = 0
         self.belief_params_ = {}  # symbolic, used by tf
         self.belief_params = {}  # np arrs
         self.sharing_count = 1  # no parameter sharing in the uncompressed/unlifted graph
@@ -149,6 +150,8 @@ class Graph:
         for f in sorted(self.factors):
             for rv in f.nb:
                 rv.nb.append(f)
+        for rv in self.rvs:
+            rv.N = len(rv.nb)
 
     @property
     @functools.lru_cache()

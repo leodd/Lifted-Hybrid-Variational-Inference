@@ -10,6 +10,7 @@ class SuperRV:
         self.rvs = rvs
         self.domain = next(iter(rvs)).domain if domain is None else domain
         self.nb = None
+        self.N = 0
         for rv in rvs:
             rv.cluster = self
 
@@ -23,6 +24,7 @@ class SuperRV:
     def update_nb(self):
         rv = next(iter(self.rvs))
         self.nb = tuple(map(self.get_cluster, rv.nb))
+        self.N = rv.N
 
     def split_by_structure(self):
         clusters = dict()
@@ -121,16 +123,12 @@ class CompressedGraph:
             self.factors.add(SuperF(cluster))
 
     def split_rvs(self):
-        temp = set()
-        for rv in self.rvs:
-            temp |= rv.split_by_structure()
-        self.rvs = temp
+        for rv in tuple(self.rvs):
+            self.rvs |= rv.split_by_structure()
 
     def split_factors(self):
-        temp = set()
-        for f in self.factors:
-            temp |= f.split_by_structure()
-        self.factors = temp
+        for f in tuple(self.factors):
+            self.factors |= f.split_by_structure()
 
     def run(self):
         self.init_cluster()

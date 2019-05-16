@@ -63,14 +63,14 @@ result_table = np.zeros((len(rvs_table), num_test))
 time_table = []
 
 from EPBPLogVersion import EPBP
-from LiftedVarInference import VarInference
+from C2FVarInference import VarInference
 from GaBP import GaBP
 
 for i in range(num_test):
-    infer = EPBP(g, n=10, proposal_approximation='simple')
-    # infer = VarInference(g, num_mixtures=5, num_quadrature_points=3)
+    # infer = EPBP(g, n=10, proposal_approximation='simple')
+    infer = VarInference(g, num_mixtures=3, num_quadrature_points=3)
     start_time = time.clock()
-    infer.run(20, log_enable=True)
+    infer.run(500, lr=0.05)
     time_table.append(time.clock() - start_time)
 
     j = 0
