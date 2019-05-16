@@ -11,7 +11,9 @@ class VarInference:
     k_mean_k = 2
     k_mean_its = 10
     update_obs_its = 20
+    output_its = 0
     min_obs_var = 0
+    gaussian_obs = True
 
     def __init__(self, g, num_mixtures=5, num_quadrature_points=3):
         self.g = CompressedGraph(g)
@@ -25,6 +27,12 @@ class VarInference:
         self.w = np.zeros(self.K)
         self.eta_tau = dict()
         self.eta = dict()  # key=rv, value={continuous eta: [k, [mu, var]], discrete eta: [k, d]}
+
+    def split_evidence(self, epsilon):
+        prev_rvs_num = -1
+        while prev_rvs_num != len(self.g.rvs):
+            prev_rvs_num = len(self.g.rvs)
+            self.g.split_evidence(self.k_mean_k, self.k_mean_its, epsilon)
 
     def split_rvs(self):
         for rv in tuple(self.g.rvs):
@@ -93,7 +101,10 @@ class VarInference:
 
             for k in range(self.K):
                 if rv.value is not None:
-                    arg = (False, ((rv.value,), (1,)))
+                    if self.gaussian_obs and len(rv.rvs) > 1:
+                        arg = (True, (rv.value, rv.variance))
+                    else:
+                        arg = (False, ((rv.value,), (1,)))
                 elif rv.domain.continuous:
                     arg = (True, self.eta[rv][k])
                 else:
@@ -109,7 +120,10 @@ class VarInference:
                 args = list()
                 for rv in f.nb:
                     if rv.value is not None:
-                        args.append((False, ((rv.value,), (1,))))
+                        if self.gaussian_obs and len(rv.rvs) > 1:
+                            args.append((True, (rv.value, rv.variance)))
+                        else:
+                            args.append((False, ((rv.value,), (1,))))
                     elif rv.domain.continuous:
                         args.append((True, self.eta[rv][k]))
                     else:
@@ -150,7 +164,10 @@ class VarInference:
                 args = list()
                 for rv_ in f.nb:
                     if rv_.value is not None:
-                        args.append((False, ((rv_.value,), (1,))))
+                        if self.gaussian_obs and len(rv_.rvs) > 1:
+                            args.append((True, (rv_.value, rv_.variance)))
+                        else:
+                            args.append((False, ((rv_.value,), (1,))))
                     elif rv_.domain.continuous:
                         args.append((True, self.eta[rv_][k]))
                     else:
@@ -176,7 +193,10 @@ class VarInference:
                 for i, rv_ in enumerate(f.nb):
                     if i is not idx:
                         if rv_.value is not None:
-                            args.append((False, ((rv_.value,), (1,))))
+                            if self.gaussian_obs and len(rv_.rvs) > 1:
+                                args.append((True, (rv_.value, rv_.variance)))
+                            else:
+                                args.append((False, ((rv_.value,), (1,))))
                         elif rv.domain.continuous:
                             args.append((True, self.eta[rv_][k]))
                         else:
@@ -200,7 +220,10 @@ class VarInference:
 
             for k in range(self.K):
                 if rv.value is not None:
-                    arg = (False, ((rv.value,), (1,)))
+                    if self.gaussian_obs and len(rv.rvs) > 1:
+                        arg = (True, (rv.value, rv.variance))
+                    else:
+                        arg = (False, ((rv.value,), (1,)))
                 elif rv.domain.continuous:
                     arg = (True, self.eta[rv][k])
                 else:
@@ -216,7 +239,10 @@ class VarInference:
                 args = list()
                 for rv in f.nb:
                     if rv.value is not None:
-                        args.append((False, ((rv.value,), (1,))))
+                        if self.gaussian_obs and len(rv.rvs) > 1:
+                            args.append((True, (rv.value, rv.variance)))
+                        else:
+                            args.append((False, ((rv.value,), (1,))))
                     elif rv.domain.continuous:
                         args.append((True, self.eta[rv][k]))
                     else:
@@ -231,8 +257,11 @@ class VarInference:
 
         for i, rv in enumerate(rvs):
             if rv.value is not None:
-                if x[i] != rv.value:
-                    return 0
+                if self.gaussian_obs and len(rv.rvs) > 1:
+                    b *= self.norm_pdf(x[i], (rv.value, rv.variance))
+                else:
+                    if x[i] != rv.value:
+                        return 0
             elif rv.domain.continuous:
                 eta = self.eta[rv]
                 for k in range(self.K):
@@ -276,15 +305,15 @@ class VarInference:
         epsilon = 0
         for rv in self.g.rvs:
             if rv.value is not None:
-                epsilon = max(rv.get_variance(), epsilon)
-        d = epsilon * self.update_obs_its / iteration
+                epsilon = max(sqrt(rv.variance), epsilon)
+        d = epsilon * self.update_obs_its / (iteration - self.output_its)
         epsilon -= d
 
         # Bethe iteration
         for itr in range(iteration):
             # split evidence
             if itr % self.update_obs_its == 0:
-                self.g.split_evidence(self.k_mean_k, self.k_mean_its, epsilon)
+                self.split_evidence(epsilon)
                 self.cp_run()
                 epsilon = max(epsilon - d, self.min_obs_var)
                 print('split, num of rvs:', len(self.g.rvs))

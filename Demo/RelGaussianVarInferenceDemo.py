@@ -68,9 +68,9 @@ from GaBP import GaBP
 
 for i in range(num_test):
     # infer = EPBP(g, n=10, proposal_approximation='simple')
-    infer = VarInference(g, num_mixtures=3, num_quadrature_points=3)
+    infer = VarInference(g, num_mixtures=1, num_quadrature_points=3)
     start_time = time.clock()
-    infer.run(500, lr=0.05)
+    infer.run(500, lr=1)
     time_table.append(time.clock() - start_time)
 
     j = 0

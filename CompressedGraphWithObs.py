@@ -232,7 +232,7 @@ class CompressedGraph:
 
     def split_evidence(self, k=2, iteration=10, epsilon=0):
         for rv in tuple(self.clustered_evidence):
-            if rv.variance > epsilon:
+            if np.sqrt(rv.variance) > epsilon:
                 # split evidence
                 new_rvs = rv.split_by_evidence(k, iteration)
                 if len(new_rvs) > 1:
