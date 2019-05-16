@@ -279,7 +279,7 @@ def get_quadratic_params_from_factor_graph(factors, rvs_list):
     factor_scopes = []
     for factor in factors:
         pot = factor.potential
-        if hasattr(factor, 'log_potential_fun'):
+        if hasattr(factor, 'log_potential_fun') and factor.log_potential_fun is not None:
             lpot_fun = factor.log_potential_fun
             assert isinstance(lpot_fun, QuadraticLogPotential)
             params = lpot_fun.A, lpot_fun.b, lpot_fun.c
