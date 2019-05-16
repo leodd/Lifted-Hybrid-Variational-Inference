@@ -160,7 +160,7 @@ def condition_factors_on_evidence(factors, evidence):
     :return: a new list of factors (original factors won't be modified) reduced to the context of given evidence
     """
     from MLNPotential import MLNPotential
-    from Potential import GaussianPotential, LinearGaussianPotential, X2Potential, XYPotential, QuadraticPotential
+    from Potential import QuadraticPotential, GaussianPotential, LinearGaussianPotential, X2Potential, XYPotential
     from copy import copy
     cond_factors = []
     for factor in factors:
@@ -182,8 +182,8 @@ def condition_factors_on_evidence(factors, evidence):
                 f.log_potential_fun = lambda x: factor.log_potential_fun([evidence[rv] for rv in factor.nb])
             else:
                 potential = factor.potential
-                if isinstance(potential, (GaussianPotential, LinearGaussianPotential, X2Potential, XYPotential)):
-                    # potential = QuadraticPotential(*potential.get_quadratic_params())
+                if isinstance(potential, (QuadraticPotential, GaussianPotential, LinearGaussianPotential, X2Potential,
+                                          XYPotential)):
                     A, b, c = potential.get_quadratic_params()
                     A_cond, b_cond, c_cond = get_conditional_quadratic(A, b, c, partial_args_vals)
                     pot = QuadraticPotential(A_cond, b_cond, c_cond)
@@ -230,7 +230,93 @@ def get_conditional_mrf(factors, rvs, evidence):
     return g
 
 
-def get_prec_mat_from_gaussian_mrf(factors, rvs_list):
+def get_joint_quadratic_params(factor_params, factor_scopes, N=None):
+    """
+    Get the parameters A, b, c of a joint quadratic function x^T A x + b^T x + c defined by a list of quadratic factors
+    over sub-vectors of x.
+    :param factors: list of tuples, like [(A1, b1, c1), (A2, b2, c2), ...]
+    :param rvs_list: list of tuples of ints, which give ids of variables in each factor, like [(0,2,3), (3,0), ...]
+    :param N: total num of vars
+    :return:
+    """
+    from itertools import chain
+    factor_scopes_flat = list(chain.from_iterable(factor_scopes))
+    factor_scopes_flat = np.array(factor_scopes_flat)
+    assert np.all(factor_scopes_flat >= 0)
+    if N is None:
+        N = np.max(factor_scopes_flat) + 1
+    A = np.zeros([N, N], dtype='float')
+    b = np.zeros(N, dtype='float')
+    c = 0
+    for params, scope in zip(factor_params, factor_scopes):
+        A_, b_, c_ = params
+        n = len(scope)
+        for i in range(n):
+            x_i = scope[i]
+            for j in range(n):
+                # A[scope[i], scope[j]] += A_[i, j]
+                A[x_i, scope[j]] += A_[i, j]
+            b[x_i] += b_[i]
+
+        c += c_
+
+    return A, b, c
+
+
+def get_quadratic_params_from_factor_graph(factors, rvs_list):
+    """
+    Get the parameters A, b, c of a joint quadratic function x^T A x + b^T x + c defined by exp quadratic potentials
+    :param factors:
+    :param rvs_list:
+    :return:
+    """
+    N = len(rvs_list)
+    rvs_idx = {rv: i for (i, rv) in enumerate(rvs_list)}
+
+    from Potential import QuadraticPotential, GaussianPotential, LinearGaussianPotential, X2Potential, XYPotential, \
+        QuadraticLogPotential
+    factor_params = []
+    factor_scopes = []
+    for factor in factors:
+        pot = factor.potential
+        if hasattr(factor, 'log_potential_fun') and factor.log_potential_fun is not None:
+            lpot_fun = factor.log_potential_fun
+            assert isinstance(lpot_fun, QuadraticLogPotential)
+            params = lpot_fun.A, lpot_fun.b, lpot_fun.c
+        else:
+            assert isinstance(pot, (QuadraticPotential, GaussianPotential, LinearGaussianPotential, X2Potential,
+                                    XYPotential))
+            params = pot.get_quadratic_params()
+        factor_params.append(params)
+
+        scope = tuple(rvs_idx[rv] for rv in factor.nb)
+        factor_scopes.append(scope)
+
+    joint_params = get_joint_quadratic_params(factor_params, factor_scopes, N)
+
+    return joint_params, rvs_idx
+
+
+def get_gaussian_mean_params_from_quadratic_params(A, b, mu_only=True):
+    """
+    Get mu, Sig, such that -1/2 (x-mu)^T Sig^{-1} (x-mu) = x^T A x + b^T + const.
+    If mu_only, only mu is computed (by solving linear equations; no matrix inversion)
+    :param A:
+    :param b:
+    :param c:
+    :return:
+    """
+    J = -2. * A  # precision matrix
+    if mu_only:
+        mu = np.linalg.solve(J, b)
+        return mu
+    else:
+        Sig = np.linalg.inv(J)
+        mu = Sig @ b
+        return mu, Sig
+
+
+def get_prec_mat_from_gaussian_mrf(factors, rvs_list):  # superseded by get_quadratic_params_from_factor_graph
     """
     Get the precision (information) matrix (i.e., inverse of covmat) of a Gaussian MRF.
     :param factors:

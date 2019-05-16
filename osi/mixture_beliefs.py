@@ -730,7 +730,7 @@ def marginal_map(X, obs_rvs, query_rv, w):
     :param w:
     :return:
     """
-    if len(obs_rvs) == 0:  # no observation/conditioning
+    if not obs_rvs:  # no observation/conditioning
         cond_w = w
     else:
         cond_w = calc_cond_mixture_weights(X=X, obs_rvs=obs_rvs, w=w, all_rvs_params=None, g=None)

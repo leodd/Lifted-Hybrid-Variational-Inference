@@ -4,6 +4,7 @@ from math import pow, pi, e, sqrt, exp
 
 
 def mu_prec_to_quad_params(mu, prec):
+    # find A, b, c, s.t., x^T A x + b^T x + c = -0.5 * (x - mu)^T prec (x - mu)
     mu, prec = np.asarray(mu), np.asarray(prec)
     A = -0.5 * prec
     b = prec @ mu
@@ -21,6 +22,10 @@ class TablePotential(Potential):
 
 
 class GaussianPotential(Potential):
+    """
+    exp{-0.5 (x- mu)^T sig^{-1} (x - mu)}
+    """
+
     def __init__(self, mu, sig, w=1):
         Potential.__init__(self, symmetric=False)
         self.mu = np.array(mu)
@@ -71,11 +76,21 @@ class QuadraticPotential(Potential):
     def __call__(self, *args, **kwargs):
         return self.get(*args, **kwargs)
 
+    def get_quadratic_params(self):
+        # for convenient handling of all quadratic (including Gaussian like) potentials
+        return self.A, self.b, self.c
+
 
 class QuadraticLogPotential:
+    """
+    x^T A x + b^T x + c (strictly a superset of functions representable by GaussianLogPotential, b/c matrix A is allowed
+    to be singular)
+    """
+
     def __init__(self, A, b, c=0):
         """
-        Implement the function x^T A x + b^T x + c, over n variables.
+        Implement the function x^T A x + b^T x + c, over n variables; strictly a superset of functions representable
+        by GaussianLogPotential.
         :param A: n x n arr
         :param b: n arr
         :param c: scalar
@@ -123,6 +138,10 @@ class QuadraticLogPotential:
 
 
 class GaussianLogPotential:
+    """
+    -0.5 (x- mu)^T prec (x - mu)
+    """
+
     def __init__(self, mu, prec):
         self.mu = np.array(mu)
         self.prec = np.array(prec)  # must be ndarray
