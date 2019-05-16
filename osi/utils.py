@@ -182,8 +182,8 @@ def condition_factors_on_evidence(factors, evidence):
                 f.log_potential_fun = lambda x: factor.log_potential_fun([evidence[rv] for rv in factor.nb])
             else:
                 potential = factor.potential
-                if isinstance(potential, (GaussianPotential, LinearGaussianPotential, X2Potential, XYPotential)):
-                    # potential = QuadraticPotential(*potential.get_quadratic_params())
+                if isinstance(potential, (QuadraticPotential, GaussianPotential, LinearGaussianPotential, X2Potential,
+                                          XYPotential)):
                     A, b, c = potential.get_quadratic_params()
                     A_cond, b_cond, c_cond = get_conditional_quadratic(A, b, c, partial_args_vals)
                     pot = QuadraticPotential(A_cond, b_cond, c_cond)
