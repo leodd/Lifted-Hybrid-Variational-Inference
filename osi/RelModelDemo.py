@@ -88,18 +88,32 @@ for test_num in range(num_test):
     print('precision mat is diagonally dominant?', utils.check_diagonal_dominance(J))  # sufficient for normalizability
     print('determinant of precision mat = ', np.linalg.det(J))
 
+    obs_rvs = [v for v in g.rvs if v.value is not None]
+    evidence = {rv: rv.value for rv in obs_rvs}
+    cond_g = utils.get_conditional_mrf(g.factors_list, g.rvs, evidence)  # this will also condition log_potential_funs
+    quadratic_params, rvs_idx = utils.get_quadratic_params_from_factor_graph(cond_g.factors, cond_g.rvs_list)
+    print('det(J) in conditional MRF =', np.linalg.det(-2. * quadratic_params[0]))  # J = -2A
+
     ans = dict()
 
     name = 'GaBP'
-    bp = GaBP(g)
+    # bp = GaBP(g)
+    # start_time = time.process_time()
+    # bp.run(15, log_enable=False)
+    # time_cost[name] = (time.process_time() - start_time) / num_test + time_cost.get(name, 0)
+    # print(name, f'time {time.process_time() - start_time}')
+    # for key in key_list:
+    #     if key not in data:
+    #         ans[key] = bp.map(rvs_table[key])
+
+    # guaranteed exact baseline by solving linear equations (marginal means = marginal modes in Gaussians)
     start_time = time.process_time()
-    bp.run(15, log_enable=False)
+    mu = utils.get_gaussian_mean_params_from_quadratic_params(A=quadratic_params[0], b=quadratic_params[1],
+                                                              mu_only=True)
     time_cost[name] = (time.process_time() - start_time) / num_test + time_cost.get(name, 0)
-    print(name, f'time {time.process_time() - start_time}')
     for key in key_list:
         if key not in data:
-            ans[key] = bp.map(rvs_table[key])
-    # print(ans)
+            ans[key] = mu[rvs_idx[rvs_table[key]]]
 
     name = 'OSI'
     utils.set_log_potential_funs(g.factors_list)  # OSI assumes factors have callable .log_potential_fun
@@ -112,12 +126,9 @@ for test_num in range(num_test):
     fix_mix_its = int(its * 1.0)
     # fix_mix_its = 500
     logging_itv = 100
-    obs_rvs = [v for v in g.rvs if v.value is not None]
-    evidence = {rv: rv.value for rv in obs_rvs}
     # cond = True
     cond = True
     if cond:
-        cond_g = utils.get_conditional_mrf(g.factors_list, g.rvs, evidence)  # this will also condition log_potential_funs
         osi = OneShot(g=cond_g, K=K, T=T, seed=seed)
     else:
         osi = OneShot(g=g, K=K, T=T, seed=seed)

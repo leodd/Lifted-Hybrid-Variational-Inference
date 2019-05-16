@@ -58,6 +58,11 @@ for i in range(num_test):
     print('num rvs in g', len(g.rvs))
     print('num factors in g', len(g.factors))
 
+    obs_rvs = [v for v in g.rvs if v.value is not None]
+    evidence = {rv: rv.value for rv in obs_rvs}
+    cond_g = utils.get_conditional_mrf(g.factors_list, g.rvs,
+                                       evidence)  # this will also condition log_potential_funs
+
     algo = 'LOSI'
     # algo = 'EPBP'
     if algo in ('OSI', 'LOSI'):
@@ -72,12 +77,8 @@ for i in range(num_test):
         # fix_mix_its = 500
         logging_itv = 50
         obs_rvs = [v for v in g.rvs if v.value is not None]
-        evidence = {rv: rv.value for rv in obs_rvs}
         # cond = True
         cond = True
-        if cond:
-            cond_g = utils.get_conditional_mrf(g.factors_list, g.rvs,
-                                               evidence)  # this will also condition log_potential_funs
 
     if algo == 'EPBP':
         bp = EPBP(g, n=50, proposal_approximation='simple')
@@ -134,12 +135,13 @@ for i in range(num_test):
             else:
                 result[idx, i] = osi.map(obs_rvs=obs_rvs, query_rv=rv)
 
-    # bp = GaLBP(g)
-    bp = GaBP(g)
-    bp.run(20, log_enable=False)
-
+    # guaranteed exact baseline by solving linear equations (marginal means = marginal modes in Gaussians)
+    quadratic_params, rvs_idx = utils.get_quadratic_params_from_factor_graph(cond_g.factors, cond_g.rvs_list)
+    print('det(J) in conditional MRF =', np.linalg.det(-2. * quadratic_params[0]))  # J = -2A
+    mu = utils.get_gaussian_mean_params_from_quadratic_params(A=quadratic_params[0], b=quadratic_params[1],
+                                                              mu_only=True)
     for idx, rv in enumerate(rvs_table[t - 1]):
-        ans2[idx, i] = bp.map(rv)
+        ans2[idx, i] = mu[rvs_idx[rv]]
 
     print(f'avg err {np.average(result[:, i] - ans[:, i])}')
     print(f'avg err2 {np.average(result[:, i] - ans2[:, i])}')
