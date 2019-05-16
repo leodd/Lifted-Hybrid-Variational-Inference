@@ -65,6 +65,7 @@ for i in range(num_test):
     print('num factors in g', len(g.factors))
 
     algo = 'LOSI'
+    # algo = 'EPBP'
     if algo in ('OSI', 'LOSI'):
         utils.set_log_potential_funs(g.factors_list)  # OSI assumes factors have callable .log_potential_fun
         K = 3
@@ -139,20 +140,11 @@ for i in range(num_test):
             else:
                 result[idx, i] = osi.map(obs_rvs=obs_rvs, query_rv=rv)
 
-    # bp = GaLBP(g)
-    # bp.run(20, log_enable=False)
-    #
-    # for idx, rv in enumerate(rvs_table[t - 1]):
-    #     ans2[idx, i] = bp.map(rv)
+    bp = GaLBP(g)
+    bp.run(20, log_enable=False)
 
-    # Can't run above, getting:
-    # Traceback (most recent call last):
-    #   File "LRKFDemo3.py", line 75, in <module>
-    #     bp.run(20, log_enable=False)
-    #   File "../GaLBP.py", line 155, in run
-    #     for f in rv.nb:
-    # TypeError: 'NoneType' object is not iterable
-    ans2 = ans
+    for idx, rv in enumerate(rvs_table[t - 1]):
+        ans2[idx, i] = bp.map(rv)
 
     print(f'avg err {np.average(result[:, i] - ans[:, i])}')
     print(f'avg err2 {np.average(result[:, i] - ans2[:, i])}')
@@ -160,7 +152,7 @@ for i in range(num_test):
 err = abs(result - ans)
 err = np.average(err, axis=0)
 
-err2 = abs(result - ans)
+err2 = abs(result - ans2)
 err2 = np.average(err2, axis=0)
 
 print('########################')
