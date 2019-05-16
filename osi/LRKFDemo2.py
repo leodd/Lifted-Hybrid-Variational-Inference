@@ -104,7 +104,7 @@ for i in range(num_test):
         start_time = time.process_time()
         osi.run(lr=lr, its=its, fix_mix_its=fix_mix_its, logging_itv=logging_itv)
         time_cost.append(time.process_time() - start_time)
-        print('Mu =\n', osi.params['Mu'], '\nVar =\n', osi.params['Var'])
+        # print('Mu =\n', osi.params['Mu'], '\nVar =\n', osi.params['Var'])
         print(algo, f'time {time_cost[-1]}')
 
         for idx, rv in enumerate(rvs_table[t - 1]):
@@ -125,7 +125,7 @@ for i in range(num_test):
         start_time = time.process_time()
         osi.run(lr=lr, its=its, fix_mix_its=fix_mix_its, logging_itv=logging_itv)
         time_cost.append(time.process_time() - start_time)
-        print('Mu =\n', osi.params['Mu'], '\nVar =\n', osi.params['Var'])
+        # print('Mu =\n', osi.params['Mu'], '\nVar =\n', osi.params['Var'])
         print(algo, f'time {time_cost[-1]}')
 
         for idx, rv in enumerate(rvs_table[t - 1]):
@@ -134,7 +134,8 @@ for i in range(num_test):
             else:
                 result[idx, i] = osi.map(obs_rvs=obs_rvs, query_rv=rv)
 
-    bp = GaLBP(g)
+    # bp = GaLBP(g)
+    bp = GaBP(g)
     bp.run(20, log_enable=False)
 
     for idx, rv in enumerate(rvs_table[t - 1]):
