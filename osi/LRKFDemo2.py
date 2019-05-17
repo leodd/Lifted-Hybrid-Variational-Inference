@@ -68,7 +68,7 @@ for i in range(num_test):
     if algo in ('OSI', 'LOSI'):
         utils.set_log_potential_funs(g.factors_list)  # OSI assumes factors have callable .log_potential_fun
         K = 1
-        T = 20
+        T = 10
         # lr = 1e-1
         lr = 5e-1
         # its = 1000
