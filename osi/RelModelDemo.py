@@ -135,7 +135,7 @@ for test_num in range(num_test):
         osi = OneShot(g=g, K=K, T=T, seed=seed)
     start_time = time.process_time()
     osi.run(lr=lr, its=its, fix_mix_its=fix_mix_its, logging_itv=logging_itv)
-    print('Mu =\n', osi.params['Mu'], '\nVar =\n', osi.params['Var'])
+    # print('Mu =\n', osi.params['Mu'], '\nVar =\n', osi.params['Var'])
     time_cost[name] = (time.process_time() - start_time) / num_test + time_cost.get(name, 0)
     print(name, f'time {time.process_time() - start_time}')
     err = []
@@ -165,7 +165,7 @@ for test_num in range(num_test):
     osi = LiftedOneShot(g=cg, K=K, T=T, seed=seed)
     start_time = time.process_time()
     osi.run(lr=lr, its=its, fix_mix_its=fix_mix_its, logging_itv=logging_itv)
-    print('Mu =\n', osi.params['Mu'], '\nVar =\n', osi.params['Var'])
+    # print('Mu =\n', osi.params['Mu'], '\nVar =\n', osi.params['Var'])
     time_cost[name] = (time.process_time() - start_time) / num_test + time_cost.get(name, 0)
     print(name, f'time {time.process_time() - start_time}')
     err = []

@@ -206,17 +206,17 @@ class OneShot:
         self.run_setup(lr=lr, optimizer=optimizer, trainable_params=trainable_params)
         grads_and_vars, grads_update = self.grads_and_vars, self.grads_update
 
-        gvnames = ['g' + v.name.split(':')[0] for v in trainable_params]
-        record = {n: [] for n in gvnames + ['bfe']}
-
         if hasattr(self, 'sess'):  # will reuse most recent session to avoid session init overhead
             sess = self.sess
         elif tf_session is not None:
             sess = tf_session
         else:
-            sess = tf.Session()  # add session configs maybe
-
+            from config import tfconfig
+            sess = tf.Session(config=tfconfig)  # config=None by default
         self.sess = sess  # will cache session from last run
+
+        gvnames = ['g' + v.name.split(':')[0] for v in trainable_params]
+        record = {n: [] for n in gvnames + ['bfe']}
 
         sess.run(tf.global_variables_initializer())  # always reinit
         for it in range(its):
