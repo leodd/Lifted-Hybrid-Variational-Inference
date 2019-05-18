@@ -7,7 +7,9 @@ from Potential import LogTable, LogQuadratic, LogHybridQuadratic
 import numpy as np
 from hybrid_gaussian_mrf import convert_to_bn, block_gibbs_sample, get_crv_marg, get_drv_marg
 
-rvs = [RV(domain=Domain(values=(0, 1, 2), continuous=False)), RV(domain=Domain(values=(-5, 5), continuous=True)),
+rvs = [RV(domain=Domain(values=(0, 1, 2), continuous=False)),
+       RV(domain=Domain(values=(0, 1), continuous=False)),
+       RV(domain=Domain(values=(-5, 5), continuous=True)),
        RV(domain=Domain(values=(-5, 5), continuous=True))]
 N = len(rvs)
 Vd = [rv for rv in rvs if rv.domain_type[0] == 'd']  # list of of discrete rvs
@@ -20,11 +22,12 @@ Vc_idx = {n: i for (i, n) in enumerate(Vc)}
 covs = np.array([np.eye(Nc)] * 3)
 # means = np.array([[0., 0.], [0., 1.], [1., 0.]])
 means = np.array([[-2., -2.], [0., 1.], [3., 0.]])
-factors = [F(nb=(rvs[0], rvs[1], rvs[2]),
+factors = [F(nb=(rvs[0], rvs[2], rvs[3]),
              log_potential_fun=LogHybridQuadratic(A=-0.5 * covs,
                                                   b=means,
                                                   c=-0.5 * np.array([np.dot(m, m) for m in means]))),
-           F(nb=(rvs[0],), log_potential_fun=LogTable(np.array([-0.1, 0, 0.2]))),
+           F(nb=(rvs[0],), log_potential_fun=LogTable(np.array([-0.1, 0, 2.]))),
+           F(nb=(rvs[0], rvs[1]), log_potential_fun=LogTable(np.array([[2., 0], [-0.1, 1], [0, 0.2]]))),
            F(nb=(rvs[2],), log_potential_fun=LogQuadratic(A=-0.5 * np.ones([1, 1]), b=np.zeros([1]), c=0.))
            ]
 
@@ -44,17 +47,17 @@ bn = convert_to_bn(factors, Vd, Vc)
 print('BN params', bn)
 
 num_burnin = 200
-num_samples = 1000
+num_samples = 500
 disc_samples, cont_samples = block_gibbs_sample(factors, rvs=None, Vd=Vd, Vc=Vc, num_burnin=num_burnin,
                                                 num_samples=num_samples,
-                                                disc_block_its=2)
+                                                disc_block_its=20)
 
 test_drv_idx = 0
 print('true test drv marg', get_drv_marg(bn[0], Vd_idx, Vd[test_drv_idx]))
 print('sampled test drv marg', np.bincount(disc_samples[:, test_drv_idx]) / num_samples)
 
-test_crv_idx = 0
-# test_crv_idx = 1
+# test_crv_idx = 0
+test_crv_idx = 1
 test_crv_marg_params = get_crv_marg(*bn, Vc_idx, Vc[test_crv_idx])
 print('true test crv marg params', test_crv_marg_params)
 
