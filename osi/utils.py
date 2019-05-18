@@ -274,14 +274,14 @@ def get_quadratic_params_from_factor_graph(factors, rvs_list):
     rvs_idx = {rv: i for (i, rv) in enumerate(rvs_list)}
 
     from Potential import QuadraticPotential, GaussianPotential, LinearGaussianPotential, X2Potential, XYPotential, \
-        QuadraticLogPotential
+        LogQuadratic
     factor_params = []
     factor_scopes = []
     for factor in factors:
         pot = factor.potential
         if hasattr(factor, 'log_potential_fun') and factor.log_potential_fun is not None:
             lpot_fun = factor.log_potential_fun
-            assert isinstance(lpot_fun, QuadraticLogPotential)
+            assert isinstance(lpot_fun, LogQuadratic)
             params = lpot_fun.A, lpot_fun.b, lpot_fun.c
         else:
             assert isinstance(pot, (QuadraticPotential, GaussianPotential, LinearGaussianPotential, X2Potential,

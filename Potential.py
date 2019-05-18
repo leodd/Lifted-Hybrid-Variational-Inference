@@ -46,7 +46,7 @@ class GaussianPotential(Potential):
         return mu_prec_to_quad_params(self.mu, self.prec)
 
     def to_log_potential(self):
-        return QuadraticLogPotential(*self.get_quadratic_params())
+        return LogQuadratic(*self.get_quadratic_params())
 
         # def __eq__(self, other):
         #     return np.all(self.mu == other.mu) and np.all(self.sig == other.sig)  # self.w shouldn't make a difference
@@ -57,7 +57,7 @@ class GaussianPotential(Potential):
 
 class QuadraticPotential(Potential):
     """
-    exp(x^T A x + b^T x + c)
+    Convenience Potential object wrapper for LogQuadratic, implementing exp(x^T A x + b^T x + c)
     """
 
     def __init__(self, A, b, c):
@@ -65,7 +65,7 @@ class QuadraticPotential(Potential):
         self.A = np.array(A)
         self.b = np.array(b)
         self.c = c
-        self.log_potential = QuadraticLogPotential(A, b, c)
+        self.log_potential = LogQuadratic(A, b, c)
 
     def to_log_potential(self):
         return self.log_potential
@@ -81,16 +81,16 @@ class QuadraticPotential(Potential):
         return self.A, self.b, self.c
 
 
-class QuadraticLogPotential:
+class LogQuadratic:
     """
-    x^T A x + b^T x + c (strictly a superset of functions representable by GaussianLogPotential, b/c matrix A is allowed
-    to be singular)
+    Function object that implement x^T A x + b^T x + c (strictly a superset of functions representable by LogGaussian,
+    b/c matrix A is allowed to be singular)
     """
 
     def __init__(self, A, b, c=0):
         """
         Implement the function x^T A x + b^T x + c, over n variables; strictly a superset of functions representable
-        by GaussianLogPotential.
+        by LogGaussian.
         :param A: n x n arr
         :param b: n arr
         :param c: scalar
@@ -137,9 +137,9 @@ class QuadraticLogPotential:
         return res
 
 
-class GaussianLogPotential:
+class LogGaussian:
     """
-    -0.5 (x- mu)^T prec (x - mu)
+    Function object implementing -0.5 (x- mu)^T prec (x - mu)
     """
 
     def __init__(self, mu, prec):
@@ -215,7 +215,7 @@ class LinearGaussianPotential(Potential):
         return mu_prec_to_quad_params(mu, prec)
 
     def to_log_potential(self):
-        return QuadraticLogPotential(*self.get_quadratic_params())
+        return LogQuadratic(*self.get_quadratic_params())
 
 
 class X2Potential(Potential):
@@ -245,7 +245,7 @@ class X2Potential(Potential):
         return mu_prec_to_quad_params(mu, prec)
 
     def to_log_potential(self):
-        return QuadraticLogPotential(*self.get_quadratic_params())
+        return LogQuadratic(*self.get_quadratic_params())
 
 
 class XYPotential(Potential):
@@ -274,7 +274,7 @@ class XYPotential(Potential):
         return mu_prec_to_quad_params(mu, prec)
 
     def to_log_potential(self):
-        return QuadraticLogPotential(*self.get_quadratic_params())
+        return LogQuadratic(*self.get_quadratic_params())
 
 
 class ImageNodePotential(Potential):

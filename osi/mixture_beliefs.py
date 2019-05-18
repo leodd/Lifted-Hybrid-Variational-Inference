@@ -338,7 +338,7 @@ def group_eval_log_potential_funs(factors_with_unique_log_potential_fun_types, u
     :return:
     """
     n = len(axes)  # all the factors have n args (nb) in scope
-    from Potential import QuadraticLogPotential, GaussianLogPotential
+    from Potential import LogQuadratic, LogGaussian
     from MLNPotential import MLNLogPotential
     lpots = [None] * len(unique_log_potential_fun_types)
     j = 0
@@ -347,7 +347,7 @@ def group_eval_log_potential_funs(factors_with_unique_log_potential_fun_types, u
         like_log_potential_funs = [f.log_potential_fun for f in like_factors]
         c = len(like_factors)
         like_axes = [a[j:(j + c)] for a in axes]
-        if log_potential_fun_type == QuadraticLogPotential:
+        if log_potential_fun_type == LogQuadratic:
             like_axes = utils.broadcast_arrs_to_common_shape(utils.expand_dims_for_fun_grid(
                 like_axes), backend=tf)  # length n list, having common shape [c x ??? x V1 x V2 x ... Vn]
             v = tf.stack(like_axes)  # n x c x ...
@@ -364,7 +364,7 @@ def group_eval_log_potential_funs(factors_with_unique_log_potential_fun_types, u
                 const = np.reshape(const, [c] + [1] * (len(v.shape) - 2))  # c x ones
                 quad_form += const
             lpot = quad_form
-        elif log_potential_fun_type == GaussianLogPotential:
+        elif log_potential_fun_type == LogGaussian:
             like_axes = utils.broadcast_arrs_to_common_shape(utils.expand_dims_for_fun_grid(
                 like_axes), backend=tf)  # length n list, having common shape [c x ??? x V1 x V2 x ... Vn]
             v = tf.stack(like_axes)  # n x c x ...
