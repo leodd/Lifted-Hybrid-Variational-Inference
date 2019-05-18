@@ -26,7 +26,7 @@ def convert_to_bn(factors, rvs, Vd, Vc):
     Nd = len(Vd)
     Nc = len(Vc)
     all_dstates = [rv.dstates for rv in Vd]  # [v1, v2, ..., v_Nd]
-    all_disc_config = np.array(list(product(*all_dstates)))  # all joint configurations, \prod_i v_i by Nd
+    all_disc_config = list(product(*[range(d) for d in all_dstates]))  # all joint configs, \prod_i v_i by Nd
     disc_marginal_table = np.empty(all_dstates, dtype=float)  # [v1, v2, ..., v_Nd]
     gaussian_means = np.empty(all_dstates + [Nc], dtype=float)  # [v1, v2, ..., v_Nd, Nc]
     gaussian_covs = np.empty(all_dstates + [Nc, Nc], dtype=float)  # [v1, v2, ..., v_Nd, Nc, Nc]
@@ -206,7 +206,8 @@ def block_gibbs_sample(factors, rvs, Vd, Vc, num_burnin, num_samples, init_x_d=N
                 cond_disc_nbr_factor_ids[i].append(j + len(disc_lpot_tables))
         cond_lpot_tables = disc_lpot_tables + cond_lpot_tables
         cond_scopes = disc_scopes + cond_scopes
-        x_d = disc_mrf.gibbs_sample(cond_lpot_tables, cond_scopes, cond_disc_nbr_factor_ids, all_dstates, x_d, its=100)
+        x_d = disc_mrf.gibbs_sample_one(cond_lpot_tables, cond_scopes, cond_disc_nbr_factor_ids, all_dstates, x_d,
+                                        its=100)
 
         sample_it = it - num_burnin
         if sample_it >= 0:
