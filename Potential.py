@@ -28,6 +28,9 @@ class LogTable:
     def __init__(self, table):
         self.table = table
 
+    def __call__(self, args):
+        return self.table[args]
+
 
 class GaussianPotential(Potential):
     """

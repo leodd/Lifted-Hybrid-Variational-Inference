@@ -34,6 +34,18 @@ def softmax(a, axis=None):
     return p
 
 
+def scalar_gmm_log_prob(x, mu, var, w):
+    # convenience method; x can be tensor; mu, var, w should be len K vecs
+    var_inv = 1 / var
+    log_w = np.log(w)
+    K = len(w)
+    mu = mu.reshape([K] + [1] * len(x.shape))
+    var_inv = var_inv.reshape([K] + [1] * len(x.shape))
+    log_w = log_w.reshape([K] + [1] * len(x.shape))
+    comp_log_probs = -0.5 * np.log(2 * np.pi) + 0.5 * np.log(var_inv) - 0.5 * (x - mu) ** 2 * var_inv
+    return logsumexp(log_w + comp_log_probs, axis=0)
+
+
 def weighted_feature_fun(feature_fun, weight):
     # return lambda vs: weight * feature_fun(vs)
     def wf(args):

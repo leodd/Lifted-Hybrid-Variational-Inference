@@ -2,26 +2,25 @@
 # discrete node values) are all exp quadratic
 # Also assume all discrete nodes have discrete states 0, 1, 2, ..., i.e., consecutive ints that can be used for indexing
 import numpy as np
-from Potential import QuadraticPotential, LogQuadratic, LogTable, LogHybridQuadratic
+from Potential import LogQuadratic, LogTable, LogHybridQuadratic
 from itertools import product
 from copy import deepcopy
 
 import utils
 
 
-def convert_to_bn(factors, rvs, Vd, Vc):
+def convert_to_bn(factors, Vd, Vc):
     """
     Brute-force convert a hybrid Gaussian MRF into equivalent Bayesian network, p(x_d, x_c) = p(x_d) p(x_c | x_d)
     :param factors: list of Graph.F
-    :param rvs: list of Graph.RV
     :param Vd: list of disc rvs
     :param Vc: list of cont rvs
     :return:
     """
     # Vd = [rv for rv in rvs if rv.domain_type[0] == 'd']  # list of of discrete rvs
     # Vc = [rv for rv in rvs if rv.domain_type[0] == 'c']  # list of cont rvs
-    Vd_idx = {n: i for (i, n) in enumerate(Vd)}
-    Vc_idx = {n: i for (i, n) in enumerate(Vc)}
+    # Vd_idx = {n: i for (i, n) in enumerate(Vd)}
+    # Vc_idx = {n: i for (i, n) in enumerate(Vc)}
 
     Nd = len(Vd)
     Nc = len(Vc)
@@ -31,17 +30,17 @@ def convert_to_bn(factors, rvs, Vd, Vc):
     gaussian_means = np.empty(all_dstates + [Nc], dtype=float)  # [v1, v2, ..., v_Nd, Nc]
     gaussian_covs = np.empty(all_dstates + [Nc, Nc], dtype=float)  # [v1, v2, ..., v_Nd, Nc, Nc]
 
-    for factor in factors:  # pre-processing for efficiency; may be better done in Graph.py
-        disc_nb_idx = ()
-        cont_nb_idx = ()
-        for rv in factor.nb:
-            if rv.domain_type[0] == 'd':
-                disc_nb_idx += Vd_idx[rv]
-            else:
-                assert rv.domain_type[0] == 'c'
-                cont_nb_idx += Vc_idx[rv]
-        factor.disc_nb_idx = disc_nb_idx
-        factor.cont_nb_idx = cont_nb_idx
+    # for factor in factors:  # pre-processing for efficiency; may be better done in Graph.py
+    #     disc_nb_idx = ()
+    #     cont_nb_idx = ()
+    #     for rv in factor.nb:
+    #         if rv.domain_type[0] == 'd':
+    #             disc_nb_idx += (Vd_idx[rv],)
+    #         else:
+    #             assert rv.domain_type[0] == 'c'
+    #             cont_nb_idx += (Vc_idx[rv],)
+    #     factor.disc_nb_idx = disc_nb_idx
+    #     factor.cont_nb_idx = cont_nb_idx
 
     for disc_config in all_disc_config:
         quadratic_factor_params = []  # each obtained from a (reduced) hybrid factor when given disc nb node values
@@ -51,13 +50,18 @@ def convert_to_bn(factors, rvs, Vd, Vc):
             # pot = factor.potential  # .potential is for interfacing with the code outside /osi
             assert hasattr(factor, 'log_potential_fun')  # actually I'll only work with log_potential_fun for simplicity
             lpot_fun = factor.log_potential_fun
-            disc_vals_in_factor = tuple(disc_config[i] for i in factor.disc_nb_idx)
-            if isinstance(lpot_fun, LogTable):
-                disc_pot_prod += lpot_fun[disc_vals_in_factor]
-            else:
-                assert isinstance(lpot_fun, LogHybridQuadratic)
-                quadratic_factor_params.append(lpot_fun.get_quadratic_params_given_x_d(disc_vals_in_factor))
+            if isinstance(lpot_fun, LogQuadratic):
+                quadratic_factor_params.append((lpot_fun.A, lpot_fun.b, lpot_fun.c))
                 quadratic_factor_scopes.append(factor.cont_nb_idx)
+            else:
+                disc_vals_in_factor = tuple(disc_config[i] for i in factor.disc_nb_idx)
+                if isinstance(lpot_fun, LogTable):
+                    disc_pot_prod += lpot_fun(disc_vals_in_factor)
+                else:
+                    assert isinstance(lpot_fun, LogHybridQuadratic)
+                    # plugging in disc values has the effect of selecting one log quadratic
+                    quadratic_factor_params.append(lpot_fun.get_quadratic_params_given_x_d(disc_vals_in_factor))
+                    quadratic_factor_scopes.append(factor.cont_nb_idx)
 
         joint_quadratic_params = utils.get_joint_quadratic_params(quadratic_factor_params, quadratic_factor_scopes, Nc)
         A, b, c = joint_quadratic_params
@@ -123,7 +127,7 @@ def get_drv_marg(disc_marginal_table, Vd_idx, drv):
 import disc_mrf
 
 
-def block_gibbs_sample(factors, rvs, Vd, Vc, num_burnin, num_samples, init_x_d=None):
+def block_gibbs_sample(factors, rvs, Vd, Vc, num_burnin, num_samples, init_x_d=None, disc_block_its=100):
     """
 
     :param factors:
@@ -145,48 +149,66 @@ def block_gibbs_sample(factors, rvs, Vd, Vc, num_burnin, num_samples, init_x_d=N
     disc_samples = np.empty([num_samples, Nd], dtype=int_type)
     cont_samples = np.empty([num_samples, Nc], dtype=float)
 
-    # pre-processing for sampling in cond disc MRF
+    # pre-processing for sampling in cond MRF
     cont_factors = []
     disc_factors = []
-    disc_lpot_tables = []
-    disc_scopes = []
     hybrid_factors = []  # strictly hybrid, i.e., contains both disc and cont
-    # strictly_hybrid_factor_ind = np.zeros(len(factors), dtype=bool)  # 'strictly hybrid' means contains disc AND cont
     for j, factor in enumerate(factors):
         lpot_fun = factor.log_potential_fun
-        if isinstance(lpot_fun, LogHybridQuadratic):
+        if isinstance(lpot_fun, LogQuadratic):
+            cont_factors.append(factor)
+        elif isinstance(lpot_fun, LogHybridQuadratic):
             if len(np.shape(lpot_fun.c)) >= 1:
                 hybrid_factors.append(factor)
-                # strictly_hybrid_factor_ind[j] = 1
             else:
                 cont_factors.append(factor)
         elif isinstance(lpot_fun, LogTable):
             disc_factors.append(factor)
-            disc_lpot_tables.append(lpot_fun.table)
-            disc_scopes.append(factor.disc_nb_idx)
         else:
             raise NotImplementedError
 
-    disc_nbr_factor_ids = [[] for _ in range(Nd)]
-    for j, scope in enumerate(disc_scopes):
-        for i in scope:
-            disc_nbr_factor_ids[i].append(j)
+    contf_params = []
+    contf_scopes = []
+    for factor in cont_factors:
+        lpot_fun = factor.log_potential_fun
+        contf_params.append((lpot_fun.A, lpot_fun.b, lpot_fun.c))
+        contf_scopes.append(factor.cont_nb_idx)
+    contf_joint_quadratic_params = utils.get_joint_quadratic_params(contf_params, contf_scopes, Nc)
+
+    discf_lpot_tables = []
+    discf_scopes = []
+    discf_nbr_factor_ids = [[] for _ in range(Nd)]
+    for j, factor in enumerate(disc_factors):
+        lpot_fun = factor.log_potential_fun
+        discf_lpot_tables.append(lpot_fun.table)
+        discf_scopes.append(factor.disc_nb_idx)
+
+        for i in factor.disc_nb_idx:
+            discf_nbr_factor_ids[i].append(j)
+    num_disc_factors = len(disc_factors)
 
     for it in range(num_burnin + num_samples):
         # 1. sample p(x_c | x_d) in the conditional Gaussian MRF
         # basically copied from convert_to_bn:
-        quadratic_factor_params = []  # each obtained from a (reduced) hybrid factor when given disc nb node values
-        quadratic_factor_scopes = []
-        # disc_pot_prod = 0  # table/discrete potential's contribution to \prod_c \psi_c (product of all potentials)
-        for factor in factors:  # TODO: speed up by precomputing joint_quadratic_params over cont_factors outside loop
+        cond_quadratic_factor_params = []  # each obtained from a (reduced) hybrid factor when given disc nb node values
+        cond_quadratic_factor_scopes = []
+        # for factor in factors:  # TODO: speed up by precomputing joint_quadratic_params over cont_factors outside loop
+        #     lpot_fun = factor.log_potential_fun
+        #     if isinstance(lpot_fun, LogHybridQuadratic):
+        #         disc_vals_in_factor = tuple(x_d[i] for i in factor.disc_nb_idx)  # () is OK
+        #         cond_quadratic_factor_params.append(lpot_fun.get_quadratic_params_given_x_d(disc_vals_in_factor))
+        #         cond_quadratic_factor_scopes.append(factor.cont_nb_idx)
+        for factor in hybrid_factors:
             lpot_fun = factor.log_potential_fun
-            if isinstance(lpot_fun, LogHybridQuadratic):
-                disc_vals_in_factor = tuple(x_d[i] for i in factor.disc_nb_idx)  # () is OK
-                quadratic_factor_params.append(lpot_fun.get_quadratic_params_given_x_d(disc_vals_in_factor))
-                quadratic_factor_scopes.append(factor.cont_nb_idx)
+            disc_vals_in_factor = tuple(x_d[i] for i in factor.disc_nb_idx)
+            cond_quadratic_factor_params.append(lpot_fun.get_quadratic_params_given_x_d(disc_vals_in_factor))
+            cond_quadratic_factor_scopes.append(factor.cont_nb_idx)
 
-        joint_quadratic_params = utils.get_joint_quadratic_params(quadratic_factor_params, quadratic_factor_scopes, Nc)
-        A, b, c = joint_quadratic_params
+        cond_joint_quadratic_params = utils.get_joint_quadratic_params(cond_quadratic_factor_params,
+                                                                       cond_quadratic_factor_scopes, Nc)
+        A = contf_joint_quadratic_params[0] + cond_joint_quadratic_params[0]
+        b = contf_joint_quadratic_params[1] + cond_joint_quadratic_params[1]
+        # c = contf_joint_quadratic_params[2] + cond_joint_quadratic_params[2]
         mu, Sig = utils.get_gaussian_mean_params_from_quadratic_params(A, b, mu_only=False)
         x_c = np.random.multivariate_normal(mean=mu, cov=Sig)
 
@@ -194,20 +216,21 @@ def block_gibbs_sample(factors, rvs, Vd, Vc, num_burnin, num_samples, init_x_d=N
         # get contribution from strictly hybrid factors
         cond_lpot_tables = []
         cond_scopes = []
-        cond_disc_nbr_factor_ids = deepcopy(disc_nbr_factor_ids)  # TODO: ugly, somehow get rid of
+        cond_disc_nbr_factor_ids = deepcopy(discf_nbr_factor_ids)  # TODO: ugly, somehow get rid of
 
         for factor in hybrid_factors:
             lpot_fun = factor.log_potential_fun
-            cont_vals_in_factor = x_c[factor.cont_nb_idx]
+            cont_vals_in_factor = x_c[list(
+                factor.cont_nb_idx)]  # note the index is a list (not a tuple) so we get another array instead of single element
             cond_lpot_tables.append(lpot_fun.get_table_params_given_x_c(cont_vals_in_factor))
             cond_scopes.append(factor.disc_nb_idx)
         for j, scope in enumerate(cond_scopes):
             for i in scope:
-                cond_disc_nbr_factor_ids[i].append(j + len(disc_lpot_tables))
-        cond_lpot_tables = disc_lpot_tables + cond_lpot_tables
-        cond_scopes = disc_scopes + cond_scopes
+                cond_disc_nbr_factor_ids[i].append(j + num_disc_factors)
+        cond_lpot_tables = discf_lpot_tables + cond_lpot_tables
+        cond_scopes = discf_scopes + cond_scopes
         x_d = disc_mrf.gibbs_sample_one(cond_lpot_tables, cond_scopes, cond_disc_nbr_factor_ids, all_dstates, x_d,
-                                        its=100)
+                                        its=disc_block_its)
 
         sample_it = it - num_burnin
         if sample_it >= 0:
