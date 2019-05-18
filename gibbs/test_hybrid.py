@@ -64,8 +64,8 @@ plt.figure()
 xs = np.linspace(-5, 5, 50)
 plt.hist(cont_samples[:, test_crv_idx], normed=True, label='samples')
 plt.plot(xs,
-         np.exp(utils.scalar_gmm_log_prob(xs, w=test_crv_marg_params[0], mu=test_crv_marg_params[1],
-                                          var=test_crv_marg_params[2])),
+         np.exp(utils.get_scalar_gm_log_prob(xs, w=test_crv_marg_params[0], mu=test_crv_marg_params[1],
+                                             var=test_crv_marg_params[2])),
          label='ground truth marg pdf')
 plt.legend(loc='best')
 # plt.show()

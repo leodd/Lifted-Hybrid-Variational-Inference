@@ -29,4 +29,4 @@ for config in product(*[range(d) for d in dstates]):
     margs[config] = val
 Z = np.sum(margs)
 margs /= Z
-print('sample marginals', np.sum(margs[1]), np.sum(margs[:, 1]))
+print('true marginals', np.sum(margs[1]), np.sum(margs[:, 1]))

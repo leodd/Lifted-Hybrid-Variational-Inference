@@ -109,6 +109,24 @@ def get_crv_marg(disc_marginal_table, gaussian_means, gaussian_covs, Vc_idx, crv
     return weights, cond_gaussian_means, cond_gaussian_vars
 
 
+def get_crv_marg_map(disc_marginal_table, gaussian_means, gaussian_covs, Vc_idx, crv, best_log_pdf=False):
+    """
+
+    :param disc_marginal_table:
+    :param gaussian_means:
+    :param gaussian_covs:
+    :param Vc_idx:
+    :param crv:
+    :return:
+    """
+
+    weights, cond_gaussian_means, cond_gaussian_vars = get_crv_marg(disc_marginal_table, gaussian_means, gaussian_covs,
+                                                                    Vc_idx, crv, flatten_params=True)
+    bds = (crv.values[0], crv.values[1])
+    return utils.get_scalar_gm_mode(w=weights, mu=cond_gaussian_means, var=cond_gaussian_vars, bds=bds,
+                                    best_log_pdf=best_log_pdf)
+
+
 def get_drv_marg(disc_marginal_table, Vd_idx, drv):
     """
 
@@ -122,6 +140,26 @@ def get_drv_marg(disc_marginal_table, Vd_idx, drv):
     all_axes_except_idx.remove(idx)
     all_axes_except_idx = tuple(all_axes_except_idx)
     return np.sum(disc_marginal_table, axis=all_axes_except_idx)
+
+
+def get_drv_marg_map(disc_marginal_table, Vd_idx, drv, best_prob):
+    """
+
+    :param disc_marginal_table:
+    :param Vd_idx:
+    :param drv:
+    :param best_prob:
+    :return:
+    """
+    marg = get_drv_marg(disc_marginal_table, Vd_idx, drv)
+    map_state = np.argmax(marg)
+    if not best_prob:
+        return map_state
+    else:
+        return map_state, marg[map_state]
+
+
+# def get_mmap(disc_marginal_table, gaussian_means, gaussian_covs, rvs):
 
 
 import disc_mrf

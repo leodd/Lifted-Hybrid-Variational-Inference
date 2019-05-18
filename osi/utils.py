@@ -2,9 +2,9 @@ import tensorflow as tf
 import numpy as np
 
 
-def set_path():  # to facilitate importing from pardir
+def set_path(paths=('..')):  # to facilitate importing within module
     import sys
-    sys.path.append('..')
+    sys.path.append(paths)
 
 
 def set_seed(seed=0):
@@ -34,7 +34,7 @@ def softmax(a, axis=None):
     return p
 
 
-def scalar_gmm_log_prob(x, mu, var, w):
+def get_scalar_gm_log_prob(x, mu, var, w):
     # convenience method; x can be tensor; mu, var, w should be len K vecs
     var_inv = 1 / var
     log_w = np.log(w)
@@ -44,6 +44,38 @@ def scalar_gmm_log_prob(x, mu, var, w):
     log_w = log_w.reshape([K] + [1] * len(x.shape))
     comp_log_probs = -0.5 * np.log(2 * np.pi) + 0.5 * np.log(var_inv) - 0.5 * (x - mu) ** 2 * var_inv
     return logsumexp(log_w + comp_log_probs, axis=0)
+
+
+def get_scalar_gm_mode(w, mu, var, bds, best_log_pdf=False):
+    """
+    Find (approximately) the mode of a scalar gaussian mixture
+    :param w:
+    :param mu:
+    :param var:
+    :param bds:
+    :return:
+    """
+    # TODO: implement multivariate case and call it to handle special scalar case
+    from scipy.optimize import minimize
+    log_w = np.log(w)
+    var_inv = 1 / var
+
+    def neg_gmm_log_prob(x):
+        comp_log_probs = -0.5 * np.log(2 * np.pi) + 0.5 * np.log(var_inv) - 0.5 * (x - mu) ** 2 * var_inv
+        return -logsumexp(log_w + comp_log_probs)
+
+    res = []
+    for m in mu:  # starting optimization from the K component modes and take the best solution
+        x0 = m
+        r = minimize(neg_gmm_log_prob, x0=x0, bounds=[bds])  # bounds kwarg needs to be a list of (lb, ub)
+        res.append(r)
+    best_res = min(res, key=lambda r: r.fun)
+    x_opt = float(best_res.x)
+
+    if not best_log_pdf:
+        return x_opt
+    else:
+        return x_opt, -best_res.fun
 
 
 def weighted_feature_fun(feature_fun, weight):

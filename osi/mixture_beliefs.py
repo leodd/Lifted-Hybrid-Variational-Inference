@@ -700,24 +700,7 @@ def crv_belief_map(w, mu, var, bds):
     :param bds:
     :return:
     """
-    # TODO: implement multivariate case and call it to handle special scalar case
-    from scipy.optimize import minimize
-    log_w = np.log(w)
-    var_inv = 1 / var
-
-    def neg_gmm_log_prob(x):
-        comp_log_probs = -0.5 * np.log(2 * np.pi) + 0.5 * np.log(var_inv) - 0.5 * (x - mu) ** 2 * var_inv
-        return -utils.logsumexp(log_w + comp_log_probs)
-
-    res = []
-    for m in mu:  # starting optimization from the K component modes and take the best solution
-        x0 = m
-        r = minimize(neg_gmm_log_prob, x0=x0, bounds=[bds])  # bounds kwarg needs to be a list of (lb, ub)
-        res.append(r)
-    best_res = min(res, key=lambda r: r.fun)
-    x_opt = float(best_res.x)
-
-    return x_opt
+    return utils.get_scalar_gm_mode(w, mu, var, bds)
 
 
 def marginal_map(X, obs_rvs, query_rv, w):
