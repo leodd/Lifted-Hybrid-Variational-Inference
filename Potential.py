@@ -20,6 +20,14 @@ class TablePotential(Potential):
     def get(self, parameters):
         return self.table[parameters]
 
+    def to_log_potential(self):
+        return LogTable(np.log(self.table))  # may get infs
+
+
+class LogTable:
+    def __init__(self, table):
+        self.table = table
+
 
 class GaussianPotential(Potential):
     """
@@ -186,6 +194,85 @@ class LogGaussian:
         #
         # def __hash__(self):
         #     return hash((self.mu, self.prec))
+
+
+class LogHybridQuadratic:
+    """
+    Function object with argument x = [x_d, x_c], that implements an exp quadratic,
+    exp(x_c^T A_{x_d} x_c + b_{x_d}^T x_c + c_{x_d}),
+    for each fixed value of x_d (each x_d configuration corresponds to a set of quadratic parameters (A,b,c))
+    Assume all discrete nodes have discrete states 0, 1, 2, ..., i.e., consecutive ints that can be used for indexing
+    """
+
+    def __init__(self, A, b, c):
+        """
+        :param A: an array of shape [v1, v2, ..., v_Nd, Nc, Nc], where v1, ..., v_Nd are the number of states of the Nd
+        discrete nodes in the scope, and Nc is the number of continuous nodes
+        :param b: an array of shape [v1, v2, ..., v_Nd, Nc]
+        :param c: an array of shape [v1, v2, ..., v_Nd]
+        :return:
+        """
+        self.A = A
+        self.b = b
+        self.c = c
+
+    def get_quadratic_params_given_x_d(self, x_d):
+        """
+        Get params of the reduced log quadratic factor over x_c, given values of discrete nodes x_d
+        :param x_d: a tuple / np array of integers of values of x_d
+        :return:
+        """
+        A = self.A[x_d]
+        b = self.b[x_d]
+        c = self.c[x_d]
+        return A, b, c
+
+    def get_table_params_given_x_c(self, x_c):
+        """
+        Get params of the reduced log table factor over x_d, given values of cont nodes x_c
+        :param x_c: float np array of values of x_c
+        :return: [v1, v2, ..., v_Nd]
+        """
+        outer_prods = np.outer(x_c, x_c)  # [Nc, Nc]
+        res = np.sum(self.A * outer_prods, axis=(-1, -2))  # [v1, v2, ..., v_Nd, Nc, Nc] -> [v1, v2, ..., v_Nd]
+        res += np.sum(self.b * x_c, axis=-1)  # [v1, v2, ..., v_Nd, Nc] -> [v1, v2, ..., v_Nd]
+        res += self.c
+        return res
+
+
+class HybridQuadraticPotential(Potential):
+    """
+    Convenience Potential object wrapper for LogHybridQuadratic
+    Assume args are ordered like [x_d, x_c]
+    """
+
+    def __init__(self, A, b, c):
+        """
+        :param A: an array of shape [v1, v2, ..., v_Nd, Nc, Nc], where v1, ..., v_Nd are the number of states of the Nd
+        discrete nodes in the scope, and Nc is the number of continuous nodes
+        :param b: an array of shape [v1, v2, ..., v_Nd, Nc]
+        :param c: an array of shape [v1, v2, ..., v_Nd]
+        :return:
+        """
+        Potential.__init__(self, symmetric=False)
+        self.A = A
+        self.b = b
+        self.c = c
+        self.Nd = len(c.shape)  # num disc nodes
+        self.Nc = int(b.shape[-1])  # num cont nodes
+        self.log_potential = LogHybridQuadratic(A, b, c)
+
+    def get(self, args, **kwargs):
+        """
+        Assume args are ordered like [x_d, x_c]
+        :param args:
+        :return:
+        """
+        x_d = args[:self.Nd]
+        x_c = args[self.Nd:]
+        reduced_quadratic_params = self.log_potential.get_quadratic_params_given_x_d(x_d)
+        reduced_quadratic_pot = QuadraticPotential(*reduced_quadratic_params)
+        return reduced_quadratic_pot.get(x_c, **kwargs)
 
 
 class LinearGaussianPotential(Potential):
