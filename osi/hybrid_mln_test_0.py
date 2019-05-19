@@ -16,10 +16,12 @@ from OneShot import OneShot, LiftedOneShot
 
 from hybrid_gaussian_mrf import convert_to_bn, block_gibbs_sample, get_crv_marg, get_drv_marg, get_rv_marg_map
 
-rvs = [RV(domain=Domain(values=(0, 1), continuous=False)),
-       RV(domain=Domain(values=(0, 1), continuous=False)),
-       RV(domain=Domain(values=(-5, 5), continuous=True)),
-       RV(domain=Domain(values=(-5, 5), continuous=True))]
+domain_bool = Domain(values=(0, 1), continuous=False)
+domain_real = Domain(values=(-10, 10), continuous=True)
+rvs = [RV(domain=domain_bool),
+       RV(domain=domain_bool),
+       RV(domain=domain_real),
+       RV(domain=domain_real)]
 Nc = 2
 covs = np.array([np.eye(Nc)] * len(rvs[0].values))
 # means = np.array([[0., 0.], [0., 1.], [1., 0.]])
@@ -35,7 +37,7 @@ means = np.array([[-2., -2.], [0., 1.], [3., 0.]])
 
 factors = [F(nb=(rvs[0], rvs[2], rvs[3]),
              # potential=MLNPotential(lambda x: (1 - x[0]) * eq_op(x[1], 4.) + x[0] * eq_op(x[1], x[2]), w=0.2)),
-             potential=MLNPotential(lambda x: (1 - x[0]) * eq_op(x[1], 4.) + x[0] * eq_op(x[1], -3.), w=0.2)),
+             potential=MLNPotential(lambda x: (1 - x[0]) * eq_op(x[1], 8.) + x[0] * eq_op(x[1], -7.), w=0.2)),
            # F(nb=(rvs[0], rvs[1]), potential=MLNPotential(lambda x: imp_op(x[0] * x[1], x[2]), w=1)),
            F(nb=(rvs[0], rvs[1]), potential=MLNPotential(lambda x: and_op(x[0], x[1]), w=1)),
            # F(nb=(rvs[2],), potential=QuadraticPotential(A=-0.5 * np.ones([1, 1]), b=np.zeros([1]), c=0.))
@@ -83,10 +85,9 @@ for i, rv in enumerate(rvs):
 # HybridQuadraticPotential), then calling the .to_log_potential method on the potential objects
 # manual conversion here:
 factors[0].potential = HybridQuadraticPotential(
-    A=factors[0].potential.w * -0.5 *
-      np.array([np.array([[1., 0], [0, 0]]), np.array([[1., 0.], [0., 0.]])]),
-    b=factors[0].potential.w * -0.5 * np.array([[-8., 0], [6., 0.]]),
-    c=factors[0].potential.w * -0.5 * np.array([16., 9.])
+    A=-factors[0].potential.w * np.array([np.array([[1., 0], [0, 0]]), np.array([[1., 0.], [0., 0.]])]),
+    b=-factors[0].potential.w * np.array([[-16., 0], [14., 0.]]),
+    c=-factors[0].potential.w * np.array([64., 49.])
 )
 factors[1].potential = utils.convert_disc_MLNPotential_to_TablePotential(factors[1].potential, factors[1].nb)
 utils.set_log_potential_funs(factors, skip_existing=False)  # reset lpot_funs
@@ -122,7 +123,7 @@ print(f'osi crv{test_crv_idx} marg params', osi_test_crv_marg_params)
 import matplotlib.pyplot as plt
 
 plt.figure()
-xs = np.linspace(-5, 5, 50)
+xs = np.linspace(-10, 10, 100)
 plt.hist(cont_samples[:, test_crv_idx], normed=True, label='samples')
 plt.plot(xs,
          np.exp(utils.get_scalar_gm_log_prob(xs, w=test_crv_marg_params[0], mu=test_crv_marg_params[1],
