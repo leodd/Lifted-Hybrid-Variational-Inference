@@ -234,6 +234,7 @@ class LogHybridQuadratic:
         :param x_d: a tuple / np array of integers of values of x_d
         :return:
         """
+        x_d = tuple(x_d)  # needed for proper indexing; a list/np array would give slicing behavior, not wanted
         A = self.A[x_d]
         b = self.b[x_d]
         c = self.c[x_d]
