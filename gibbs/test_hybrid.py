@@ -1,10 +1,14 @@
 import utils
 
 utils.set_path()
+import sampling_utils
 
 from Graph import F, RV, Domain, Graph
 from Potential import LogTable, LogQuadratic, LogHybridQuadratic
 import numpy as np
+
+seed = 0
+np.random.seed(0)
 from hybrid_gaussian_mrf import convert_to_bn, block_gibbs_sample, get_crv_marg, get_drv_marg
 
 rvs = [RV(domain=Domain(values=(0, 1, 2), continuous=False)), RV(domain=Domain(values=(-5, 5), continuous=True)),
@@ -27,6 +31,7 @@ g.factors = factors
 g.init_nb()
 g.init_rv_indices()  # all we really need is to create disc/cont indices and factor.disc_nb_idx/cont_nb_idx attrs
 Vd, Vc, Vd_idx, Vc_idx = g.Vd, g.Vc, g.Vd_idx, g.Vc_idx
+dstates = [rv.dstates for rv in Vd]
 
 bn = convert_to_bn(factors, Vd, Vc)
 print('BN params', bn)
@@ -35,15 +40,18 @@ num_burnin = 200
 num_samples = 1000
 disc_samples, cont_samples = block_gibbs_sample(factors, Vd=Vd, Vc=Vc, num_burnin=num_burnin,
                                                 num_samples=num_samples, disc_block_its=2)
+sampled_disc_marginal_table = sampling_utils.get_disc_marg_table_from_samples(disc_samples, dstates)
 
 test_drv_idx = 0
 print('true test drv marg', get_drv_marg(bn[0], Vd_idx, Vd[test_drv_idx]))
-print('sampled test drv marg', np.bincount(disc_samples[:, test_drv_idx]) / num_samples)
+print('sampled test drv marg', get_drv_marg(sampled_disc_marginal_table, Vd_idx, Vd[test_drv_idx]))
 
 test_crv_idx = 0
 # test_crv_idx = 1
 test_crv_marg_params = get_crv_marg(*bn, Vc_idx, Vc[test_crv_idx])
 print('true test crv marg params', test_crv_marg_params)
+sampled_test_crv_marg_params = sampling_utils.fit_scalar_gm_from_samples(cont_samples[:, test_crv_idx], K=3)
+print('sampled test crv marg params (using gm fit)', sampled_test_crv_marg_params)
 
 import matplotlib.pyplot as plt
 
@@ -54,6 +62,10 @@ plt.plot(xs,
          np.exp(utils.get_scalar_gm_log_prob(xs, w=test_crv_marg_params[0], mu=test_crv_marg_params[1],
                                              var=test_crv_marg_params[2])),
          label='ground truth marg pdf')
+plt.plot(xs,
+         np.exp(utils.get_scalar_gm_log_prob(xs, w=sampled_test_crv_marg_params[0], mu=sampled_test_crv_marg_params[1],
+                                             var=sampled_test_crv_marg_params[2])),
+         label='marg pdf fit from samples (using gm)')
 plt.legend(loc='best')
 # plt.show()
 save_name = __file__.split('.py')[0]
