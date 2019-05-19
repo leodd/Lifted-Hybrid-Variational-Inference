@@ -2,7 +2,7 @@ import utils
 
 utils.set_path(('..', '../gibbs'))
 
-seed = 1
+seed = 0
 utils.set_seed(seed)
 
 from Graph import F, RV, Domain, Graph

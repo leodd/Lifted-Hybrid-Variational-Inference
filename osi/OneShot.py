@@ -102,7 +102,7 @@ class OneShot:
             Mu_bds = Mu_bds[:, :, None] + \
                      np.zeros([2, g.Nc, K], dtype='float')  # Mu_bds[0], Mu_bds[1] give lb, ub for Mu; same for all K
             Mu = np.random.uniform(low=Mu_bds[0], high=Mu_bds[1], size=[g.Nc, K])  # init numerical value
-            init_grid = False
+            init_grid = True
             if init_grid:  # try spreading initial means evenly on a grid within the Mu_bds box set
                 I = int(K ** (1 / g.Nc))  # number of points per dimension; need to have I^{Nc} <= K
                 slices = []
