@@ -34,11 +34,12 @@ means = np.array([[-2., -2.], [0., 1.], [3., 0.]])
 #            ]
 
 factors = [F(nb=(rvs[0], rvs[2], rvs[3]),
-             potential=MLNPotential(lambda x: (1 - x[0]) * eq_op(x[1], 4.) + x[0] * eq_op(x[1], x[2]), w=0.2)),
+             # potential=MLNPotential(lambda x: (1 - x[0]) * eq_op(x[1], 4.) + x[0] * eq_op(x[1], x[2]), w=0.2)),
+             potential=MLNPotential(lambda x: (1 - x[0]) * eq_op(x[1], 4.) + x[0] * eq_op(x[1], -3.), w=0.2)),
            # F(nb=(rvs[0], rvs[1]), potential=MLNPotential(lambda x: imp_op(x[0] * x[1], x[2]), w=1)),
            F(nb=(rvs[0], rvs[1]), potential=MLNPotential(lambda x: and_op(x[0], x[1]), w=1)),
            # F(nb=(rvs[2],), potential=QuadraticPotential(A=-0.5 * np.ones([1, 1]), b=np.zeros([1]), c=0.))
-           F(nb=(rvs[2], rvs[3]), potential=QuadraticPotential(A=-0.5 * np.eye(2), b=np.array([-3., 2.]), c=0.))
+           F(nb=(rvs[2], rvs[3]), potential=QuadraticPotential(A=-0.5 * np.eye(2), b=np.array([1., 2.]), c=0.))
            # ensure normalizability
            ]
 
@@ -83,9 +84,9 @@ for i, rv in enumerate(rvs):
 # manual conversion here:
 factors[0].potential = HybridQuadraticPotential(
     A=factors[0].potential.w * -0.5 *
-      np.array([np.array([[1., 0], [0, 0]]), np.array([[1., -1.], [-1., 1.]])]),
-    b=factors[0].potential.w * -0.5 * np.array([[-8., 0], [0., 0.]]),  # 2 is b/c there's 2 cont nodes
-    c=factors[0].potential.w * -0.5 * np.array([16., 0.])
+      np.array([np.array([[1., 0], [0, 0]]), np.array([[1., 0.], [0., 0.]])]),
+    b=factors[0].potential.w * -0.5 * np.array([[-8., 0], [6., 0.]]),
+    c=factors[0].potential.w * -0.5 * np.array([16., 9.])
 )
 factors[1].potential = utils.convert_disc_MLNPotential_to_TablePotential(factors[1].potential, factors[1].nb)
 utils.set_log_potential_funs(factors, skip_existing=False)  # reset lpot_funs
