@@ -128,7 +128,7 @@ def get_drv_marg(disc_marginal_table, Vd_idx, drv):
     return np.sum(disc_marginal_table, axis=all_axes_except_idx)
 
 
-def get_drv_marg_map(disc_marginal_table, Vd_idx, drv, best_prob):
+def get_drv_marg_map(disc_marginal_table, Vd_idx, drv, best_prob=False):
     """
 
     :param disc_marginal_table:
@@ -145,7 +145,12 @@ def get_drv_marg_map(disc_marginal_table, Vd_idx, drv, best_prob):
         return map_state, marg[map_state]
 
 
-# def get_mmap(disc_marginal_table, gaussian_means, gaussian_covs, rvs):
+def get_rv_marg_map(disc_marginal_table, gaussian_means, gaussian_covs, Vd_idx, Vc_idx, rv):
+    # convenience method
+    if rv in Vd_idx:
+        return get_drv_marg_map(disc_marginal_table, Vd_idx, rv, best_prob=False)
+    else:
+        return get_crv_marg_map(disc_marginal_table, gaussian_means, gaussian_covs, Vc_idx, rv, best_log_pdf=False)
 
 
 import disc_mrf

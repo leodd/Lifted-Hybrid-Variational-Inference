@@ -277,6 +277,9 @@ class HybridQuadraticPotential(Potential):
         reduced_quadratic_pot = QuadraticPotential(*reduced_quadratic_params)
         return reduced_quadratic_pot.get(x_c, **kwargs)
 
+    def to_log_potential(self):
+        return self.log_potential
+
 
 class LinearGaussianPotential(Potential):
     def __init__(self, coeff, sig):

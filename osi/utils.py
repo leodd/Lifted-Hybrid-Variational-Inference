@@ -2,9 +2,9 @@ import tensorflow as tf
 import numpy as np
 
 
-def set_path(paths=('..')):  # to facilitate importing within module
+def set_path(paths=('..',)):  # to facilitate importing within module
     import sys
-    sys.path.append(paths)
+    sys.path += list(paths)
 
 
 def set_seed(seed=0):
@@ -95,7 +95,7 @@ def get_unique_subsets(items, key):
     return subsets_with_unique_properties, unique_properties
 
 
-def set_log_potential_funs(factors):
+def set_log_potential_funs(factors, skip_existing=True):
     """
     Set the log_potential_fun attribute of factors, ensuring that factors with the same potentials will have the same
     log potentials. This is a pre-processing step for OSI, as the graph construction/compression code typically work
@@ -106,11 +106,28 @@ def set_log_potential_funs(factors):
     factors_with_unique_potentials, unique_potentials = get_unique_subsets(factors, lambda f: f.potential)
     for i, unique_potential in enumerate(unique_potentials):
         like_factors = factors_with_unique_potentials[i]
-        if any(factor.log_potential_fun is None for factor in
-               like_factors):  # skip if log_potential_fun already defined
+        if all(factor.log_potential_fun is not None for factor in like_factors) \
+                and skip_existing:  # skip if all log_potential_fun already defined
+            continue
+        else:
             unique_log_potential_fun = unique_potential.to_log_potential()
             for factor in like_factors:
                 factor.log_potential_fun = unique_log_potential_fun  # reference the same object
+
+
+def convert_disc_MLNPotential_to_TablePotential(pot, nb):
+    """
+    :param pot:
+    :return:
+    """
+    assert [rv.domain_type[0] == 'd' for rv in nb]
+    all_nb_values = [rv.values for rv in nb]
+    from itertools import product
+    table = np.empty([rv.dstates for rv in nb])
+    for config in product(*all_nb_values):
+        table[config] = pot.get(config)
+    from Potential import TablePotential
+    return TablePotential(table, symmetric=np.all(table == table.T))
 
 
 def get_partial_function(fun, n, partial_args_vals):
