@@ -34,7 +34,7 @@ means = np.array([[-2., -2.], [0., 1.], [3., 0.]])
 #            ]
 
 factors = [F(nb=(rvs[0], rvs[2], rvs[3]),
-             potential=MLNPotential(lambda x: x[0] * eq_op(x[1], x[2]), w=0.01)),
+             potential=MLNPotential(lambda x: x[0] * eq_op(x[1], x[2] + 1), w=0.01)),
            # F(nb=(rvs[0], rvs[1]), potential=MLNPotential(lambda x: imp_op(x[0] * x[1], x[2]), w=1)),
            F(nb=(rvs[0], rvs[1]), potential=MLNPotential(lambda x: and_op(x[0], x[1]), w=1)),
            # F(nb=(rvs[2],), potential=QuadraticPotential(A=-0.5 * np.ones([1, 1]), b=np.zeros([1]), c=0.))
@@ -83,8 +83,8 @@ for i, rv in enumerate(rvs):
 # manual conversion here:
 factors[0].potential = HybridQuadraticPotential(
     A=np.array([np.zeros([2, 2]), -0.5 * factors[0].potential.w * np.array([[1., -1.], [-1., 1.]])]),
-    b=np.zeros([rvs[0].dstates, 2]),  # 2 is b/c there's 2 cont nodes
-    c=np.zeros(rvs[0].dstates)
+    b=np.array([np.array([0., 0.]), -0.5 * factors[0].potential.w * np.array([-2., 2.])]),
+    c=np.array([0., -0.5 * factors[0].potential.w * 1])
 )
 factors[1].potential = utils.convert_disc_MLNPotential_to_TablePotential(factors[1].potential, factors[1].nb)
 utils.set_log_potential_funs(factors, skip_existing=False)  # reset lpot_funs
@@ -101,15 +101,14 @@ for i, rv in enumerate(rvs):
 for a, name in enumerate(names):
     print(f'{name} mmap diff', mmap_res[a] - true_mmap)
 
-#
-# num_burnin = 200
-# num_samples = 500
-# disc_samples, cont_samples = block_gibbs_sample(factors, Vd=Vd, Vc=Vc, num_burnin=num_burnin,
-#                                                 num_samples=num_samples, disc_block_its=20)
-#
-# test_drv_idx = 0
-# print('true test drv marg', get_drv_marg(bn[0], Vd_idx, Vd[test_drv_idx]))
-# print('sampled test drv marg', np.bincount(disc_samples[:, test_drv_idx]) / num_samples)
+num_burnin = 200
+num_samples = 500
+disc_samples, cont_samples = block_gibbs_sample(factors, Vd=Vd, Vc=Vc, num_burnin=num_burnin,
+                                                num_samples=num_samples, disc_block_its=20)
+
+test_drv_idx = 0
+print('true test drv marg', get_drv_marg(bn[0], Vd_idx, Vd[test_drv_idx]))
+print('sampled test drv marg', np.bincount(disc_samples[:, test_drv_idx]) / num_samples)
 #
 # test_crv_idx = 0
 test_crv_idx = 1
@@ -122,7 +121,7 @@ import matplotlib.pyplot as plt
 
 plt.figure()
 xs = np.linspace(-5, 5, 50)
-# plt.hist(cont_samples[:, test_crv_idx], normed=True, label='samples')
+plt.hist(cont_samples[:, test_crv_idx], normed=True, label='samples')
 plt.plot(xs,
          np.exp(utils.get_scalar_gm_log_prob(xs, w=test_crv_marg_params[0], mu=test_crv_marg_params[1],
                                              var=test_crv_marg_params[2])),
