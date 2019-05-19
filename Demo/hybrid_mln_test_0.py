@@ -1,13 +1,14 @@
 import sys
+
 sys.path += ['..', '../osi', '../gibbs']
 import utils
-
 
 from Graph import F, RV, Domain, Graph
 from Potential import LogTable, LogQuadratic, LogHybridQuadratic
 from Potential import TablePotential, HybridQuadraticPotential, QuadraticPotential
 from MLNPotential import MLNPotential, and_op, or_op, eq_op
 import numpy as np
+
 seed = 0
 np.random.seed(seed)
 
@@ -23,9 +24,8 @@ rvs = [RV(domain=domain_bool),
        RV(domain=domain_real),
        RV(domain=domain_real)]
 Nc = 2
-covs = np.array([np.eye(Nc)] * len(rvs[0].values))
-# means = np.array([[0., 0.], [0., 1.], [1., 0.]])
-means = np.array([[-2., -2.], [0., 1.], [3., 0.]])
+# covs = np.array([np.eye(Nc)] * len(rvs[0].values))
+# means = np.array([[-2., -2.], [0., 1.], [3., 0.]])
 # factors = [F(nb=(rvs[0], rvs[2], rvs[3]),
 #              log_potential_fun=LogHybridQuadratic(A=-0.5 * covs,
 #                                                   b=means,
@@ -35,15 +35,25 @@ means = np.array([[-2., -2.], [0., 1.], [3., 0.]])
 #            F(nb=(rvs[2],), log_potential_fun=LogQuadratic(A=-0.5 * np.ones([1, 1]), b=np.zeros([1]), c=0.))
 #            ]
 
+w0 = 0.1
 factors = [F(nb=(rvs[0], rvs[2], rvs[3]),
-             # potential=MLNPotential(lambda x: (1 - x[0]) * eq_op(x[1], 4.) + x[0] * eq_op(x[1], x[2]), w=0.2)),
-             potential=MLNPotential(lambda x: (1 - x[0]) * eq_op(x[1], 8.) + x[0] * eq_op(x[1], -7.), w=0.2)),
+             potential=HybridQuadraticPotential(
+                 A=w0 * np.array([np.array([[-1., 0], [0, 0]]), np.array([[-1., 0.], [0., 0.]])]),
+                 b=w0 * np.array([[16., 0], [-14., 0.]]),
+                 c=w0 * np.array([-64., -49.])
+             )),
            # F(nb=(rvs[0], rvs[1]), potential=MLNPotential(lambda x: imp_op(x[0] * x[1], x[2]), w=1)),
            F(nb=(rvs[0], rvs[1]), potential=MLNPotential(lambda x: and_op(x[0], x[1]), w=1)),
            # F(nb=(rvs[2],), potential=QuadraticPotential(A=-0.5 * np.ones([1, 1]), b=np.zeros([1]), c=0.))
            F(nb=(rvs[2], rvs[3]), potential=QuadraticPotential(A=-0.5 * np.eye(2), b=np.array([1., 2.]), c=0.))
            # ensure normalizability
            ]
+
+# all disc potentials must be converted to TablePotential to be used by baseline
+for factor in factors:
+    if factor.domain_type == 'd' and isinstance(factor.potential, MLNPotential):
+        factor.potential = utils.convert_disc_MLNPotential_to_TablePotential(factor.potential, factor.nb)
+utils.set_log_potential_funs(factors, skip_existing=False)  # create lpot_funs to be used by baseline
 
 g = Graph()  # not really needed here; just to conform to existing API
 g.rvs = rvs
@@ -84,13 +94,11 @@ for i, rv in enumerate(rvs):
 # this can be done by first converting the corresponding potentials to one of (TablePotential, QuadraticPotential,
 # HybridQuadraticPotential), then calling the .to_log_potential method on the potential objects
 # manual conversion here:
-factors[0].potential = HybridQuadraticPotential(
-    A=-factors[0].potential.w * np.array([np.array([[1., 0], [0, 0]]), np.array([[1., 0.], [0., 0.]])]),
-    b=-factors[0].potential.w * np.array([[-16., 0], [14., 0.]]),
-    c=-factors[0].potential.w * np.array([64., 49.])
-)
-factors[1].potential = utils.convert_disc_MLNPotential_to_TablePotential(factors[1].potential, factors[1].nb)
-utils.set_log_potential_funs(factors, skip_existing=False)  # reset lpot_funs
+# factors[0].potential = HybridQuadraticPotential(
+#     A=-factors[0].potential.w * np.array([np.array([[1., 0], [0, 0]]), np.array([[1., 0.], [0., 0.]])]),
+#     b=-factors[0].potential.w * np.array([[-16., 0], [14., 0.]]),
+#     c=-factors[0].potential.w * np.array([64., 49.])
+# )
 
 bn_res = convert_to_bn(factors, Vd, Vc, return_Z=True)
 bn = bn_res[:-1]
