@@ -8,7 +8,7 @@ utils.set_seed(seed)
 from Graph import F, RV, Domain, Graph
 from Potential import LogTable, LogQuadratic, LogHybridQuadratic
 from Potential import TablePotential, HybridQuadraticPotential, QuadraticPotential
-from MLNPotential import MLNPotential, and_op, eq_op
+from MLNPotential import MLNPotential, and_op, or_op, eq_op
 import numpy as np
 
 from EPBPLogVersion import EPBP
@@ -34,7 +34,7 @@ means = np.array([[-2., -2.], [0., 1.], [3., 0.]])
 #            ]
 
 factors = [F(nb=(rvs[0], rvs[2], rvs[3]),
-             potential=MLNPotential(lambda x: x[0] * eq_op(x[1], x[2] + 1), w=0.01)),
+             potential=MLNPotential(lambda x: (1 - x[0]) * eq_op(x[1], 4.) + x[0] * eq_op(x[1], x[2]), w=0.2)),
            # F(nb=(rvs[0], rvs[1]), potential=MLNPotential(lambda x: imp_op(x[0] * x[1], x[2]), w=1)),
            F(nb=(rvs[0], rvs[1]), potential=MLNPotential(lambda x: and_op(x[0], x[1]), w=1)),
            # F(nb=(rvs[2],), potential=QuadraticPotential(A=-0.5 * np.ones([1, 1]), b=np.zeros([1]), c=0.))
@@ -82,9 +82,10 @@ for i, rv in enumerate(rvs):
 # HybridQuadraticPotential), then calling the .to_log_potential method on the potential objects
 # manual conversion here:
 factors[0].potential = HybridQuadraticPotential(
-    A=np.array([np.zeros([2, 2]), -0.5 * factors[0].potential.w * np.array([[1., -1.], [-1., 1.]])]),
-    b=np.array([np.array([0., 0.]), -0.5 * factors[0].potential.w * np.array([-2., 2.])]),
-    c=np.array([0., -0.5 * factors[0].potential.w * 1])
+    A=factors[0].potential.w * -0.5 *
+      np.array([np.array([[1., 0], [0, 0]]), np.array([[1., -1.], [-1., 1.]])]),
+    b=factors[0].potential.w * -0.5 * np.array([[-8., 0], [0., 0.]]),  # 2 is b/c there's 2 cont nodes
+    c=factors[0].potential.w * -0.5 * np.array([16., 0.])
 )
 factors[1].potential = utils.convert_disc_MLNPotential_to_TablePotential(factors[1].potential, factors[1].nb)
 utils.set_log_potential_funs(factors, skip_existing=False)  # reset lpot_funs
@@ -101,8 +102,8 @@ for i, rv in enumerate(rvs):
 for a, name in enumerate(names):
     print(f'{name} mmap diff', mmap_res[a] - true_mmap)
 
-num_burnin = 200
-num_samples = 500
+num_burnin = 100
+num_samples = 400
 disc_samples, cont_samples = block_gibbs_sample(factors, Vd=Vd, Vc=Vc, num_burnin=num_burnin,
                                                 num_samples=num_samples, disc_block_its=20)
 
@@ -110,8 +111,8 @@ test_drv_idx = 0
 print('true test drv marg', get_drv_marg(bn[0], Vd_idx, Vd[test_drv_idx]))
 print('sampled test drv marg', np.bincount(disc_samples[:, test_drv_idx]) / num_samples)
 #
-# test_crv_idx = 0
-test_crv_idx = 1
+test_crv_idx = 0
+# test_crv_idx = 1
 test_crv_marg_params = get_crv_marg(*bn, Vc_idx, Vc[test_crv_idx])
 print(f'true crv{test_crv_idx} marg params', test_crv_marg_params)
 osi_test_crv_marg_params = osi.params['w'], osi.params['Mu'][test_crv_idx], osi.params['Var'][test_crv_idx]
