@@ -191,3 +191,15 @@ class Graph:
 
         # optional:
         # self.rvs_dict = {rv.id: rv for rv in self.rvs}  # in case rv.id isn't the same as its order in self.rvs
+
+        for factor in self.factors_list:
+            disc_nb_idx = ()
+            cont_nb_idx = ()
+            for rv in factor.nb:
+                if rv.domain_type[0] == 'd':
+                    disc_nb_idx += (Vd_idx[rv],)
+                else:
+                    assert rv.domain_type[0] == 'c'
+                    cont_nb_idx += (Vc_idx[rv],)
+            factor.disc_nb_idx = disc_nb_idx
+            factor.cont_nb_idx = cont_nb_idx

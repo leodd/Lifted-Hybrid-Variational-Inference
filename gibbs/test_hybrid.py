@@ -2,22 +2,15 @@ import utils
 
 utils.set_path()
 
-from Graph import F, RV, Domain
+from Graph import F, RV, Domain, Graph
 from Potential import LogTable, LogQuadratic, LogHybridQuadratic
 import numpy as np
 from hybrid_gaussian_mrf import convert_to_bn, block_gibbs_sample, get_crv_marg, get_drv_marg
 
 rvs = [RV(domain=Domain(values=(0, 1, 2), continuous=False)), RV(domain=Domain(values=(-5, 5), continuous=True)),
        RV(domain=Domain(values=(-5, 5), continuous=True))]
-N = len(rvs)
-Vd = [rv for rv in rvs if rv.domain_type[0] == 'd']  # list of of discrete rvs
-Vc = [rv for rv in rvs if rv.domain_type[0] == 'c']  # list of cont rvs
-Nd = len(Vd)
-Nc = len(Vc)
-Vd_idx = {n: i for (i, n) in enumerate(Vd)}
-Vc_idx = {n: i for (i, n) in enumerate(Vc)}
-
-covs = np.array([np.eye(Nc)] * 3)
+Nc = 2
+covs = np.array([np.eye(Nc)] * rvs[0].dstates)
 # means = np.array([[0., 0.], [0., 1.], [1., 0.]])
 means = np.array([[-2., -2.], [0., 1.], [3., 0.]])
 factors = [F(nb=(rvs[0], rvs[1], rvs[2]),
@@ -28,17 +21,12 @@ factors = [F(nb=(rvs[0], rvs[1], rvs[2]),
            F(nb=(rvs[2],), log_potential_fun=LogQuadratic(A=-0.5 * np.ones([1, 1]), b=np.zeros([1]), c=0.))
            ]
 
-for factor in factors:  # pre-processing for efficiency; may be better done in Graph.py
-    disc_nb_idx = ()
-    cont_nb_idx = ()
-    for rv in factor.nb:
-        if rv.domain_type[0] == 'd':
-            disc_nb_idx += (Vd_idx[rv],)
-        else:
-            assert rv.domain_type[0] == 'c'
-            cont_nb_idx += (Vc_idx[rv],)
-    factor.disc_nb_idx = disc_nb_idx
-    factor.cont_nb_idx = cont_nb_idx
+g = Graph()  # not really needed here; just to conform to existing API
+g.rvs = rvs
+g.factors = factors
+g.init_nb()
+g.init_rv_indices()  # all we really need is to create disc/cont indices and factor.disc_nb_idx/cont_nb_idx attrs
+Vd, Vc, Vd_idx, Vc_idx = g.Vd, g.Vc, g.Vd_idx, g.Vc_idx
 
 bn = convert_to_bn(factors, Vd, Vc)
 print('BN params', bn)
