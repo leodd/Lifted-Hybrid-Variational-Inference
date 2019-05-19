@@ -81,7 +81,7 @@ class QuadraticPotential(Potential):
     def to_log_potential(self):
         return self.log_potential
 
-    def get(self, args, ignore_const=True):
+    def get(self, args, ignore_const=False):
         return e ** self.log_potential(args, ignore_const)
 
     def __call__(self, *args, **kwargs):
@@ -110,7 +110,7 @@ class LogQuadratic:
         self.b = b
         self.c = c
 
-    def __call__(self, args, ignore_const=True):
+    def __call__(self, args, ignore_const=False):
         """
 
         :param args: list of n tensors or numpy arrays; must all have the same shape, or must be broadcastable to the
