@@ -19,11 +19,11 @@ def convert_to_bn(factors, Vd, Vc, return_Z=False):
     """
     Nd = len(Vd)
     Nc = len(Vc)
-    all_dstates = [rv.dstates for rv in Vd]  # [v1, v2, ..., v_Nd]
-    all_disc_config = list(product(*[range(d) for d in all_dstates]))  # all joint configs, \prod_i v_i by Nd
-    disc_marginal_table = np.empty(all_dstates, dtype=float)  # [v1, v2, ..., v_Nd]
-    gaussian_means = np.empty(all_dstates + [Nc], dtype=float)  # [v1, v2, ..., v_Nd, Nc]
-    gaussian_covs = np.empty(all_dstates + [Nc, Nc], dtype=float)  # [v1, v2, ..., v_Nd, Nc, Nc]
+    dstates = [rv.dstates for rv in Vd]  # [v1, v2, ..., v_Nd]
+    all_disc_config = list(product(*[range(d) for d in dstates]))  # all joint configs, \prod_i v_i by Nd
+    disc_marginal_table = np.empty(dstates, dtype=float)  # [v1, v2, ..., v_Nd]
+    gaussian_means = np.empty(dstates + [Nc], dtype=float)  # [v1, v2, ..., v_Nd, Nc]
+    gaussian_covs = np.empty(dstates + [Nc, Nc], dtype=float)  # [v1, v2, ..., v_Nd, Nc, Nc]
 
     for disc_config in all_disc_config:
         quadratic_factor_params = []  # each obtained from a (reduced) hybrid factor when given disc nb node values
@@ -170,9 +170,12 @@ def block_gibbs_sample(factors, Vd, Vc, num_burnin, num_samples, init_x_d=None, 
     Nd = len(Vd)
     Nc = len(Vc)
 
-    all_dstates = [rv.dstates for rv in Vd]  # [v1, v2, ..., v_Nd]
+    if Nd == 1:  # special case when there's only one disc node; sampling from p(xd|xc) only takes 1 gibbs iterationF
+        disc_block_its = 1
+
+    dstates = [rv.dstates for rv in Vd]  # [v1, v2, ..., v_Nd]
     if init_x_d is None:  # will start by sampling p(x_c | x_d)
-        init_x_d = np.array([np.random.randint(0, dstates) for dstates in all_dstates], dtype=int_type)
+        init_x_d = np.array([np.random.randint(0, d) for d in dstates], dtype=int_type)
     x_d = init_x_d
 
     disc_samples = np.empty([num_samples, Nd], dtype=int_type)
@@ -251,8 +254,8 @@ def block_gibbs_sample(factors, Vd, Vc, num_burnin, num_samples, init_x_d=None, 
                 cond_disc_nbr_factor_ids[i].append(j + num_disc_factors)
         cond_lpot_tables = discf_lpot_tables + cond_lpot_tables
         cond_scopes = discf_scopes + cond_scopes
-        # if x_d not too many, more efficient to find p(x_d|x_c) by brute force than sampling
-        x_d = disc_mrf.gibbs_sample_one(cond_lpot_tables, cond_scopes, cond_disc_nbr_factor_ids, all_dstates, x_d,
+        # if x_d small (<10), more efficient to find p(x_d|x_c) by brute force and sample from table than Gibbs sampling
+        x_d = disc_mrf.gibbs_sample_one(cond_lpot_tables, cond_scopes, cond_disc_nbr_factor_ids, dstates, x_d,
                                         its=disc_block_its)
 
         sample_it = it - num_burnin

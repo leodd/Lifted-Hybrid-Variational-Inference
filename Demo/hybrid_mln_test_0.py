@@ -51,7 +51,8 @@ factors = [F(nb=(rvs[0], rvs[2], rvs[3]),
 
 # all disc potentials must be converted to TablePotential to be used by baseline
 for factor in factors:
-    if factor.domain_type == 'd' and isinstance(factor.potential, MLNPotential):
+    if factor.domain_type == 'd' and not isinstance(factor.potential, TablePotential):
+        assert isinstance(factor.potential, MLNPotential), 'currently can only handle MLN'
         factor.potential = utils.convert_disc_MLNPotential_to_TablePotential(factor.potential, factor.nb)
 utils.set_log_potential_funs(factors, skip_existing=False)  # create lpot_funs to be used by baseline
 
