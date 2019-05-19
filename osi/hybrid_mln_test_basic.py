@@ -35,6 +35,8 @@ Nc = 1
 w0 = 0.5
 factors = [F(nb=(rvs[0], rvs[1]),
              potential=MLNPotential(lambda x: (1 - x[0]) * eq_op(x[1], -3) + x[0] * eq_op(x[1], 2), w=w0)),
+           F(nb=(rvs[0],),
+             potential=MLNPotential(lambda x: eq_op(x[0], 0), w=1.0))
            # F(nb=(rvs[1],),
            #   potential=QuadraticPotential(A=-0.5 * np.eye(1), b=np.array([0.]), c=0.)),
            ]
@@ -66,8 +68,8 @@ utils.set_log_potential_funs(g.factors_list)  # OSI assumes factors have callabl
 K = 2
 T = 12
 lr = 0.4
-its = 200
-fix_mix_its = int(its * 0.8)
+its = 300
+fix_mix_its = int(its * 0.5)
 osi = OneShot(g=g, K=K, T=T, seed=seed)  # can be moved outside of all loops if the ground MRF doesn't change
 osi.run(lr=lr, its=its, fix_mix_its=fix_mix_its)
 for i, rv in enumerate(rvs):
