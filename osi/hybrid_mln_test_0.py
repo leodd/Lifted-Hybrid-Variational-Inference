@@ -14,7 +14,8 @@ import numpy as np
 from EPBPLogVersion import EPBP
 from OneShot import OneShot, LiftedOneShot
 
-from hybrid_gaussian_mrf import convert_to_bn, block_gibbs_sample, get_crv_marg, get_drv_marg, get_rv_marg_map
+from hybrid_gaussian_mrf import convert_to_bn, block_gibbs_sample, get_crv_marg, get_drv_marg, \
+    get_rv_marg_map_from_bn_params
 
 domain_bool = Domain(values=(0, 1), continuous=False)
 domain_real = Domain(values=(-10, 10), continuous=True)
@@ -39,7 +40,7 @@ factors = [F(nb=(rvs[0], rvs[2], rvs[3]),
              # potential=MLNPotential(lambda x: (1 - x[0]) * eq_op(x[1], 4.) + x[0] * eq_op(x[1], x[2]), w=0.2)),
              potential=MLNPotential(lambda x: (1 - x[0]) * eq_op(x[1], 8.) + x[0] * eq_op(x[1], -7.), w=0.2)),
            # F(nb=(rvs[0], rvs[1]), potential=MLNPotential(lambda x: imp_op(x[0] * x[1], x[2]), w=1)),
-           F(nb=(rvs[0], rvs[1]), potential=MLNPotential(lambda x: and_op(x[0], x[1]), w=1)),
+           # F(nb=(rvs[0], rvs[1]), potential=MLNPotential(lambda x: and_op(x[0], x[1]), w=1)),
            # F(nb=(rvs[2],), potential=QuadraticPotential(A=-0.5 * np.ones([1, 1]), b=np.zeros([1]), c=0.))
            F(nb=(rvs[2], rvs[3]), potential=QuadraticPotential(A=-0.5 * np.eye(2), b=np.array([1., 2.]), c=0.))
            # ensure normalizability
@@ -73,9 +74,10 @@ K = 2
 T = 12
 lr = 0.4
 its = 200
-fix_mix_its = int(its * 0.8)
+fix_mix_its = int(its * 0.5)
 osi = OneShot(g=g, K=K, T=T, seed=seed)  # can be moved outside of all loops if the ground MRF doesn't change
 osi.run(lr=lr, its=its, fix_mix_its=fix_mix_its)
+# print('osi params', osi.params)
 for i, rv in enumerate(rvs):
     mmap_res[algo, i] = osi.map(obs_rvs=[], query_rv=rv)
 
@@ -89,8 +91,12 @@ factors[0].potential = HybridQuadraticPotential(
     b=-factors[0].potential.w * np.array([[-16., 0], [14., 0.]]),
     c=-factors[0].potential.w * np.array([64., 49.])
 )
-factors[1].potential = utils.convert_disc_MLNPotential_to_TablePotential(factors[1].potential, factors[1].nb)
-utils.set_log_potential_funs(factors, skip_existing=False)  # reset lpot_funs
+# all disc potentials must be converted to TablePotential to be used by baseline
+for factor in factors:
+    if factor.domain_type == 'd' and not isinstance(factor.potential, TablePotential):
+        assert isinstance(factor.potential, MLNPotential), 'currently can only handle MLN'
+        factor.potential = utils.convert_disc_MLNPotential_to_TablePotential(factor.potential, factor.nb)
+utils.set_log_potential_funs(factors, skip_existing=False)  # create lpot_funs to be used by baseline
 
 bn_res = convert_to_bn(factors, Vd, Vc, return_Z=True)
 bn = bn_res[:-1]
@@ -99,7 +105,7 @@ print('BN params', bn)
 print('true -logZ', -np.log(Z))
 true_mmap = np.empty(len(rvs))
 for i, rv in enumerate(rvs):
-    true_mmap[i] = get_rv_marg_map(*bn, Vd_idx, Vc_idx, rv)
+    true_mmap[i] = get_rv_marg_map_from_bn_params(*bn, Vd_idx, Vc_idx, rv)
 
 for a, name in enumerate(names):
     print(f'{name} mmap diff', mmap_res[a] - true_mmap)
