@@ -82,7 +82,16 @@ class QuadraticPotential(Potential):
         return self.log_potential
 
     def get(self, args, ignore_const=False):
-        return e ** self.log_potential(args, ignore_const)
+        # return e ** self.log_potential(args, ignore_const)
+        # simpliest use case, assuming args is a length n tuple/list of floats;
+        # /osi directly uses the underlying LogQuadratic for vectorization and
+        # doesn't use potential.get so this is OK
+        args = np.array(args)
+        res = np.dot(args, self.A @ args) + np.dot(self.b, args)
+        if not ignore_const:
+            res += self.c
+        res = e ** res
+        return res
 
     def __call__(self, *args, **kwargs):
         return self.get(*args, **kwargs)
