@@ -72,21 +72,19 @@ def convert_to_bn(factors, Vd, Vc, return_Z=False):
         return disc_marginal_table, gaussian_means, gaussian_covs, Z
 
 
-def get_crv_marg(disc_marginal_table, gaussian_means, gaussian_covs, Vc_idx, crv, flatten_params=True):
+def get_crv_marg(disc_marginal_table, gaussian_means, gaussian_covs, crv_idx, flatten_params=True):
     """
     Find the parameters of the marginal distribution of a cont rv in a hybrid Gaussian MRF in Bayesian network
     parameterization; result is a univariate GMM whose number of components equals number of joint disc states
     :param disc_marginal_table: [v1, v2, ..., v_Nd]
     :param gaussian_means: [v1, v2, ..., v_Nd, Nc]
     :param gaussian_covs: [v1, v2, ..., v_Nd, Nc, Nc]
-    :param Vc_idx:
-    :param crv: rv object
+    :param crv_idx:
     :return:
     """
-    idx = Vc_idx[crv]
     weights = disc_marginal_table  # mixing weights
-    cond_gaussian_means = gaussian_means[..., idx]  # [v1, v2, ..., v_Nd]
-    cond_gaussian_vars = gaussian_covs[..., idx, idx]  # simply take diagonal; [v1, v2, ..., v_Nd]
+    cond_gaussian_means = gaussian_means[..., crv_idx]  # [v1, v2, ..., v_Nd]
+    cond_gaussian_vars = gaussian_covs[..., crv_idx, crv_idx]  # simply take diagonal; [v1, v2, ..., v_Nd]
     if flatten_params:
         weights, cond_gaussian_means, cond_gaussian_vars = \
             tuple(map(np.ravel, [weights, cond_gaussian_means, cond_gaussian_vars]))
@@ -96,49 +94,29 @@ def get_crv_marg(disc_marginal_table, gaussian_means, gaussian_covs, Vc_idx, crv
     return weights, cond_gaussian_means, cond_gaussian_vars
 
 
-def get_crv_marg_map(disc_marginal_table, gaussian_means, gaussian_covs, Vc_idx, crv, best_log_pdf=False):
-    """
-
-    :param disc_marginal_table:
-    :param gaussian_means:
-    :param gaussian_covs:
-    :param Vc_idx:
-    :param crv:
-    :return:
-    """
-
-    weights, cond_gaussian_means, cond_gaussian_vars = get_crv_marg(disc_marginal_table, gaussian_means, gaussian_covs,
-                                                                    Vc_idx, crv, flatten_params=True)
-    bds = (crv.values[0], crv.values[1])
-    return utils.get_scalar_gm_mode(w=weights, mu=cond_gaussian_means, var=cond_gaussian_vars, bds=bds,
-                                    best_log_pdf=best_log_pdf)
-
-
-def get_drv_marg(disc_marginal_table, Vd_idx, drv):  # TODO: refactor to only require drv_idx
+def get_drv_marg(disc_marginal_table, drv_idx):
     """
 
     :param disc_marginal_table:
     :param drv:
     :return:
     """
-    idx = Vd_idx[drv]
     Nd = len(disc_marginal_table.shape)
     all_axes_except_idx = list(range(Nd))
-    all_axes_except_idx.remove(idx)
+    all_axes_except_idx.remove(drv_idx)
     all_axes_except_idx = tuple(all_axes_except_idx)
     return np.sum(disc_marginal_table, axis=all_axes_except_idx)
 
 
-def get_drv_marg_map(disc_marginal_table, Vd_idx, drv, best_prob=False):
+def get_drv_marg_map(disc_marginal_table, drv_idx, best_prob=False):
     """
-
+    Convenience method
     :param disc_marginal_table:
-    :param Vd_idx:
-    :param drv:
+    :param drv_idx:
     :param best_prob:
     :return:
     """
-    marg = get_drv_marg(disc_marginal_table, Vd_idx, drv)
+    marg = get_drv_marg(disc_marginal_table, drv_idx)
     map_state = np.argmax(marg)
     if not best_prob:
         return map_state
@@ -149,9 +127,18 @@ def get_drv_marg_map(disc_marginal_table, Vd_idx, drv, best_prob=False):
 def get_rv_marg_map_from_bn_params(disc_marginal_table, gaussian_means, gaussian_covs, Vd_idx, Vc_idx, rv):
     # convenience method
     if rv in Vd_idx:
-        return get_drv_marg_map(disc_marginal_table, Vd_idx, rv, best_prob=False)
+        drv_idx = Vd_idx[rv]
+        res = get_drv_marg_map(disc_marginal_table, drv_idx, best_prob=False)
     else:
-        return get_crv_marg_map(disc_marginal_table, gaussian_means, gaussian_covs, Vc_idx, rv, best_log_pdf=False)
+        crv_idx = Vc_idx[rv]
+        params = get_crv_marg(disc_marginal_table, gaussian_means,
+                              gaussian_covs,
+                              crv_idx, flatten_params=True)
+        bds = (rv.values[0], rv.values[1])
+        res = utils.get_scalar_gm_mode(w=params[0], mu=params[1], var=params[2], bds=bds,
+                                       best_log_pdf=False)
+
+    return res
 
 
 import disc_mrf

@@ -43,12 +43,12 @@ disc_samples, cont_samples = block_gibbs_sample(factors, Vd=Vd, Vc=Vc, num_burni
 sampled_disc_marginal_table = sampling_utils.get_disc_marg_table_from_samples(disc_samples, dstates)
 
 test_drv_idx = 0
-print('true test drv marg', get_drv_marg(bn[0], Vd_idx, Vd[test_drv_idx]))
-print('sampled test drv marg', get_drv_marg(sampled_disc_marginal_table, Vd_idx, Vd[test_drv_idx]))
+print('true test drv marg', get_drv_marg(bn[0], test_drv_idx))
+print('sampled test drv marg', get_drv_marg(sampled_disc_marginal_table, test_drv_idx))
 
 test_crv_idx = 0
 # test_crv_idx = 1
-test_crv_marg_params = get_crv_marg(*bn, Vc_idx, Vc[test_crv_idx])
+test_crv_marg_params = get_crv_marg(*bn, test_crv_idx)
 print('true test crv marg params', test_crv_marg_params)
 sampled_test_crv_marg_params = sampling_utils.fit_scalar_gm_from_samples(cont_samples[:, test_crv_idx], K=3)
 print('sampled test crv marg params (using gm fit)', sampled_test_crv_marg_params)

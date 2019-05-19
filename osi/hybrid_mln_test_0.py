@@ -116,12 +116,12 @@ disc_samples, cont_samples = block_gibbs_sample(factors, Vd=Vd, Vc=Vc, num_burni
                                                 num_samples=num_samples, disc_block_its=20)
 
 test_drv_idx = 0
-print('true test drv marg', get_drv_marg(bn[0], Vd_idx, Vd[test_drv_idx]))
+print('true test drv marg', get_drv_marg(bn[0], test_drv_idx))
 print('sampled test drv marg', np.bincount(disc_samples[:, test_drv_idx]) / num_samples)
 #
 test_crv_idx = 0
 # test_crv_idx = 1
-test_crv_marg_params = get_crv_marg(*bn, Vc_idx, Vc[test_crv_idx])
+test_crv_marg_params = get_crv_marg(*bn, test_crv_idx)
 print(f'true crv{test_crv_idx} marg params', test_crv_marg_params)
 osi_test_crv_marg_params = osi.params['w'], osi.params['Mu'][test_crv_idx], osi.params['Var'][test_crv_idx]
 print(f'osi crv{test_crv_idx} marg params', osi_test_crv_marg_params)

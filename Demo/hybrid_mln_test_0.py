@@ -16,7 +16,7 @@ np.random.seed(seed)
 from EPBPLogVersion import EPBP
 from OneShot import OneShot
 
-from hybrid_gaussian_mrf import convert_to_bn, block_gibbs_sample, get_crv_marg, get_drv_marg, get_drv_marg_map, \
+from hybrid_gaussian_mrf import convert_to_bn, block_gibbs_sample, get_crv_marg, get_drv_marg, \
     get_rv_marg_map_from_bn_params
 
 domain_bool = Domain(values=(0, 1), continuous=False)
@@ -139,12 +139,12 @@ for a, name in enumerate(names):
 # the rest just looks at node marginals for fun
 
 test_drv_idx = 0
-print('true test drv marg', get_drv_marg(bn[0], Vd_idx, Vd[test_drv_idx]))
-print('sampled test drv marg', get_drv_marg(sampled_disc_marginal_table, Vd_idx, Vd[test_drv_idx]))
+print('true test drv marg', get_drv_marg(bn[0], test_drv_idx))
+print('sampled test drv marg', get_drv_marg(sampled_disc_marginal_table, test_drv_idx))
 #
 test_crv_idx = 0
 # test_crv_idx = 1
-test_crv_marg_params = get_crv_marg(*bn, Vc_idx, Vc[test_crv_idx])
+test_crv_marg_params = get_crv_marg(*bn, test_crv_idx)
 print(f'true crv{test_crv_idx} marg params', test_crv_marg_params)
 osi_test_crv_marg_params = osi.params['w'], osi.params['Mu'][test_crv_idx], osi.params['Var'][test_crv_idx]
 print(f'osi crv{test_crv_idx} marg params', osi_test_crv_marg_params)
