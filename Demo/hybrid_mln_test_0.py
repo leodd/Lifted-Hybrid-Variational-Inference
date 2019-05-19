@@ -2,6 +2,7 @@ import sys
 
 sys.path += ['..', '../osi', '../gibbs']
 import utils
+import sampling_utils
 
 from Graph import F, RV, Domain, Graph
 from Potential import LogTable, LogQuadratic, LogHybridQuadratic
@@ -15,7 +16,8 @@ np.random.seed(seed)
 from EPBPLogVersion import EPBP
 from OneShot import OneShot
 
-from hybrid_gaussian_mrf import convert_to_bn, block_gibbs_sample, get_crv_marg, get_drv_marg, get_rv_marg_map
+from hybrid_gaussian_mrf import convert_to_bn, block_gibbs_sample, get_crv_marg, get_drv_marg, get_drv_marg_map, \
+    get_rv_marg_map_from_bn_params
 
 domain_bool = Domain(values=(0, 1), continuous=False)
 domain_real = Domain(values=(-10, 10), continuous=True)
@@ -62,6 +64,7 @@ g.factors = factors
 g.init_nb()
 g.init_rv_indices()
 Vd, Vc, Vd_idx, Vc_idx = g.Vd, g.Vc, g.Vd_idx, g.Vc_idx
+dstates = [rv.dstates for rv in Vd]
 
 names = ('EPBP', 'OSI')
 num_algos = len(names)
@@ -81,9 +84,9 @@ algo += 1
 name = names[algo]
 utils.set_log_potential_funs(g.factors_list)  # OSI assumes factors have callable .log_potential_fun
 K = 2
-T = 12
-lr = 0.1
-its = 200
+T = 10
+lr = 0.2
+its = 100
 fix_mix_its = int(its * 0.8)
 osi = OneShot(g, K, T)  # can be moved outside of all loops if the ground MRF doesn't change
 osi.run(its, lr=lr)
@@ -101,26 +104,46 @@ for i, rv in enumerate(rvs):
 #     c=-factors[0].potential.w * np.array([64., 49.])
 # )
 
+# sampling baseline:
+print('start sampling')
+num_burnin = 100
+num_samples = 400
+disc_samples, cont_samples = block_gibbs_sample(factors, Vd=Vd, Vc=Vc, num_burnin=num_burnin,
+                                                num_samples=num_samples, disc_block_its=20)
+sampled_disc_marginal_table = sampling_utils.get_disc_marg_table_from_samples(disc_samples, dstates)
+
+baseline_mmap = np.empty(len(rvs))
+for i, rv in enumerate(rvs):
+    # TODO: wrap in a more convenient API
+    if rv in Vd:
+        baseline_mmap[i] = get_drv_marg_map(sampled_disc_marginal_table, Vd_idx, rv)
+    else:
+        gm_fit_params = sampling_utils.fit_scalar_gm_from_samples(cont_samples[:, Vc_idx[rv]], K=K)
+        baseline_mmap[i] = utils.get_scalar_gm_mode(w=gm_fit_params[0], mu=gm_fit_params[1], var=gm_fit_params[2],
+                                                    bds=(rv.values[0], rv.values[1]))
+print('comparing to sampling baseline')
+for a, name in enumerate(names):
+    print(f'{name} mmap diff', mmap_res[a] - baseline_mmap)
+
+print('converting hybrid MLN to BN')
 bn_res = convert_to_bn(factors, Vd, Vc, return_Z=True)
 bn = bn_res[:-1]
 Z = bn_res[-1]
 print('BN params', bn)
 print('true -logZ', -np.log(Z))
-true_mmap = np.empty(len(rvs))
+baseline_mmap = np.empty(len(rvs))
 for i, rv in enumerate(rvs):
-    true_mmap[i] = get_rv_marg_map(*bn, Vd_idx, Vc_idx, rv)
+    baseline_mmap[i] = get_rv_marg_map_from_bn_params(*bn, Vd_idx, Vc_idx, rv)
 
+print('comparing to exact baseline')
 for a, name in enumerate(names):
-    print(f'{name} mmap diff', mmap_res[a] - true_mmap)
+    print(f'{name} mmap diff', mmap_res[a] - baseline_mmap)
 
-num_burnin = 100
-num_samples = 400
-disc_samples, cont_samples = block_gibbs_sample(factors, Vd=Vd, Vc=Vc, num_burnin=num_burnin,
-                                                num_samples=num_samples, disc_block_its=20)
+# the rest just looks at node marginals for fun
 
 test_drv_idx = 0
 print('true test drv marg', get_drv_marg(bn[0], Vd_idx, Vd[test_drv_idx]))
-print('sampled test drv marg', np.bincount(disc_samples[:, test_drv_idx]) / num_samples)
+print('sampled test drv marg', get_drv_marg(sampled_disc_marginal_table, Vd_idx, Vd[test_drv_idx]))
 #
 test_crv_idx = 0
 # test_crv_idx = 1

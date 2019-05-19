@@ -145,7 +145,7 @@ def get_drv_marg_map(disc_marginal_table, Vd_idx, drv, best_prob=False):
         return map_state, marg[map_state]
 
 
-def get_rv_marg_map(disc_marginal_table, gaussian_means, gaussian_covs, Vd_idx, Vc_idx, rv):
+def get_rv_marg_map_from_bn_params(disc_marginal_table, gaussian_means, gaussian_covs, Vd_idx, Vc_idx, rv):
     # convenience method
     if rv in Vd_idx:
         return get_drv_marg_map(disc_marginal_table, Vd_idx, rv, best_prob=False)
