@@ -59,13 +59,14 @@ print(rvs_table)
 
 from OneShot import OneShot
 
+utils.set_log_potential_funs(g.factors_list)
 K = 4
 T = 8
 osi = OneShot(g=g, K=K, T=T, seed=seed)
 res = osi.run(lr=1e-1, its=200)
 for key, rv in sorted(rvs_table.items()):
     if rv.value is None:  # only test non-evidence nodes
-        print(key, osi.map(rv))
+        print(key, osi.map(obs_rvs=[], query_rv=rv))
 
 import matplotlib.pyplot as plt
 

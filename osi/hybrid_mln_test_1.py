@@ -58,6 +58,7 @@ g, rvs_table = rel_g.grounded_graph()
 
 from OneShot import OneShot
 
+utils.set_log_potential_funs(g.factors_list)  # OSI assumes factors have callable .log_potential_fun
 grad_check = False
 if not grad_check:
     K = 3
@@ -71,7 +72,7 @@ if not grad_check:
     print(res)
     for key, rv in rvs_table.items():
         if rv.value is None:  # only test non-evidence nodes
-            print(rv, key, osi.map(rv))
+            print(rv, key, osi.map(obs_rvs=[], query_rv=rv))
 
     import matplotlib.pyplot as plt
 

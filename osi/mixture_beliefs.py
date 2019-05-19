@@ -312,6 +312,9 @@ def dfactors_bfe_obj(factors, w):
 
     lpot = group_eval_log_potential_funs(factors_with_unique_log_potential_fun_types, unique_log_potential_fun_types,
                                          axes)  # C x V1 x V2 x ... Vn
+    # if not lpot.dtype in ('float32', 'float64'):
+    if not lpot.dtype == 'float64':  # tf crashes when adding int type to float
+        lpot = tf.cast(lpot,'float64')
     log_belief = tf.log(belief)
     F = - lpot + log_belief
     prod = tf.stop_gradient(belief * F)  # stop_gradient is needed for aux_obj
@@ -386,7 +389,7 @@ def group_eval_log_potential_funs(factors_with_unique_log_potential_fun_types, u
             # or, use weights[(slice(None),) + (None,)*len(lpot.shape-1)]
             lpot = lpot * weights  # c x ??? x V1 x V2 x ... Vn
         else:
-            print('  warning: unable to group-eval', c, log_potential_fun_type, 'resorting to loop')
+            print(' mixture_beliefs.py warning: unable to group-eval', c, log_potential_fun_type, 'resorting to loop')
             # lpot = [utils.eval_fun_grid(like_log_potential_funs[l], [a[l] for a in like_axes]) for l in range(c)]
             lpot = []
             for l in range(c):

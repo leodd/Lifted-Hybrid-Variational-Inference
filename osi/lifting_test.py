@@ -49,6 +49,7 @@ g = Graph()
 g.rvs = rvs
 g.factors = fs
 g.init_nb()
+utils.set_log_potential_funs(g.factors_list)  # OSI assumes factors have callable .log_potential_fun
 
 cg = CompressedGraphSorted(g)
 cg.run()
@@ -61,7 +62,6 @@ T = 0
 lr = 1e-1
 its = 300
 from OneShot import OneShot, LiftedOneShot
-
 print('with lifting')
 osi = LiftedOneShot(g=cg, K=K, T=T, seed=seed)
 res = osi.run(lr=lr, its=its)
