@@ -7,6 +7,7 @@ from itertools import product
 from copy import deepcopy
 
 import utils
+import sampling_utils
 
 
 def convert_to_bn(factors, Vd, Vc, return_Z=False):
@@ -113,7 +114,7 @@ def get_crv_marg_map(disc_marginal_table, gaussian_means, gaussian_covs, Vc_idx,
                                     best_log_pdf=best_log_pdf)
 
 
-def get_drv_marg(disc_marginal_table, Vd_idx, drv):
+def get_drv_marg(disc_marginal_table, Vd_idx, drv):  # TODO: refactor to only require drv_idx
     """
 
     :param disc_marginal_table:
@@ -264,3 +265,41 @@ def block_gibbs_sample(factors, Vd, Vc, num_burnin, num_samples, init_x_d=None, 
             cont_samples[sample_it] = x_c
 
     return disc_samples, cont_samples
+
+
+class HybridGaussianSampler:
+    """
+    Convenience object that wraps lower-level methods
+    """
+
+    def __init__(self, g):
+        Vd, Vc, Vd_idx, Vc_idx = g.Vd, g.Vc, g.Vd_idx, g.Vc_idx
+        dstates = [rv.dstates for rv in Vd]
+
+        self.__dict__.update(**locals())
+
+    def block_gibbs_sample(self, num_burnin, num_samples, init_x_d=None, disc_block_its=100):
+        Vd, Vc, Vd_idx, Vc_idx, dstates = self.Vd, self.Vc, self.Vd_idx, self.Vc_idx, self.dstates
+        factors = self.g.factors_list
+        disc_samples, cont_samples = block_gibbs_sample(factors, Vd, Vc, num_burnin, num_samples, init_x_d,
+                                                        disc_block_its)
+
+        sampled_disc_marginal_table = sampling_utils.get_disc_marg_table_from_samples(disc_samples, dstates)
+
+        self.disc_samples = disc_samples
+        self.cont_samples = cont_samples
+        self.sampled_disc_marginal_table = sampled_disc_marginal_table
+
+    def map(self, rv, num_gm_components_for_crv=1):
+        Vd, Vc, Vd_idx, Vc_idx, dstates = self.Vd, self.Vc, self.Vd_idx, self.Vc_idx, self.dstates
+        sampled_disc_marginal_table = self.sampled_disc_marginal_table
+        cont_samples = self.cont_samples
+
+        if rv in Vd:
+            res = get_drv_marg_map(sampled_disc_marginal_table, Vd_idx, rv)
+        else:
+            K = num_gm_components_for_crv
+            gm_fit_params = sampling_utils.fit_scalar_gm_from_samples(cont_samples[:, Vc_idx[rv]], K=K)
+            res = utils.get_scalar_gm_mode(w=gm_fit_params[0], mu=gm_fit_params[1], var=gm_fit_params[2],
+                                           bds=(rv.values[0], rv.values[1]))
+        return res

@@ -86,7 +86,7 @@ utils.set_log_potential_funs(g.factors_list)  # OSI assumes factors have callabl
 K = 2
 T = 10
 lr = 0.2
-its = 100
+its = 10
 fix_mix_its = int(its * 0.8)
 osi = OneShot(g, K, T)  # can be moved outside of all loops if the ground MRF doesn't change
 osi.run(its, lr=lr)
@@ -108,19 +108,16 @@ for i, rv in enumerate(rvs):
 print('start sampling')
 num_burnin = 100
 num_samples = 400
-disc_samples, cont_samples = block_gibbs_sample(factors, Vd=Vd, Vc=Vc, num_burnin=num_burnin,
-                                                num_samples=num_samples, disc_block_its=20)
-sampled_disc_marginal_table = sampling_utils.get_disc_marg_table_from_samples(disc_samples, dstates)
+from hybrid_gaussian_mrf import HybridGaussianSampler
 
+hgsampler = HybridGaussianSampler(g)
+hgsampler.block_gibbs_sample(num_burnin=num_burnin, num_samples=num_samples, disc_block_its=20)
+disc_samples, cont_samples = hgsampler.disc_samples, hgsampler.cont_samples
+sampled_disc_marginal_table = hgsampler.sampled_disc_marginal_table
 baseline_mmap = np.empty(len(rvs))
 for i, rv in enumerate(rvs):
-    # TODO: wrap in a more convenient API
-    if rv in Vd:
-        baseline_mmap[i] = get_drv_marg_map(sampled_disc_marginal_table, Vd_idx, rv)
-    else:
-        gm_fit_params = sampling_utils.fit_scalar_gm_from_samples(cont_samples[:, Vc_idx[rv]], K=K)
-        baseline_mmap[i] = utils.get_scalar_gm_mode(w=gm_fit_params[0], mu=gm_fit_params[1], var=gm_fit_params[2],
-                                                    bds=(rv.values[0], rv.values[1]))
+    baseline_mmap[i] = hgsampler.map(rv, num_gm_components_for_crv=K)
+
 print('comparing to sampling baseline')
 for a, name in enumerate(names):
     print(f'{name} mmap diff', mmap_res[a] - baseline_mmap)
