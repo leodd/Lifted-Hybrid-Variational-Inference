@@ -9,7 +9,7 @@ from copy import deepcopy
 import utils
 
 
-def convert_to_bn(factors, Vd, Vc):
+def convert_to_bn(factors, Vd, Vc, return_Z=False):
     """
     Brute-force convert a hybrid Gaussian MRF into equivalent Bayesian network, p(x_d, x_c) = p(x_d) p(x_c | x_d)
     :param factors: list of Graph.F
@@ -17,11 +17,6 @@ def convert_to_bn(factors, Vd, Vc):
     :param Vc: list of cont rvs
     :return:
     """
-    # Vd = [rv for rv in rvs if rv.domain_type[0] == 'd']  # list of of discrete rvs
-    # Vc = [rv for rv in rvs if rv.domain_type[0] == 'c']  # list of cont rvs
-    # Vd_idx = {n: i for (i, n) in enumerate(Vd)}
-    # Vc_idx = {n: i for (i, n) in enumerate(Vc)}
-
     Nd = len(Vd)
     Nc = len(Vc)
     all_dstates = [rv.dstates for rv in Vd]  # [v1, v2, ..., v_Nd]
@@ -29,18 +24,6 @@ def convert_to_bn(factors, Vd, Vc):
     disc_marginal_table = np.empty(all_dstates, dtype=float)  # [v1, v2, ..., v_Nd]
     gaussian_means = np.empty(all_dstates + [Nc], dtype=float)  # [v1, v2, ..., v_Nd, Nc]
     gaussian_covs = np.empty(all_dstates + [Nc, Nc], dtype=float)  # [v1, v2, ..., v_Nd, Nc, Nc]
-
-    # for factor in factors:  # pre-processing for efficiency; may be better done in Graph.py
-    #     disc_nb_idx = ()
-    #     cont_nb_idx = ()
-    #     for rv in factor.nb:
-    #         if rv.domain_type[0] == 'd':
-    #             disc_nb_idx += (Vd_idx[rv],)
-    #         else:
-    #             assert rv.domain_type[0] == 'c'
-    #             cont_nb_idx += (Vc_idx[rv],)
-    #     factor.disc_nb_idx = disc_nb_idx
-    #     factor.cont_nb_idx = cont_nb_idx
 
     for disc_config in all_disc_config:
         quadratic_factor_params = []  # each obtained from a (reduced) hybrid factor when given disc nb node values
@@ -73,16 +56,19 @@ def convert_to_bn(factors, Vd, Vc):
         # \int exp{-0.5 x^T J x + x^T J mu} = (int exp{-0.5 (x-mu)^T J (x-mu)} * exp{0.5 mu^T J mu}
         joint_quadratic_integral = (2 * np.pi) ** (Nc / 2) * np.linalg.det(Sig) ** 0.5 * \
                                    np.e ** (0.5 * np.dot(mu, b))
-        joint_quadratic_integral *= np.e ** c  # integral of all the hybrid factors (with disc nodes substituted in)
+        joint_quadratic_integral *= np.e ** c  # integral of all cont & hybrid factors (with disc nodes substituted in)
 
         disc_pot_prod = np.e ** disc_pot_prod
         disc_marginal_table[disc_config] = \
-            disc_pot_prod * joint_quadratic_integral  # prod of all potentials for this disc_config
+            disc_pot_prod * joint_quadratic_integral  # = \tilde p(x_d=disc_config) = \int_{x_c} \tilde p(x_c, x_d=disc_config)
 
     Z = np.sum(disc_marginal_table)
     disc_marginal_table /= Z
 
-    return disc_marginal_table, gaussian_means, gaussian_covs
+    if not return_Z:
+        return disc_marginal_table, gaussian_means, gaussian_covs
+    else:
+        return disc_marginal_table, gaussian_means, gaussian_covs, Z
 
 
 def get_crv_marg(disc_marginal_table, gaussian_means, gaussian_covs, Vc_idx, crv, flatten_params=True):
@@ -165,7 +151,7 @@ def get_drv_marg_map(disc_marginal_table, Vd_idx, drv, best_prob):
 import disc_mrf
 
 
-def block_gibbs_sample(factors, rvs, Vd, Vc, num_burnin, num_samples, init_x_d=None, disc_block_its=100):
+def block_gibbs_sample(factors, Vd, Vc, num_burnin, num_samples, init_x_d=None, disc_block_its=100):
     """
 
     :param factors:
@@ -230,12 +216,6 @@ def block_gibbs_sample(factors, rvs, Vd, Vc, num_burnin, num_samples, init_x_d=N
         # basically copied from convert_to_bn:
         cond_quadratic_factor_params = []  # each obtained from a (reduced) hybrid factor when given disc nb node values
         cond_quadratic_factor_scopes = []
-        # for factor in factors:  # TODO: speed up by precomputing joint_quadratic_params over cont_factors outside loop
-        #     lpot_fun = factor.log_potential_fun
-        #     if isinstance(lpot_fun, LogHybridQuadratic):
-        #         disc_vals_in_factor = tuple(x_d[i] for i in factor.disc_nb_idx)  # () is OK
-        #         cond_quadratic_factor_params.append(lpot_fun.get_quadratic_params_given_x_d(disc_vals_in_factor))
-        #         cond_quadratic_factor_scopes.append(factor.cont_nb_idx)
         for factor in hybrid_factors:
             lpot_fun = factor.log_potential_fun
             disc_vals_in_factor = tuple(x_d[i] for i in factor.disc_nb_idx)
@@ -251,12 +231,11 @@ def block_gibbs_sample(factors, rvs, Vd, Vc, num_burnin, num_samples, init_x_d=N
         x_c = np.random.multivariate_normal(mean=mu, cov=Sig)
 
         # 2. sample p(x_d | x_c) in the conditional discrete MRF with table factors
-        # get contribution from strictly hybrid factors
         cond_lpot_tables = []
         cond_scopes = []
         cond_disc_nbr_factor_ids = deepcopy(discf_nbr_factor_ids)  # TODO: ugly, somehow get rid of
 
-        for factor in hybrid_factors:
+        for factor in hybrid_factors:  # get contribution from strictly hybrid factors
             lpot_fun = factor.log_potential_fun
             cont_vals_in_factor = x_c[list(
                 factor.cont_nb_idx)]  # note the index is a list (not a tuple) so we get another array instead of single element
@@ -267,6 +246,7 @@ def block_gibbs_sample(factors, rvs, Vd, Vc, num_burnin, num_samples, init_x_d=N
                 cond_disc_nbr_factor_ids[i].append(j + num_disc_factors)
         cond_lpot_tables = discf_lpot_tables + cond_lpot_tables
         cond_scopes = discf_scopes + cond_scopes
+        # if x_d not too many, more efficient to find p(x_d|x_c) by brute force than sampling
         x_d = disc_mrf.gibbs_sample_one(cond_lpot_tables, cond_scopes, cond_disc_nbr_factor_ids, all_dstates, x_d,
                                         its=disc_block_its)
 

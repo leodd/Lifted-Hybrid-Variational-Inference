@@ -48,9 +48,8 @@ print('BN params', bn)
 
 num_burnin = 200
 num_samples = 500
-disc_samples, cont_samples = block_gibbs_sample(factors, rvs=None, Vd=Vd, Vc=Vc, num_burnin=num_burnin,
-                                                num_samples=num_samples,
-                                                disc_block_its=20)
+disc_samples, cont_samples = block_gibbs_sample(factors, Vd=Vd, Vc=Vc, num_burnin=num_burnin,
+                                                num_samples=num_samples, disc_block_its=20)
 
 test_drv_idx = 0
 print('true test drv marg', get_drv_marg(bn[0], Vd_idx, Vd[test_drv_idx]))
