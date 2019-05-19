@@ -111,21 +111,28 @@ for a, name in enumerate(names):
 # print('true test drv marg', get_drv_marg(bn[0], Vd_idx, Vd[test_drv_idx]))
 # print('sampled test drv marg', np.bincount(disc_samples[:, test_drv_idx]) / num_samples)
 #
-# # test_crv_idx = 0
-# test_crv_idx = 1
-# test_crv_marg_params = get_crv_marg(*bn, Vc_idx, Vc[test_crv_idx])
-# print('true test crv marg params', test_crv_marg_params)
-#
-# import matplotlib.pyplot as plt
-#
-# plt.figure()
-# xs = np.linspace(-5, 5, 50)
+# test_crv_idx = 0
+test_crv_idx = 1
+test_crv_marg_params = get_crv_marg(*bn, Vc_idx, Vc[test_crv_idx])
+print(f'true crv{test_crv_idx} marg params', test_crv_marg_params)
+osi_test_crv_marg_params = osi.params['w'], osi.params['Mu'][test_crv_idx], osi.params['Var'][test_crv_idx]
+print(f'osi crv{test_crv_idx} marg params', osi_test_crv_marg_params)
+
+import matplotlib.pyplot as plt
+
+plt.figure()
+xs = np.linspace(-5, 5, 50)
 # plt.hist(cont_samples[:, test_crv_idx], normed=True, label='samples')
-# plt.plot(xs,
-#          np.exp(utils.get_scalar_gm_log_prob(xs, w=test_crv_marg_params[0], mu=test_crv_marg_params[1],
-#                                              var=test_crv_marg_params[2])),
-#          label='ground truth marg pdf')
-# plt.legend(loc='best')
-# # plt.show()
-# save_name = __file__.split('.py')[0]
-# plt.savefig('%s.png' % save_name)
+plt.plot(xs,
+         np.exp(utils.get_scalar_gm_log_prob(xs, w=test_crv_marg_params[0], mu=test_crv_marg_params[1],
+                                             var=test_crv_marg_params[2])),
+         label='ground truth marg pdf')
+plt.plot(xs,
+         np.exp(utils.get_scalar_gm_log_prob(xs, w=osi_test_crv_marg_params[0], mu=osi_test_crv_marg_params[1],
+                                             var=osi_test_crv_marg_params[2])),
+         label='OSI marg pdf')
+
+plt.legend(loc='best')
+# plt.show()
+save_name = __file__.split('.py')[0]
+plt.savefig('%s.png' % save_name)
