@@ -36,9 +36,9 @@ w0 = 0.5
 factors = [F(nb=(rvs[0], rvs[1]),
              potential=MLNPotential(lambda x: (1 - x[0]) * eq_op(x[1], -3) + x[0] * eq_op(x[1], 2), w=w0)),
            F(nb=(rvs[0],),
-             potential=MLNPotential(lambda x: eq_op(x[0], 0), w=1.0))
-           # F(nb=(rvs[1],),
-           #   potential=QuadraticPotential(A=-0.5 * np.eye(1), b=np.array([0.]), c=0.)),
+             potential=MLNPotential(lambda x: eq_op(x[0], 0), w=1.0)),
+           F(nb=(rvs[1],),
+             potential=QuadraticPotential(A=-0.5 * np.eye(1), b=np.array([0.]), c=0.)),
            ]
 
 g = Graph()  # not really needed here; just to conform to existing API
