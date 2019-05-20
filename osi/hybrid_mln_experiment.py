@@ -50,7 +50,7 @@ atom_D = Atom(domain_bool, logical_variables=(lv_x, lv_s), name='D')
 atom_E = Atom(domain_bool, logical_variables=(lv_y, lv_s), name='E')
 
 f1 = ParamF(  # disc
-    MLNPotential(lambda x: imp_op(x[0] * x[1], x[2]), w=1), nb=(atom_D, atom_E, atom_C)
+    MLNPotential(lambda x: imp_op(x[0] * x[1], x[2]), w=0.1), nb=(atom_D, atom_E, atom_C)
 )
 
 w_h = 0.1
@@ -66,9 +66,9 @@ equiv_hybrid_pot = HybridQuadraticPotential(
     c=-w_h * np.array([a ** 2, b ** 2])
 )
 
-prior_var = 0.5  # variance of Gaussian prior
+prior_strength = 0.05  # variance of Gaussian prior 0.2 was good heavy tail
 f3 = ParamF(  # cont
-    QuadraticPotential(A=-0.5 * (np.eye(2) * prior_var), b=np.array([1., 0.]), c=0.),
+    QuadraticPotential(A=-prior_strength * (np.eye(2)), b=np.array([0., 0.]), c=0.),
     nb=[atom_A, atom_B]
 )
 
@@ -77,7 +77,7 @@ rel_g.atoms = (atom_A, atom_B, atom_C, atom_D, atom_E)
 rel_g.param_factors = (f1, f2, f3)
 rel_g.init_nb()
 
-num_tests = 2  # num rounds with different queries
+num_tests = 1  # num rounds with different queries
 num_runs = 1
 
 avg_diff = dict()
@@ -258,25 +258,28 @@ for test_num in range(num_tests):
     print(name, 'var', np.average(np.average(res ** 2, axis=1)) - np.average(np.average(abs(res), axis=1)) ** 2)
 
 print('plotting example marginal from last run')
-test_crv_idx = 3
 
 import matplotlib.pyplot as plt
 
 plt.figure()
 xs = np.linspace(domain_real.values[0], domain_real.values[1], 100)
 
-if baseline == 'exact':
-    test_crv_marg_params = get_crv_marg(*bn, test_crv_idx)
-    plt.plot(xs, np.exp(utils.get_scalar_gm_log_prob(xs, w=test_crv_marg_params[0], mu=test_crv_marg_params[1],
-                                                     var=test_crv_marg_params[2])), label='ground truth marg pdf')
+for test_crv_idx in range(len(Vc)):
+    if baseline == 'exact':
+        test_crv_marg_params = get_crv_marg(*bn, test_crv_idx)
+        plt.plot(xs, np.exp(utils.get_scalar_gm_log_prob(xs, w=test_crv_marg_params[0], mu=test_crv_marg_params[1],
+                                                         var=test_crv_marg_params[2])),
+                 label=f'true marg pdf {test_crv_idx}')
 
-if baseline == 'gibbs':
-    plt.hist(hgsampler.cont_samples[:, test_crv_idx], normed=True, label='samples')
+    if baseline == 'gibbs':
+        plt.hist(hgsampler.cont_samples[:, test_crv_idx], normed=True, label='samples')
 
-osi_test_crv_marg_params = osi.params['w'], osi.params['Mu'][test_crv_idx], osi.params['Var'][test_crv_idx]
-plt.plot(xs, np.exp(utils.get_scalar_gm_log_prob(xs, w=osi_test_crv_marg_params[0], mu=osi_test_crv_marg_params[1],
-                                                 var=osi_test_crv_marg_params[2])), label='OSI marg pdf')
+    osi_test_crv_marg_params = osi.params['w'], osi.params['Mu'][test_crv_idx], osi.params['Var'][test_crv_idx]
+    plt.plot(xs, np.exp(utils.get_scalar_gm_log_prob(xs, w=osi_test_crv_marg_params[0], mu=osi_test_crv_marg_params[1],
+                                                     var=osi_test_crv_marg_params[2])),
+             label=f'OSI marg pdf {test_crv_idx}')
 plt.legend(loc='best')
+plt.title('crv marginals')
 # plt.show()
 save_name = __file__.split('.py')[0]
 plt.savefig('%s.png' % save_name)
