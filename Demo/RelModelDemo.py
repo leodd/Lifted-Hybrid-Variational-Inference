@@ -4,58 +4,11 @@ from EPBPLogVersion import EPBP
 from GaBP import GaBP
 import numpy as np
 import time
-from OneShot import OneShot
-
-# np.random.seed(9)
-osi = OneShot(g, num_mixtures=2, num_quadrature_points=8)
-
-# osi.init_param()
-# print(osi.gradient_w_tau())
-# old_energy = osi.free_energy()
-# print(osi.w)
-# osi.w_tau += [0.01, 0]
-# osi.w = osi.softmax(osi.w_tau)
-# print(osi.w)
-# new_energy = osi.free_energy()
-# print(old_energy, new_energy, (new_energy-old_energy)/0.01)
-
-osi.run(200, lr=0.5)
+from Demo.Data.RGM.Generator import generate_rel_graph, load_data
 
 
-instance_category = []
-instance_bank = []
-for i in range(100):
-    instance_category.append(f'c{i}')
-for i in range(5):
-    instance_bank.append(f'b{i}')
-
-d = Domain((-50, 50), continuous=True, integral_points=linspace(-50, 50, 30))
-
-p1 = GaussianPotential([0., 0.], [[10., -7.], [-7., 10.]])
-p2 = GaussianPotential([0., 0.], [[10., 5.], [5., 10.]])
-p3 = GaussianPotential([0., 0.], [[10., 7.], [7., 10.]])
-
-lv_recession = LV(('all',))
-lv_category = LV(instance_category)
-lv_bank = LV(instance_bank)
-
-atom_recession = Atom(d, logical_variables=(lv_recession,), name='recession')
-atom_market = Atom(d, logical_variables=(lv_category,), name='market')
-atom_loss = Atom(d, logical_variables=(lv_category, lv_bank), name='loss')
-atom_revenue = Atom(d, logical_variables=(lv_bank,), name='revenue')
-
-f1 = ParamF(p1, nb=(atom_recession, atom_market))
-f2 = ParamF(p2, nb=(atom_market, atom_loss))
-f3 = ParamF(p3, nb=(atom_loss, atom_revenue))
-
-rel_g = RelationalGraph()
-rel_g.atoms = (atom_recession, atom_revenue, atom_loss, atom_market)
-rel_g.param_factors = (f1, f2, f3)
-rel_g.init_nb()
-
+rel_g = generate_rel_graph()
 key_list = rel_g.key_list()
-
-data = dict()
 
 avg_err = dict()
 max_err = dict()
@@ -68,15 +21,8 @@ evidence_ratio = 0.01
 print('number of vr', len(key_list))
 print('number of evidence', int(len(key_list) * evidence_ratio))
 
-for _ in range(num_test):
-    data.clear()
-    idx_evidence = np.random.choice(len(key_list), int(len(key_list) * evidence_ratio), replace=False)
-    for i in idx_evidence:
-        key = key_list[i]
-        data[key] = np.random.uniform(-30, 30)
-
-    # data[('recession', 'all')] = np.random.uniform(-30, 30)
-
+for i in range(num_test):
+    data = load_data('Data/RGM/' + str(evidence_ratio) + '_' + str(i))
     rel_g.data = data
     g, rvs_table = rel_g.grounded_graph()
 
