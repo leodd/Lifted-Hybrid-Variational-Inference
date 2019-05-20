@@ -26,8 +26,17 @@ cdef extern from "stdlib.h":
 cdef extern from "time.h":    # more flexible to seed at python level
     long int time(int)
 
-srand48(time(0))  # seed rng generator; will give current time in seconds (pseudorandomness will be broken if same code run twice in < 1s)
 
+def seed(seed=None):
+    """
+    Seed the rng generator for this module; will call srand48
+    :param seed: if None, use current time (in seconds) as seed
+    :return:
+    """
+    if seed is None:
+        srand48(time(0))  # seed rng generator; will give current time in seconds (pseudorandomness will be broken if same code run twice in < 1s)
+    else:
+        srand48(int(seed))
 
 
 # cdef void softmax(vector[double]& vec, size_t vec_size):  # pass by reference not working somehow; C++11 move faster anyways

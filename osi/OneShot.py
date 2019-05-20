@@ -103,6 +103,7 @@ class OneShot:
                      np.zeros([2, g.Nc, K], dtype='float')  # Mu_bds[0], Mu_bds[1] give lb, ub for Mu; same for all K
             Mu = np.random.uniform(low=Mu_bds[0], high=Mu_bds[1], size=[g.Nc, K])  # init numerical value
             init_grid = True
+            init_grid_noise = 0.1
             if init_grid:  # try spreading initial means evenly on a grid within the Mu_bds box set
                 I = int(K ** (1 / g.Nc))  # number of points per dimension; need to have I^{Nc} <= K
                 slices = []
@@ -112,7 +113,9 @@ class OneShot:
                     slices.append(slice(lb + step, ub, step))  # no boundary points included
                 grid = np.mgrid[slices]  # Nc x I x I x .. x I (Nc many Is)
                 num_grid_points = int(I ** g.Nc)
-                Mu[:, :num_grid_points] = np.reshape(grid, [g.Nc, num_grid_points])  # the other points r random uniform
+                grid = np.reshape(grid, [g.Nc, num_grid_points])
+                grid += init_grid_noise * np.random.randn(*grid.shape)
+                Mu[:, :num_grid_points] = grid  # the rest have already been initialized
 
             Mu = tf.Variable(Mu, dtype=dtype, trainable=True, name='Mu')
 

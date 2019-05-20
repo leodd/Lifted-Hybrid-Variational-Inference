@@ -51,15 +51,17 @@ f1 = ParamF(  # disc
     MLNPotential(lambda x: imp_op(x[0] * x[1], x[2]), w=1), nb=(atom_D, atom_E, atom_C)
 )
 
-w_h = 0.01
+w_h = 0.1
+a = 8.
+b = -7.
 f2 = ParamF(  # hybrid
     # MLNPotential(lambda x: x[0] * eq_op(x[1], x[2]), w=w_h), nb=(atom_C, atom_A, atom_B)  # unimodal
-    MLNPotential(lambda x: (1 - x[0]) * eq_op(x[1], 8) + x[0] * eq_op(x[2], -7), w=w_h), nb=(atom_C, atom_A, atom_B)
+    MLNPotential(lambda x: (1 - x[0]) * eq_op(x[1], a) + x[0] * eq_op(x[2], b), w=w_h), nb=(atom_C, atom_A, atom_B)
 )
 equiv_hybrid_pot = HybridQuadraticPotential(
     A=-w_h * np.array([np.array([[1., 0], [0, 0]]), np.array([[0., 0.], [0., 1.]])]),
-    b=-w_h * np.array([[-16., 0], [0., 14.]]),
-    c=-w_h * np.array([64., 49.])
+    b=-w_h * np.array([[-2 * a, 0], [0., -2 * b]]),
+    c=-w_h * np.array([a ** 2, b ** 2])
 )
 
 prior_var = 0.5  # variance of Gaussian prior
@@ -82,7 +84,8 @@ time_cost = dict()
 
 data = dict()
 
-for _ in range(num_tests):
+for test_num in range(num_tests):
+    test_seed = seed + test_num
     # data.clear()
     #
     # X_ = np.random.choice(num_x, int(num_x * 0.2), replace=False)
@@ -111,6 +114,8 @@ for _ in range(num_tests):
     print(rvs_table)
 
     print('number of rvs', len(g.rvs))
+    print('num drvs', len([rv for rv in g.rvs if rv.domain_type[0] == 'd']))
+    print('num crvs', len([rv for rv in g.rvs if rv.domain_type[0] == 'c']))
     print('number of factors', len(g.factors))
     print('number of evidence', len(data))
 
@@ -125,10 +130,10 @@ for _ in range(num_tests):
 
     # sampling baseline
     name = 'GS'
-    num_burnin = 500
-    num_samples = 1000
+    num_burnin = 200
+    num_samples = 500
     num_gm_components_for_crv = 3
-
+    disc_block_its = 40
     g2 = copy(g)  # shallow copy
     g2.factors = []
     # convert factors to the form accepted by HybridGaussianSampler
@@ -147,16 +152,19 @@ for _ in range(num_tests):
     utils.set_log_potential_funs(g2.factors, skip_existing=False)  # create lpot_funs to be used by baseline
     g2.init_rv_indices()
     hgsampler = HybridGaussianSampler(g2)
-    hgsampler.block_gibbs_sample(num_burnin=num_burnin, num_samples=num_samples, disc_block_its=30)
+    hgsampler.block_gibbs_sample(num_burnin=num_burnin, num_samples=num_samples, disc_block_its=disc_block_its,
+                                 seed=test_seed)
     np.save('cont_samples', hgsampler.cont_samples)
     np.save('disc_samples', hgsampler.disc_samples)
 
     for i, key in enumerate(key_list):
         ans[key] = hgsampler.map(rvs_table[key], num_gm_components_for_crv=num_gm_components_for_crv)
+    print('baseline', [ans[key] for i, key in enumerate(key_list)])
 
     name = 'EPBP'
     res = np.zeros((len(key_list), num_runs))
     for j in range(num_runs):
+        # np.random.seed(test_seed + j)
         bp = EPBP(g, n=20, proposal_approximation='simple')
         start_time = time.process_time()
         bp.run(10, log_enable=False)
@@ -177,14 +185,15 @@ for _ in range(num_tests):
     name = 'OSI'
     K = 1
     T = 10
-    lr = 0.4
-    its = 200
+    lr = 0.5
+    its = 500
     fix_mix_its = int(its * 0.5)
     logging_itv = 50
     res = np.zeros((len(key_list), num_runs))
     utils.set_log_potential_funs(g.factors_list)
     osi = OneShot(g=g, K=K, T=T, seed=seed)  # can be moved outside of all loops if the ground MRF doesn't change
     for j in range(num_runs):
+        # utils.set_seed(test_seed + j)
         start_time = time.process_time()
         osi.run(lr=lr, its=its, fix_mix_its=fix_mix_its, logging_itv=logging_itv)
         time_cost[name] = (time.process_time() - start_time) / num_runs / num_tests + time_cost.get(name, 0)
@@ -206,17 +215,19 @@ for _ in range(num_tests):
     cg.run()
     print('number of rvs in cg', len(cg.rvs))
     print('number of factors in cg', len(cg.factors))
-    osi = LiftedOneShot(g=cg, K=K, T=T, seed=seed)  # can be moved outside of all loops if the ground MRF doesn't change
+    losi = LiftedOneShot(g=cg, K=K, T=T,
+                         seed=seed)  # can be moved outside of all loops if the ground MRF doesn't change
     for j in range(num_runs):
+        # utils.set_seed(test_seed + j)
         start_time = time.process_time()
-        osi.run(lr=lr, its=its, fix_mix_its=fix_mix_its, logging_itv=logging_itv)
+        losi.run(lr=lr, its=its, fix_mix_its=fix_mix_its, logging_itv=logging_itv)
         time_cost[name] = (time.process_time() - start_time) / num_runs / num_tests + time_cost.get(name, 0)
         print(name, f'time {time.process_time() - start_time}')
         for i, key in enumerate(key_list):
-            res[i, j] = osi.map(obs_rvs=[], query_rv=rvs_table[key])
+            res[i, j] = losi.map(obs_rvs=[], query_rv=rvs_table[key])
         print(res[:, j])
         # print(osi.params)
-        print('Mu =\n', osi.params['Mu'], '\nVar =\n', osi.params['Var'])
+        print('Mu =\n', losi.params['Mu'], '\nVar =\n', losi.params['Var'])
     for i, key in enumerate(key_list):
         res[i, :] -= ans[key]
     avg_diff[name] = np.average(np.average(abs(res), axis=1)) / num_tests + avg_diff.get(name, 0)
@@ -225,7 +236,7 @@ for _ in range(num_tests):
     print(name, 'var', np.average(np.average(res ** 2, axis=1)) - np.average(np.average(abs(res), axis=1)) ** 2)
 
 print('plotting example marginal from last run')
-test_crv_idx = 0
+test_crv_idx = 3
 osi_test_crv_marg_params = osi.params['w'], osi.params['Mu'][test_crv_idx], osi.params['Var'][test_crv_idx]
 
 import matplotlib.pyplot as plt
