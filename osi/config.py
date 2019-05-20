@@ -5,4 +5,4 @@ tfconfig = tf.ConfigProto()
 tfconfig.intra_op_parallelism_threads = num_threads
 tfconfig.inter_op_parallelism_threads = num_threads
 
-tfconfig = None  # no limit on number of cores (default)
+# tfconfig = None  # no limit on number of cores (default)

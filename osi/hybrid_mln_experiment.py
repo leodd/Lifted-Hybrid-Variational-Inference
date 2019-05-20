@@ -66,7 +66,7 @@ equiv_hybrid_pot = HybridQuadraticPotential(
     c=-w_h * np.array([a ** 2, b ** 2])
 )
 
-prior_strength = 0.05  # variance of Gaussian prior 0.2 was good heavy tail
+prior_strength = 0.05
 f3 = ParamF(  # cont
     QuadraticPotential(A=-prior_strength * (np.eye(2)), b=np.array([0., 0.]), c=0.),
     nb=[atom_A, atom_B]
@@ -77,7 +77,7 @@ rel_g.atoms = (atom_A, atom_B, atom_C, atom_D, atom_E)
 rel_g.param_factors = (f1, f2, f3)
 rel_g.init_nb()
 
-num_tests = 1  # num rounds with different queries
+num_tests = 2  # num rounds with different queries
 num_runs = 1
 
 avg_diff = dict()
