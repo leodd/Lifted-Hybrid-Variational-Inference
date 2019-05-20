@@ -38,11 +38,11 @@ means = np.array([[-2., -2.], [0., 1.], [3., 0.]])
 
 factors = [F(nb=(rvs[0], rvs[2], rvs[3]),
              # potential=MLNPotential(lambda x: (1 - x[0]) * eq_op(x[1], 4.) + x[0] * eq_op(x[1], x[2]), w=0.2)),
-             potential=MLNPotential(lambda x: (1 - x[0]) * eq_op(x[1], 8.) + x[0] * eq_op(x[1], -7.), w=0.2)),
+             potential=MLNPotential(lambda x: (1 - x[0]) * eq_op(x[1], 8.) + x[0] * eq_op(x[2], -7.), w=0.5)),
            # F(nb=(rvs[0], rvs[1]), potential=MLNPotential(lambda x: imp_op(x[0] * x[1], x[2]), w=1)),
-           F(nb=(rvs[0], rvs[1]), potential=MLNPotential(lambda x: and_op(x[0], x[1]), w=1)),
+           F(nb=(rvs[0], rvs[1]), potential=MLNPotential(lambda x: and_op(x[0], x[1]), w=0.1)),
            # F(nb=(rvs[2],), potential=QuadraticPotential(A=-0.5 * np.ones([1, 1]), b=np.zeros([1]), c=0.))
-           F(nb=(rvs[2], rvs[3]), potential=QuadraticPotential(A=-0.5 * np.eye(2), b=np.array([1., 2.]), c=0.))
+           F(nb=(rvs[2], rvs[3]), potential=QuadraticPotential(A=-0.5 * np.eye(2), b=np.array([1., 0.]), c=0.))
            # ensure normalizability
            ]
 
@@ -72,7 +72,7 @@ name = names[algo]
 utils.set_log_potential_funs(g.factors_list)  # OSI assumes factors have callable .log_potential_fun
 K = 2
 T = 12
-lr = 0.4
+lr = 0.5
 its = 200
 fix_mix_its = int(its * 0.5)
 osi = OneShot(g=g, K=K, T=T, seed=seed)  # can be moved outside of all loops if the ground MRF doesn't change
@@ -87,8 +87,8 @@ for i, rv in enumerate(rvs):
 # HybridQuadraticPotential), then calling the .to_log_potential method on the potential objects
 # manual conversion here:
 factors[0].potential = HybridQuadraticPotential(
-    A=-factors[0].potential.w * np.array([np.array([[1., 0], [0, 0]]), np.array([[1., 0.], [0., 0.]])]),
-    b=-factors[0].potential.w * np.array([[-16., 0], [14., 0.]]),
+    A=-factors[0].potential.w * np.array([np.array([[1., 0], [0, 0]]), np.array([[0., 0.], [0., 1.]])]),
+    b=-factors[0].potential.w * np.array([[-16., 0], [0., 14.]]),
     c=-factors[0].potential.w * np.array([64., 49.])
 )
 # all disc potentials must be converted to TablePotential to be used by baseline
@@ -110,8 +110,8 @@ for i, rv in enumerate(rvs):
 for a, name in enumerate(names):
     print(f'{name} mmap diff', mmap_res[a] - true_mmap)
 
-num_burnin = 100
-num_samples = 400
+num_burnin = 200
+num_samples = 1000
 disc_samples, cont_samples = block_gibbs_sample(factors, Vd=Vd, Vc=Vc, num_burnin=num_burnin,
                                                 num_samples=num_samples, disc_block_its=20)
 
