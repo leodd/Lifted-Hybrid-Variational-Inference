@@ -141,11 +141,7 @@ def get_rv_marg_map_from_bn_params(disc_marginal_table, gaussian_means, gaussian
     return res
 
 
-import disc_mrf
-import disc_mrf_sampler  # cython implementation
-
-
-def block_gibbs_sample(factors, Vd, Vc, num_burnin, num_samples, init_x_d=None, disc_block_its=100):
+def block_gibbs_sample(factors, Vd, Vc, num_burnin, num_samples, init_x_d=None, disc_block_its=100, seed=None):
     """
 
     :param factors:
@@ -154,6 +150,14 @@ def block_gibbs_sample(factors, Vd, Vc, num_burnin, num_samples, init_x_d=None, 
     :param Vc:
     :return:
     """
+    import disc_mrf
+    import disc_mrf_sampler  # cython implementation
+    use_cython = True
+    if use_cython:
+        disc_mrf_sampler.seed(seed)
+    else:
+        np.random.seed(seed)
+
     int_type = int
 
     Nd = len(Vd)
@@ -244,7 +248,6 @@ def block_gibbs_sample(factors, Vd, Vc, num_burnin, num_samples, init_x_d=None, 
         cond_lpot_tables = discf_lpot_tables + cond_lpot_tables
         cond_scopes = discf_scopes + cond_scopes
         # if x_d small (<10), more efficient to find p(x_d|x_c) by brute force and sample from table than Gibbs sampling
-        use_cython = True
         if not use_cython:
             x_d = disc_mrf.gibbs_sample_one(cond_lpot_tables, cond_scopes, cond_disc_nbr_factor_ids, dstates, x_d,
                                             its=disc_block_its)
@@ -272,11 +275,11 @@ class HybridGaussianSampler:
 
         self.__dict__.update(**locals())
 
-    def block_gibbs_sample(self, num_burnin, num_samples, init_x_d=None, disc_block_its=100):
+    def block_gibbs_sample(self, num_burnin, num_samples, init_x_d=None, disc_block_its=100, seed=None):
         Vd, Vc, Vd_idx, Vc_idx, dstates = self.Vd, self.Vc, self.Vd_idx, self.Vc_idx, self.dstates
         factors = self.g.factors_list
         disc_samples, cont_samples = block_gibbs_sample(factors, Vd, Vc, num_burnin, num_samples, init_x_d,
-                                                        disc_block_its)
+                                                        disc_block_its, seed)
 
         sampled_disc_marginal_table = sampling_utils.get_disc_marg_table_from_samples(disc_samples, dstates)
 
