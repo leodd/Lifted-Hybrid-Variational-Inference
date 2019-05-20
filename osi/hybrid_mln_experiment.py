@@ -53,7 +53,7 @@ f1 = ParamF(  # disc
     MLNPotential(lambda x: imp_op(x[0] * x[1], x[2]), w=0.1), nb=(atom_D, atom_E, atom_C)
 )
 
-w_h = 0.1
+w_h = 0.15  # smaller (like 0.06) gives skew instead
 a = 8.
 b = -7.
 f2 = ParamF(  # hybrid
@@ -77,7 +77,7 @@ rel_g.atoms = (atom_A, atom_B, atom_C, atom_D, atom_E)
 rel_g.param_factors = (f1, f2, f3)
 rel_g.init_nb()
 
-num_tests = 2  # num rounds with different queries
+num_tests = 1  # num rounds with different queries
 num_runs = 1
 
 avg_diff = dict()
@@ -167,6 +167,7 @@ for test_num in range(num_tests):
         for i, key in enumerate(key_list):
             rv = rvs_table[key]
             ans[key] = get_rv_marg_map_from_bn_params(*bn, Vd_idx, Vc_idx, rv)
+            # ans[key] = 0
 
     if baseline == 'gibbs':
         num_burnin = 200
@@ -208,7 +209,7 @@ for test_num in range(num_tests):
     K = 2
     T = 10
     lr = 0.5
-    its = 800
+    its = 1000
     fix_mix_its = int(its * 0.5)
     logging_itv = 50
     res = np.zeros((len(key_list), num_runs))
