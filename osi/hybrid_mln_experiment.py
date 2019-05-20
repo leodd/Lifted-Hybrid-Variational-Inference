@@ -230,7 +230,7 @@ for _ in range(num_tests):
     print(name, 'var', np.average(np.average(res ** 2, axis=1)) - np.average(np.average(abs(res), axis=1)) ** 2)
 
 print('plotting example marginal from last run')
-test_crv_idx = 2
+test_crv_idx = 3
 osi_test_crv_marg_params = osi.params['w'], osi.params['Mu'][test_crv_idx], osi.params['Var'][test_crv_idx]
 
 import matplotlib.pyplot as plt
