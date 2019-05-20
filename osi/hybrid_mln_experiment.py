@@ -84,7 +84,8 @@ time_cost = dict()
 
 data = dict()
 
-for _ in range(num_tests):
+for test_num in range(num_tests):
+    test_seed = seed + test_num
     # data.clear()
     #
     # X_ = np.random.choice(num_x, int(num_x * 0.2), replace=False)
@@ -151,16 +152,19 @@ for _ in range(num_tests):
     utils.set_log_potential_funs(g2.factors, skip_existing=False)  # create lpot_funs to be used by baseline
     g2.init_rv_indices()
     hgsampler = HybridGaussianSampler(g2)
-    hgsampler.block_gibbs_sample(num_burnin=num_burnin, num_samples=num_samples, disc_block_its=disc_block_its)
+    hgsampler.block_gibbs_sample(num_burnin=num_burnin, num_samples=num_samples, disc_block_its=disc_block_its,
+                                 seed=test_seed)
     np.save('cont_samples', hgsampler.cont_samples)
     np.save('disc_samples', hgsampler.disc_samples)
 
     for i, key in enumerate(key_list):
         ans[key] = hgsampler.map(rvs_table[key], num_gm_components_for_crv=num_gm_components_for_crv)
+    print('baseline', [ans[key] for i, key in enumerate(key_list)])
 
     name = 'EPBP'
     res = np.zeros((len(key_list), num_runs))
     for j in range(num_runs):
+        # np.random.seed(test_seed + j)
         bp = EPBP(g, n=20, proposal_approximation='simple')
         start_time = time.process_time()
         bp.run(10, log_enable=False)
@@ -189,6 +193,7 @@ for _ in range(num_tests):
     utils.set_log_potential_funs(g.factors_list)
     osi = OneShot(g=g, K=K, T=T, seed=seed)  # can be moved outside of all loops if the ground MRF doesn't change
     for j in range(num_runs):
+        # utils.set_seed(test_seed + j)
         start_time = time.process_time()
         osi.run(lr=lr, its=its, fix_mix_its=fix_mix_its, logging_itv=logging_itv)
         time_cost[name] = (time.process_time() - start_time) / num_runs / num_tests + time_cost.get(name, 0)
@@ -213,6 +218,7 @@ for _ in range(num_tests):
     losi = LiftedOneShot(g=cg, K=K, T=T,
                          seed=seed)  # can be moved outside of all loops if the ground MRF doesn't change
     for j in range(num_runs):
+        # utils.set_seed(test_seed + j)
         start_time = time.process_time()
         losi.run(lr=lr, its=its, fix_mix_its=fix_mix_its, logging_itv=logging_itv)
         time_cost[name] = (time.process_time() - start_time) / num_runs / num_tests + time_cost.get(name, 0)
