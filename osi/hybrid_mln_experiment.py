@@ -205,10 +205,10 @@ for test_num in range(num_tests):
     print(name, 'var', np.average(np.average(res ** 2, axis=1)) - np.average(np.average(abs(res), axis=1)) ** 2)
 
     name = 'OSI'
-    K = 1
+    K = 2
     T = 10
     lr = 0.5
-    its = 500
+    its = 800
     fix_mix_its = int(its * 0.5)
     logging_itv = 50
     res = np.zeros((len(key_list), num_runs))
