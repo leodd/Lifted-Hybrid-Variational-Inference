@@ -15,6 +15,8 @@ seed = 0
 utils.set_seed(seed)
 
 from hybrid_gaussian_mrf import HybridGaussianSampler
+from hybrid_gaussian_mrf import convert_to_bn, block_gibbs_sample, get_crv_marg, get_drv_marg, \
+    get_rv_marg_map_from_bn_params
 
 # num_x = 10
 # num_y = 2
@@ -128,12 +130,10 @@ for test_num in range(num_tests):
 
     ans = dict()
 
-    # sampling baseline
-    name = 'GS'
-    num_burnin = 200
-    num_samples = 500
-    num_gm_components_for_crv = 3
-    disc_block_its = 40
+    baseline = 'exact'
+    # baseline = 'gibbs'
+
+    # preprocessing
     g2 = copy(g)  # shallow copy
     g2.factors = []
     # convert factors to the form accepted by HybridGaussianSampler
@@ -151,14 +151,36 @@ for test_num in range(num_tests):
 
     utils.set_log_potential_funs(g2.factors, skip_existing=False)  # create lpot_funs to be used by baseline
     g2.init_rv_indices()
-    hgsampler = HybridGaussianSampler(g2)
-    hgsampler.block_gibbs_sample(num_burnin=num_burnin, num_samples=num_samples, disc_block_its=disc_block_its,
-                                 seed=test_seed)
-    np.save('cont_samples', hgsampler.cont_samples)
-    np.save('disc_samples', hgsampler.disc_samples)
+    Vd, Vc, Vd_idx, Vc_idx = g2.Vd, g2.Vc, g2.Vd_idx, g2.Vc_idx
 
-    for i, key in enumerate(key_list):
-        ans[key] = hgsampler.map(rvs_table[key], num_gm_components_for_crv=num_gm_components_for_crv)
+    # currently using the same ans
+    if baseline == 'exact':
+        bn_res = convert_to_bn(g2.factors, Vd, Vc, return_Z=True)
+        bn = bn_res[:-1]
+        Z = bn_res[-1]
+        print('true -logZ', -np.log(Z))
+        # print('BN params', bn)
+
+        num_dstates = np.prod(g2.dstates)
+        if num_dstates > 1000:
+            print('num modes too large, exact mode finding might take a while, consider parallelizing...')
+        for i, key in enumerate(key_list):
+            rv = rvs_table[key]
+            ans[key] = get_rv_marg_map_from_bn_params(*bn, Vd_idx, Vc_idx, rv)
+
+    if baseline == 'gibbs':
+        num_burnin = 200
+        num_samples = 500
+        num_gm_components_for_crv = 3
+        disc_block_its = 40
+        hgsampler = HybridGaussianSampler(g2)
+        hgsampler.block_gibbs_sample(num_burnin=num_burnin, num_samples=num_samples, disc_block_its=disc_block_its)
+        # np.save('cont_samples', hgsampler.cont_samples)
+        # np.save('disc_samples', hgsampler.disc_samples)
+        for i, key in enumerate(key_list):
+            rv = rvs_table[key]
+            ans[key] = hgsampler.map(rv, num_gm_components_for_crv=num_gm_components_for_crv)
+
     print('baseline', [ans[key] for i, key in enumerate(key_list)])
 
     name = 'EPBP'
@@ -237,18 +259,23 @@ for test_num in range(num_tests):
 
 print('plotting example marginal from last run')
 test_crv_idx = 3
-osi_test_crv_marg_params = osi.params['w'], osi.params['Mu'][test_crv_idx], osi.params['Var'][test_crv_idx]
 
 import matplotlib.pyplot as plt
 
 plt.figure()
 xs = np.linspace(domain_real.values[0], domain_real.values[1], 100)
 
-plt.hist(hgsampler.cont_samples[:, test_crv_idx], normed=True, label='samples')
-plt.plot(xs,
-         np.exp(utils.get_scalar_gm_log_prob(xs, w=osi_test_crv_marg_params[0], mu=osi_test_crv_marg_params[1],
-                                             var=osi_test_crv_marg_params[2])),
-         label='OSI marg pdf')
+if baseline == 'exact':
+    test_crv_marg_params = get_crv_marg(*bn, test_crv_idx)
+    plt.plot(xs, np.exp(utils.get_scalar_gm_log_prob(xs, w=test_crv_marg_params[0], mu=test_crv_marg_params[1],
+                                                     var=test_crv_marg_params[2])), label='ground truth marg pdf')
+
+if baseline == 'gibbs':
+    plt.hist(hgsampler.cont_samples[:, test_crv_idx], normed=True, label='samples')
+
+osi_test_crv_marg_params = osi.params['w'], osi.params['Mu'][test_crv_idx], osi.params['Var'][test_crv_idx]
+plt.plot(xs, np.exp(utils.get_scalar_gm_log_prob(xs, w=osi_test_crv_marg_params[0], mu=osi_test_crv_marg_params[1],
+                                                 var=osi_test_crv_marg_params[2])), label='OSI marg pdf')
 plt.legend(loc='best')
 # plt.show()
 save_name = __file__.split('.py')[0]

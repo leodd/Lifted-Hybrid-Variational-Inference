@@ -203,3 +203,8 @@ class Graph:
                     cont_nb_idx += (Vc_idx[rv],)
             factor.disc_nb_idx = disc_nb_idx
             factor.cont_nb_idx = cont_nb_idx
+
+        # for convenience
+        dstates = [rv.dstates for rv in Vd]
+        self.dstates = dstates
+
