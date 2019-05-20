@@ -142,6 +142,7 @@ def get_rv_marg_map_from_bn_params(disc_marginal_table, gaussian_means, gaussian
 
 
 import disc_mrf
+import disc_mrf_sampler  # cython implementation
 
 
 def block_gibbs_sample(factors, Vd, Vc, num_burnin, num_samples, init_x_d=None, disc_block_its=100):
@@ -243,8 +244,14 @@ def block_gibbs_sample(factors, Vd, Vc, num_burnin, num_samples, init_x_d=None, 
         cond_lpot_tables = discf_lpot_tables + cond_lpot_tables
         cond_scopes = discf_scopes + cond_scopes
         # if x_d small (<10), more efficient to find p(x_d|x_c) by brute force and sample from table than Gibbs sampling
-        x_d = disc_mrf.gibbs_sample_one(cond_lpot_tables, cond_scopes, cond_disc_nbr_factor_ids, dstates, x_d,
-                                        its=disc_block_its)
+        use_cython = True
+        if not use_cython:
+            x_d = disc_mrf.gibbs_sample_one(cond_lpot_tables, cond_scopes, cond_disc_nbr_factor_ids, dstates, x_d,
+                                            its=disc_block_its)
+        else:
+            # will modify x_d in place
+            disc_mrf_sampler.gibbs_sample_one(cond_lpot_tables, cond_scopes, cond_disc_nbr_factor_ids, dstates, x_d,
+                                              disc_block_its)
 
         sample_it = it - num_burnin
         if sample_it >= 0:
