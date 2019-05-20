@@ -51,15 +51,17 @@ f1 = ParamF(  # disc
     MLNPotential(lambda x: imp_op(x[0] * x[1], x[2]), w=1), nb=(atom_D, atom_E, atom_C)
 )
 
-w_h = 0.01
+w_h = 0.1
+a = 8.
+b = -7.
 f2 = ParamF(  # hybrid
     # MLNPotential(lambda x: x[0] * eq_op(x[1], x[2]), w=w_h), nb=(atom_C, atom_A, atom_B)  # unimodal
-    MLNPotential(lambda x: (1 - x[0]) * eq_op(x[1], 8) + x[0] * eq_op(x[2], -7), w=w_h), nb=(atom_C, atom_A, atom_B)
+    MLNPotential(lambda x: (1 - x[0]) * eq_op(x[1], a) + x[0] * eq_op(x[2], b), w=w_h), nb=(atom_C, atom_A, atom_B)
 )
 equiv_hybrid_pot = HybridQuadraticPotential(
     A=-w_h * np.array([np.array([[1., 0], [0, 0]]), np.array([[0., 0.], [0., 1.]])]),
-    b=-w_h * np.array([[-16., 0], [0., 14.]]),
-    c=-w_h * np.array([64., 49.])
+    b=-w_h * np.array([[-2 * a, 0], [0., -2 * b]]),
+    c=-w_h * np.array([a ** 2, b ** 2])
 )
 
 prior_var = 0.5  # variance of Gaussian prior
@@ -127,7 +129,7 @@ for _ in range(num_tests):
 
     # sampling baseline
     name = 'GS'
-    num_burnin = 400
+    num_burnin = 200
     num_samples = 500
     num_gm_components_for_crv = 3
     disc_block_its = 40
