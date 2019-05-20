@@ -1,0 +1,251 @@
+import utils
+
+utils.set_path(('..', '../gibbs'))
+from RelationalGraph import *
+from MLNPotential import *
+from Potential import QuadraticPotential, TablePotential, HybridQuadraticPotential
+from EPBPLogVersion import EPBP
+from OneShot import OneShot, LiftedOneShot
+from CompressedGraphSorted import CompressedGraphSorted
+import numpy as np
+import time
+from copy import copy
+
+seed = 0
+utils.set_seed(seed)
+
+from hybrid_gaussian_mrf import HybridGaussianSampler
+
+# num_x = 10
+# num_y = 2
+# num_s = 5
+
+num_x = 2
+num_y = 2
+num_s = 2
+
+X = []
+for x in range(num_x):
+    X.append(f'x{x}')
+Y = []
+for y in range(num_y):
+    Y.append(f'y{y}')
+S = []
+for s in range(num_s):
+    S.append(f's{s}')
+
+domain_bool = Domain((0, 1))
+domain_real = Domain((-15, 15), continuous=True, integral_points=linspace(-15, 15, 20))
+
+lv_x = LV(X)
+lv_y = LV(Y)
+lv_s = LV(S)
+
+atom_A = Atom(domain_real, logical_variables=(lv_y,), name='A')
+atom_B = Atom(domain_real, logical_variables=(lv_x,), name='B')
+atom_C = Atom(domain_bool, logical_variables=(lv_x, lv_y), name='C')
+atom_D = Atom(domain_bool, logical_variables=(lv_x, lv_s), name='D')
+atom_E = Atom(domain_bool, logical_variables=(lv_y, lv_s), name='E')
+
+f1 = ParamF(  # disc
+    MLNPotential(lambda x: imp_op(x[0] * x[1], x[2]), w=1), nb=(atom_D, atom_E, atom_C)
+)
+
+w_h = 0.01
+f2 = ParamF(  # hybrid
+    # MLNPotential(lambda x: x[0] * eq_op(x[1], x[2]), w=w_h), nb=(atom_C, atom_A, atom_B)  # unimodal
+    MLNPotential(lambda x: (1 - x[0]) * eq_op(x[1], 8) + x[0] * eq_op(x[2], -7), w=w_h), nb=(atom_C, atom_A, atom_B)
+)
+equiv_hybrid_pot = HybridQuadraticPotential(
+    A=-w_h * np.array([np.array([[1., 0], [0, 0]]), np.array([[0., 0.], [0., 1.]])]),
+    b=-w_h * np.array([[-16., 0], [0., 14.]]),
+    c=-w_h * np.array([64., 49.])
+)
+
+prior_var = 0.5  # variance of Gaussian prior
+f3 = ParamF(  # cont
+    QuadraticPotential(A=-0.5 * (np.eye(2) * prior_var), b=np.array([1., 0.]), c=0.),
+    nb=[atom_A, atom_B]
+)
+
+rel_g = RelationalGraph()
+rel_g.atoms = (atom_A, atom_B, atom_C, atom_D, atom_E)
+rel_g.param_factors = (f1, f2, f3)
+rel_g.init_nb()
+
+num_tests = 2  # num rounds with different queries
+num_runs = 1
+
+avg_diff = dict()
+err_var = dict()
+time_cost = dict()
+
+data = dict()
+
+for _ in range(num_tests):
+    # data.clear()
+    #
+    # X_ = np.random.choice(num_x, int(num_x * 0.2), replace=False)
+    # for x_ in X_:
+    #     data[('B', f'x{x_}')] = np.clip(np.random.normal(0, 5), -10, 10)
+    #
+    # X_ = np.random.choice(num_x, int(num_x * 1), replace=False)
+    # for x_ in X_:
+    #     # S_ = np.random.choice(num_s, 2, replace=False)
+    #     S_ = np.random.choice(num_s, int(num_s * 1), replace=False)
+    #     for s_ in S_:
+    #         data[('D', f'x{x_}', f's{s_}')] = np.random.choice([0, 1])
+    #
+    # for y_ in Y:
+    #     # S_ = np.random.choice(num_s, 5, replace=False)
+    #     S_ = np.random.choice(num_s, int(num_s * 1), replace=False)
+    #     for s_ in S_:
+    #         data[('E', y_, f's{s_}')] = np.random.choice([0, 1])
+    #
+    # rel_g.data = data
+
+    # manually add evidence
+
+    g, rvs_table = rel_g.grounded_graph()
+
+    print(rvs_table)
+
+    print('number of rvs', len(g.rvs))
+    print('number of factors', len(g.factors))
+    print('number of evidence', len(data))
+
+    key_list = list()
+    for y_ in Y:
+        key_list.append(('A', y_))
+    for x_ in X:
+        if ('B', x_) not in data:
+            key_list.append(('B', x_))
+
+    ans = dict()
+
+    # sampling baseline
+    name = 'GS'
+    num_burnin = 500
+    num_samples = 1000
+    num_gm_components_for_crv = 3
+
+    g2 = copy(g)  # shallow copy
+    g2.factors = []
+    # convert factors to the form accepted by HybridGaussianSampler
+    # Currently there's no lifting for sampling, so we don't need to ensure the same potentials share reference
+    for factor in g.factors:
+        factor = copy(factor)
+        if factor.domain_type == 'd' and not isinstance(factor.potential, TablePotential):
+            assert isinstance(factor.potential, MLNPotential), 'currently can only handle MLN'
+            factor.potential = utils.convert_disc_MLNPotential_to_TablePotential(factor.potential, factor.nb)
+        if factor.domain_type == 'h':
+            assert isinstance(factor.potential, MLNPotential), 'currently can only handle MLN'
+            factor.potential = equiv_hybrid_pot
+        assert isinstance(factor.potential, (TablePotential, QuadraticPotential, HybridQuadraticPotential))
+        g2.factors.append(factor)
+
+    utils.set_log_potential_funs(g2.factors, skip_existing=False)  # create lpot_funs to be used by baseline
+    g2.init_rv_indices()
+    hgsampler = HybridGaussianSampler(g2)
+    hgsampler.block_gibbs_sample(num_burnin=num_burnin, num_samples=num_samples, disc_block_its=30)
+    np.save('cont_samples', hgsampler.cont_samples)
+    np.save('disc_samples', hgsampler.disc_samples)
+
+    for i, key in enumerate(key_list):
+        ans[key] = hgsampler.map(rvs_table[key], num_gm_components_for_crv=num_gm_components_for_crv)
+
+    name = 'EPBP'
+    res = np.zeros((len(key_list), num_runs))
+    for j in range(num_runs):
+        bp = EPBP(g, n=20, proposal_approximation='simple')
+        start_time = time.process_time()
+        bp.run(10, log_enable=False)
+        time_cost[name] = (time.process_time() - start_time) / num_runs / num_tests + time_cost.get(name, 0)
+        print(name, f'time {time.process_time() - start_time}')
+        for i, key in enumerate(key_list):
+            res[i, j] = bp.map(rvs_table[key])
+        print(res[:, j])
+    # for i, key in enumerate(key_list):
+    #     ans[key] = np.average(res[i, :])
+    for i, key in enumerate(key_list):
+        res[i, :] -= ans[key]
+    avg_diff[name] = np.average(np.average(abs(res), axis=1)) / num_tests + avg_diff.get(name, 0)
+    err_var[name] = np.average(np.average(res ** 2, axis=1)) / num_tests + err_var.get(name, 0)
+    print(name, 'diff', np.average(np.average(abs(res), axis=1)))
+    print(name, 'var', np.average(np.average(res ** 2, axis=1)) - np.average(np.average(abs(res), axis=1)) ** 2)
+
+    name = 'OSI'
+    K = 1
+    T = 10
+    lr = 0.4
+    its = 200
+    fix_mix_its = int(its * 0.5)
+    logging_itv = 50
+    res = np.zeros((len(key_list), num_runs))
+    utils.set_log_potential_funs(g.factors_list)
+    osi = OneShot(g=g, K=K, T=T, seed=seed)  # can be moved outside of all loops if the ground MRF doesn't change
+    for j in range(num_runs):
+        start_time = time.process_time()
+        osi.run(lr=lr, its=its, fix_mix_its=fix_mix_its, logging_itv=logging_itv)
+        time_cost[name] = (time.process_time() - start_time) / num_runs / num_tests + time_cost.get(name, 0)
+        print(name, f'time {time.process_time() - start_time}')
+        for i, key in enumerate(key_list):
+            res[i, j] = osi.map(obs_rvs=[], query_rv=rvs_table[key])
+        print(res[:, j])
+        # print(osi.params)
+        print('Mu =\n', osi.params['Mu'], '\nVar =\n', osi.params['Var'])
+    for i, key in enumerate(key_list):
+        res[i, :] -= ans[key]
+    avg_diff[name] = np.average(np.average(abs(res), axis=1)) / num_tests + avg_diff.get(name, 0)
+    err_var[name] = np.average(np.average(res ** 2, axis=1)) / num_tests + err_var.get(name, 0)
+    print(name, 'diff', np.average(np.average(abs(res), axis=1)))
+    print(name, 'var', np.average(np.average(res ** 2, axis=1)) - np.average(np.average(abs(res), axis=1)) ** 2)
+
+    name = 'LOSI'
+    cg = CompressedGraphSorted(g)
+    cg.run()
+    print('number of rvs in cg', len(cg.rvs))
+    print('number of factors in cg', len(cg.factors))
+    osi = LiftedOneShot(g=cg, K=K, T=T, seed=seed)  # can be moved outside of all loops if the ground MRF doesn't change
+    for j in range(num_runs):
+        start_time = time.process_time()
+        osi.run(lr=lr, its=its, fix_mix_its=fix_mix_its, logging_itv=logging_itv)
+        time_cost[name] = (time.process_time() - start_time) / num_runs / num_tests + time_cost.get(name, 0)
+        print(name, f'time {time.process_time() - start_time}')
+        for i, key in enumerate(key_list):
+            res[i, j] = osi.map(obs_rvs=[], query_rv=rvs_table[key])
+        print(res[:, j])
+        # print(osi.params)
+        print('Mu =\n', osi.params['Mu'], '\nVar =\n', osi.params['Var'])
+    for i, key in enumerate(key_list):
+        res[i, :] -= ans[key]
+    avg_diff[name] = np.average(np.average(abs(res), axis=1)) / num_tests + avg_diff.get(name, 0)
+    err_var[name] = np.average(np.average(res ** 2, axis=1)) / num_tests + err_var.get(name, 0)
+    print(name, 'diff', np.average(np.average(abs(res), axis=1)))
+    print(name, 'var', np.average(np.average(res ** 2, axis=1)) - np.average(np.average(abs(res), axis=1)) ** 2)
+
+print('plotting example marginal from last run')
+test_crv_idx = 0
+osi_test_crv_marg_params = osi.params['w'], osi.params['Mu'][test_crv_idx], osi.params['Var'][test_crv_idx]
+
+import matplotlib.pyplot as plt
+
+plt.figure()
+xs = np.linspace(domain_real.values[0], domain_real.values[1], 100)
+
+plt.hist(hgsampler.cont_samples[:, test_crv_idx], normed=True, label='samples')
+plt.plot(xs,
+         np.exp(utils.get_scalar_gm_log_prob(xs, w=osi_test_crv_marg_params[0], mu=osi_test_crv_marg_params[1],
+                                             var=osi_test_crv_marg_params[2])),
+         label='OSI marg pdf')
+plt.legend(loc='best')
+# plt.show()
+save_name = __file__.split('.py')[0]
+plt.savefig('%s.png' % save_name)
+
+print('######################')
+for name, v in time_cost.items():
+    print(name, f'avg time {v}')
+for name, v in avg_diff.items():
+    print(name, f'diff {v}')
+    print(name, f'std {np.sqrt(err_var[name] - v ** 2)}')
