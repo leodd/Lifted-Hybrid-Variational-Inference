@@ -7,7 +7,7 @@ from itertools import product
 
 
 class VarInference:
-    var_threshold = 0.01
+    var_threshold = 0.1
     k_mean_k = 2
     k_mean_its = 10
     update_obs_its = 20
