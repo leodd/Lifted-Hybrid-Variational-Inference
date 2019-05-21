@@ -49,7 +49,7 @@ f1 = ParamF(  # disc
     constrain=lambda sub: (sub[lv_s] == 'T1' and sub[lv_s2] == 'T1') or (sub[lv_s] == 'T1' and sub[lv_s2] == 'T2')
 )
 
-w_h = 0.2  # the stronger the more multi-modal things tend to be
+w_h = 0.4  # the stronger the more multi-modal things tend to be
 f2 = ParamF(  # hybrid
     MLNPotential(lambda x: x[0] * eq_op(x[1], x[2]), w=w_h),
     nb=(atom_C, atom_A, atom_B)
@@ -102,7 +102,7 @@ for test_num in range(num_tests):
     #         data[('E', y_, f's{s_}')] = np.random.choice([0, 1])
     #
 
-    B_vals = np.random.normal(loc=0, scale=5, size=len(S))  # special treatment for the story
+    B_vals = np.random.normal(loc=0, scale=10, size=len(S))  # special treatment for the story
     for i, s in enumerate(S):
         data[('B', s)] = B_vals[i]
 
