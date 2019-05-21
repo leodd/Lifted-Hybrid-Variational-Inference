@@ -18,7 +18,7 @@ from hybrid_gaussian_mrf import HybridGaussianSampler
 from hybrid_gaussian_mrf import convert_to_bn, block_gibbs_sample, get_crv_marg, get_drv_marg, \
     get_rv_marg_map_from_bn_params
 
-num_x = 2
+num_x = 4
 num_y = 2
 
 X = []
@@ -83,25 +83,6 @@ data = dict()
 for test_num in range(num_tests):
     test_seed = seed + test_num
     data.clear()
-    #
-    # X_ = np.random.choice(num_x, int(num_x * 0.2), replace=False)
-    # for x_ in X_:
-    #     data[('B', f'x{x_}')] = np.clip(np.random.normal(0, 5), -10, 10)
-    #
-    # X_ = np.random.choice(num_x, int(num_x * 1), replace=False)
-    # for x_ in X_:
-    #     # S_ = np.random.choice(num_s, 2, replace=False)
-    #     S_ = np.random.choice(num_s, int(num_s * 1), replace=False)
-    #     for s_ in S_:
-    #         data[('D', f'x{x_}', f's{s_}')] = np.random.choice([0, 1])
-    #
-    # for y_ in Y:
-    #     # S_ = np.random.choice(num_s, 5, replace=False)
-    #     S_ = np.random.choice(num_s, int(num_s * 1), replace=False)
-    #     for s_ in S_:
-    #         data[('E', y_, f's{s_}')] = np.random.choice([0, 1])
-    #
-
     B_vals = np.random.normal(loc=0, scale=10, size=len(S))  # special treatment for the story
     for i, s in enumerate(S):
         data[('B', s)] = B_vals[i]
@@ -111,7 +92,7 @@ for test_num in range(num_tests):
             if x != y:
                 data[('D', x, y)] = np.random.randint(2)
 
-    evidence_ratio = 0.1
+    evidence_ratio = 0.5
     x_idx = np.random.choice(len(X), int(len(X) * evidence_ratio), replace=False)
     for i in x_idx:
         data['C', X[i], 'T1'] = np.random.randint(2)
@@ -186,9 +167,19 @@ for test_num in range(num_tests):
                 raise NotImplementedError
         if factor.domain_type == 'c':
             if isinstance(factor.potential, MLNPotential):
-                print("shouldn't happen in this example...")
-                assert len(factor.nb) == 2
-                factor.potential = equiv_hybrid_pot
+                if len(factor.nb) == 2:
+                    factor.potential = equiv_hybrid_pot
+                else:
+                    assert len(factor.nb) == 1
+                    uncond_factor = factor.uncond_factor  # from conditioning
+                    obs = [v.value for v in uncond_factor.nb if v in obs_rvs]
+                    assert len(obs) == 2
+                    dobs, cobs = obs[0], obs[1]
+                    if dobs == 0:
+                        factor.potential = QuadraticPotential(A=np.zeros([1, 1]), b=np.zeros([1]), c=0)
+                    else:
+                        factor.potential = QuadraticPotential(A=w_h * -np.eye(1),
+                                                              b=w_h * np.array([2 * cobs]), c=w_h * -cobs ** 2)
 
         assert isinstance(factor.potential, (TablePotential, QuadraticPotential, HybridQuadraticPotential))
         g2.factors.append(factor)
@@ -336,7 +327,7 @@ for test_crv_idx in range(len(Vc)):
     if baseline == 'gibbs':
         plt.hist(hgsampler.cont_samples[:, test_crv_idx], normed=True, label='samples')
 
-    plot_losi = True
+    plot_losi = False
     if plot_losi:
         osi = losi
     osi_test_crv_marg_params = osi.params['w'], osi.params['Mu'][test_crv_idx], osi.params['Var'][test_crv_idx]
