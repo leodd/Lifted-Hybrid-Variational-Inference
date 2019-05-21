@@ -68,4 +68,7 @@ for name, t_log in time_log.items():
         y.append(fe)
     plt.plot(x, y, color=color[name])
 
+plt.legend(['VI', 'Lifted VI', 'C2F VI'])
+plt.xlabel('time (second)')
+plt.ylabel('negative free energy')
 plt.show()

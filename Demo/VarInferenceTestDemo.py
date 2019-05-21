@@ -29,7 +29,7 @@ g.rvs = [A, B, C, D, E]
 g.factors = [f_AB, f_BC, f_DC, f_ED]
 g.init_nb()
 
-from LiftedVarInference import VarInference
+from C2FVarInference import VarInference
 
 # np.random.seed(9)
 vi = VarInference(g, num_mixtures=4, num_quadrature_points=8)

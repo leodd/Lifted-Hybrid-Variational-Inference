@@ -13,7 +13,7 @@ def generate_rel_graph():
     for i in range(5):
         instance_bank.append(f'b{i}')
 
-    d = Domain((-50, 50), continuous=True, integral_points=linspace(-30, 30, 100))
+    d = Domain((-50, 50), continuous=True, integral_points=linspace(-50, 50, 100))
 
     p1 = GaussianPotential([0., 0.], [[10., -7.], [-7., 10.]])
     p2 = GaussianPotential([0., 0.], [[10., 5.], [5., 10.]])

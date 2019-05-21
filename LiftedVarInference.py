@@ -60,7 +60,7 @@ class VarInference:
 
         for rv in self.g.rvs:
             def f_w(x):
-                return (rv.N - 1) * log(self.rvs_belief(x, [rv]))
+                return (rv.N - 1) * log(self.rvs_belief(x, [rv]) + 1e-8)
 
             for k in range(self.K):
                 if rv.value is not None:
@@ -74,7 +74,7 @@ class VarInference:
 
         for f in self.g.factors:
             def f_w(x):
-                return log(f.potential.get(x)) - log(self.rvs_belief(x, f.nb))
+                return log(f.potential.get(x) + 1e-8) - log(self.rvs_belief(x, f.nb) + 1e-8)
 
             for k in range(self.K):
                 args = list()
@@ -96,10 +96,10 @@ class VarInference:
 
         for k in range(self.K):
             def f_mu(x):
-                return ((rv.N - 1) * log(self.rvs_belief(x, [rv]))) * (x[0] - eta[k][0])
+                return ((rv.N - 1) * log(self.rvs_belief(x, [rv]) + 1e-8)) * (x[0] - eta[k][0])
 
             def f_var(x):
-                return ((rv.N - 1) * log(self.rvs_belief(x, [rv]))) * ((x[0] - eta[k][0]) ** 2 - eta[k][1])
+                return ((rv.N - 1) * log(self.rvs_belief(x, [rv]) + 1e-8)) * ((x[0] - eta[k][0]) ** 2 - eta[k][1])
 
             arg = (True, self.eta[rv][k])
 
@@ -111,11 +111,11 @@ class VarInference:
             idx = f.nb.index(rv)
             for k in range(self.K):
                 def f_mu(x):
-                    return (log(f.potential.get(x)) - log(self.rvs_belief(x, f.nb))) * \
+                    return (log(f.potential.get(x) + 1e-8) - log(self.rvs_belief(x, f.nb) + 1e-8)) * \
                            (x[idx] - eta[k][0])
 
                 def f_var(x):
-                    return (log(f.potential.get(x)) - log(self.rvs_belief(x, f.nb))) * \
+                    return (log(f.potential.get(x) + 1e-8) - log(self.rvs_belief(x, f.nb) + 1e-8)) * \
                            ((x[idx] - eta[k][0]) ** 2 - eta[k][1])
 
                 args = list()
@@ -138,7 +138,7 @@ class VarInference:
 
         for k in range(self.K):
             for d, (xi, v) in enumerate(zip(rv.domain.values, eta[k])):
-                g_c[k, d] -= (rv.N - 1) * log(self.rvs_belief([xi], [rv]))
+                g_c[k, d] -= (rv.N - 1) * log(self.rvs_belief([xi], [rv]) + 1e-8)
 
             for f in rv.nb:
                 count = rv.count[f]
@@ -156,7 +156,7 @@ class VarInference:
                 for d, xi in enumerate(rv.domain.values):
                     def f_c(x):
                         new_x = x[:idx] + (xi,) + x[idx:]
-                        return log(f.potential.get(new_x)) - log(self.rvs_belief(new_x, f.nb))
+                        return log(f.potential.get(new_x) + 1e-8) - log(self.rvs_belief(new_x, f.nb) + 1e-8)
 
                     g_c[k, d] -= count * self.expectation(f_c, *args)
 
@@ -167,7 +167,7 @@ class VarInference:
 
         for rv in self.g.rvs:
             def f_bfe(x):
-                return (rv.N - 1) * log(self.rvs_belief(x, [rv]))
+                return (rv.N - 1) * log(self.rvs_belief(x, [rv]) + 1e-8)
 
             for k in range(self.K):
                 if rv.value is not None:
@@ -181,7 +181,7 @@ class VarInference:
 
         for f in self.g.factors:
             def f_bfe(x):
-                return log(f.potential.get(x)) - log(self.rvs_belief(x, f.nb))
+                return log(f.potential.get(x) + 1e-8) - log(self.rvs_belief(x, f.nb) + 1e-8)
 
             for k in range(self.K):
                 args = list()

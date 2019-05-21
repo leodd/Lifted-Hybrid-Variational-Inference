@@ -31,7 +31,7 @@ for i in range(num_test):
     ans.run(15, log_enable=False)
 
     infer = C2FVI(g, num_mixtures=1, num_quadrature_points=3)
-    infer.run(200, lr=0.2)
+    infer.run(200, lr=0.1)
 
     for rv in g.rvs:
         if rv.value is None:
