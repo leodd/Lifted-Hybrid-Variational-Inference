@@ -11,7 +11,7 @@ import numpy as np
 import time
 from copy import copy
 
-seed = 0
+seed = 1
 utils.set_seed(seed)
 
 from hybrid_gaussian_mrf import HybridGaussianSampler
@@ -329,4 +329,4 @@ for name, v in time_cost.items():
     print(name, f'avg time {v}')
 for name, v in avg_diff.items():
     print(name, f'diff {v}')
-    print(name, f'std {np.sqrt(err_var[name] - v ** 2)}')
+    print(name, f'std {np.sqrt(abs(err_var[name] - v ** 2))}')  # sqrt arg can sometimes be a tiny bit negative
