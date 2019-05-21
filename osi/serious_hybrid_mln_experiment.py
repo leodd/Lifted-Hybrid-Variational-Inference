@@ -44,7 +44,7 @@ atom_C2 = Atom(domain_bool, logical_variables=(lv_y, lv_s2), name='C')
 atom_D = Atom(domain_bool, logical_variables=(lv_x, lv_y), name='D')
 
 f1 = ParamF(  # disc
-    MLNPotential(lambda x: imp_op(x[0] * x[1], x[2]), w=1),
+    MLNPotential(lambda x: imp_op(x[0] * x[1], x[2]), w=0.2),
     nb=(atom_D, atom_C, atom_C2),
     constrain=lambda sub: (sub[lv_s] == 'T1' and sub[lv_s2] == 'T1') or (sub[lv_s] == 'T1' and sub[lv_s2] == 'T2')
 )
@@ -60,7 +60,7 @@ equiv_hybrid_pot = HybridQuadraticPotential(
     c=w_h * np.array([0., 0.])
 )  # equals 0 if x[0]==0, equals -(x[1]-x[1])^2 if x[0]==1
 
-prior_strength = 0.1
+prior_strength = 0.02
 f3 = ParamF(  # cont
     QuadraticPotential(A=-prior_strength * (np.eye(2)), b=np.array([0., 0.]), c=0.),
     nb=[atom_A, atom_B]
