@@ -111,19 +111,19 @@ for test_num in range(num_tests):
             if x != y:
                 data[('D', x, y)] = np.random.randint(2)
 
-    x_idx = np.random.choice(len(X), int(len(X) / 10), replace=False)
+    evidence_ratio = 0.1
+    x_idx = np.random.choice(len(X), int(len(X) * evidence_ratio), replace=False)
     for i in x_idx:
         data['C', X[i], 'T1'] = np.random.randint(2)
 
-    x_idx = np.random.choice(len(X), int(len(X) / 10), replace=False)
+    x_idx = np.random.choice(len(X), int(len(X) * evidence_ratio), replace=False)
     for i in x_idx:
         data['C', X[i], 'T2'] = np.random.randint(2)
 
-    x_idx = np.random.choice(len(X), int(len(X) / 10), replace=False)
+    x_idx = np.random.choice(len(X), int(len(X) * evidence_ratio), replace=False)
     for i in x_idx:
         data['C', X[i], 'T3'] = np.random.randint(2)
 
-    # data[('A', 'x0')] = 1.3  # and whatever other evidence
     print(data)
 
     rel_g.data = data
@@ -148,6 +148,10 @@ for test_num in range(num_tests):
     evidence = {rv: rv.value for rv in obs_rvs}
     cond_g = utils.get_conditional_mrf(g.factors_list, g.rvs,
                                        evidence)  # this will also condition log_potential_funs
+
+    print('cond number of rvs', len(cond_g.rvs))
+    print('cond num drvs', len([rv for rv in cond_g.rvs if rv.domain_type[0] == 'd']))
+    print('cond num crvs', len([rv for rv in cond_g.rvs if rv.domain_type[0] == 'c']))
 
     baseline = 'exact'
     # baseline = 'gibbs'
