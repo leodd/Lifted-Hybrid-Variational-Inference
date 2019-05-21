@@ -229,10 +229,10 @@ for test_num in range(num_tests):
 
     name = 'OSI'
     cond = True
-    K = 2
+    K = 3
     T = 16
     lr = 0.5
-    its = 1000
+    its = 1500
     fix_mix_its = int(its * 0.5)
     logging_itv = 50
     res = np.zeros((len(key_list), num_runs))
