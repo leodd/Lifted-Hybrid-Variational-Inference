@@ -11,10 +11,10 @@ instance = [
 data = {
     ('Friend', 'Joey', 'Rachel'): 1,
     ('Friend', 'Joey', 'Tim'): 1,
-    ('Friend', 'Rachel', 'Joey'): 1,
+    # ('Friend', 'Rachel', 'Joey'): 1,
     ('Friend', 'Rachel', 'Tim'): 0,
     ('Friend', 'Tim', 'Joey'): 1,
-    ('Friend', 'Tim', 'Rachel'): 0,
+    # ('Friend', 'Tim', 'Rachel'): 0,
     ('Smoke', 'Tim'): 1,
 }
 
@@ -69,7 +69,7 @@ from LiftedVarInference import VarInference
 # np.random.seed(9)
 vi = VarInference(g, num_mixtures=5, num_quadrature_points=8)
 
-vi.run(50, lr=1)
+vi.run(100, lr=0.3)
 
 print(vi.free_energy())
 

@@ -32,9 +32,9 @@ g.init_nb()
 from LiftedVarInference import VarInference
 
 # np.random.seed(9)
-vi = VarInference(g, num_mixtures=5, num_quadrature_points=8)
+vi = VarInference(g, num_mixtures=4, num_quadrature_points=8)
 
-vi.run(200, lr=2)
+vi.run(200, lr=0.1)
 
 print(vi.free_energy())
 

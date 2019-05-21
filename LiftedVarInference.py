@@ -237,7 +237,70 @@ class VarInference:
         # initiate parameters
         self.init_param()
 
+        self.alpha = lr
+        self.b1 = 0.9
+        self.b2 = 0.999
+        self.eps = 1e-8
+
+        self.w_tau_g = [np.zeros(self.K), np.zeros(self.K)]
+        self.eta_g = [dict(), dict()]
+        self.eta_tau_g = [dict(), dict()]
+        for rv in self.g.rvs:
+            if rv.value is not None:
+                continue
+            elif rv.domain.continuous:
+                self.eta_g[0][rv] = np.zeros((self.K, 2))
+                self.eta_g[1][rv] = np.zeros((self.K, 2))
+            else:
+                self.eta_tau_g[0][rv] = np.zeros((self.K, len(rv.domain.values)))
+                self.eta_tau_g[1][rv] = np.zeros((self.K, len(rv.domain.values)))
+
+        self.t = 0
+
         # Bethe iteration
+        self.ADAM_update(iteration)
+
+    def ADAM_update(self, iteration):
+        for itr in range(iteration):
+            self.t += 1
+            # compute gradient
+            g = self.gradient_w_tau()
+            self.w_tau_g[0] = self.w_tau_g[0] * self.b1 + (1 - self.b1) * g
+            self.w_tau_g[1] = self.w_tau_g[1] * self.b2 + (1 - self.b2) * g * g
+
+            for rv in self.g.rvs:
+                if rv.value is not None:
+                    continue
+                elif rv.domain.continuous:
+                    g = self.gradient_mu_var(rv)
+                    self.eta_g[0][rv] = self.eta_g[0][rv] * self.b1 + (1 - self.b1) * g
+                    self.eta_g[1][rv] = self.eta_g[1][rv] * self.b2 + (1 - self.b2) * g * g
+                else:
+                    g = self.gradient_category_tau(rv)
+                    self.eta_tau_g[0][rv] = self.eta_tau_g[0][rv] * self.b1 + (1 - self.b1) * g
+                    self.eta_tau_g[1][rv] = self.eta_tau_g[1][rv] * self.b2 + (1 - self.b2) * g * g
+
+            # update parameters
+            self.w_tau = self.w_tau - (self.alpha * (self.w_tau_g[0] / (1 - (self.b1 ** self.t)))) \
+                         / (np.sqrt(self.w_tau_g[1] / (1 - (self.b2 ** self.t))) + self.eps)
+            self.w = self.softmax(self.w_tau)
+            for rv in self.g.rvs:
+                if rv.value is not None:
+                    continue
+                elif rv.domain.continuous:
+                    table = self.eta[rv] - (self.alpha * (self.eta_g[0][rv] / (1 - (self.b1 ** self.t)))) \
+                            / (np.sqrt(self.eta_g[1][rv] / (1 - (self.b2 ** self.t))) + self.eps)
+                    table[:, 1] = np.clip(table[:, 1], a_min=self.var_threshold, a_max=np.inf)
+                    self.eta[rv] = table
+                else:
+                    table = self.eta_tau[rv] - (self.alpha * (self.eta_tau_g[0][rv] / (1 - (self.b1 ** self.t)))) \
+                            / (np.sqrt(self.eta_tau_g[1][rv] / (1 - (self.b2 ** self.t))) + self.eps)
+                    self.eta_tau[rv] = table
+                    self.eta[rv] = self.softmax(table, 1)
+
+            print(self.free_energy())
+
+    def GD_update(self, iteration, lr):
         for itr in range(iteration):
             # compute gradient
             w_tau_g = self.gradient_w_tau() * lr
