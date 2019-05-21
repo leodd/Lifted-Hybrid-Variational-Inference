@@ -16,7 +16,7 @@ from C2FVarInference import VarInference as C2FVI
 from GaBP import GaBP
 
 
-data = load_data('Data/RGM/' + str(0.2) + '_' + str(0))
+data = load_data('Data/RGM/time_log_test')
 rel_g.data = data
 g, rvs_table = rel_g.grounded_graph()
 

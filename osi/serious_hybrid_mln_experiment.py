@@ -106,6 +106,23 @@ for test_num in range(num_tests):
     for i, s in enumerate(S):
         data[('B', s)] = B_vals[i]
 
+    for x in X:
+        for y in X:
+            if x != y:
+                data[('D', x, y)] = np.random.randint(2)
+
+    x_idx = np.random.choice(len(X), int(len(X) / 10), replace=False)
+    for i in x_idx:
+        data['C', X[i], 'T1'] = np.random.randint(2)
+
+    x_idx = np.random.choice(len(X), int(len(X) / 10), replace=False)
+    for i in x_idx:
+        data['C', X[i], 'T2'] = np.random.randint(2)
+
+    x_idx = np.random.choice(len(X), int(len(X) / 10), replace=False)
+    for i in x_idx:
+        data['C', X[i], 'T3'] = np.random.randint(2)
+
     # data[('A', 'x0')] = 1.3  # and whatever other evidence
     print(data)
 
