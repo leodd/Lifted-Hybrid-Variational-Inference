@@ -271,13 +271,17 @@ def condition_factors_on_evidence(factors, evidence):
     return cond_factors
 
 
-def get_conditional_mrf(factors, rvs, evidence):
+def get_conditional_mrf(factors, rvs, evidence, update_rv_nbs=False):  # TODO: fix this hot OOP mess
     """
 
     :param factors: an iterable of factors
     :param rvs: an iterable of rvs
     :param evidence: a dict mapping rvs (Graph.RV objects) to numerical values
+    :param update_rv_nbs: if True, will run g.init_nb on the returned graph g; this will modify the rvs passed in
     :return: g, containing unobserved rvs and conditional factors with scopes reduced to the unobserved rvs
+    WARNING: the returned graph will share ref to the rv objects that were passed in, so use update_rv_nbs with caution,
+    as this will propagate to the original graph which they belong to; default is to have update_rv_nbs=False, so the
+    returned graph rvs will likely have the wrong .nb (neighboring factors).
     """
     cond_factors = condition_factors_on_evidence(factors, evidence)
     cond_factors = list(filter(lambda f: len(f.nb) > 0, cond_factors))  # keep only non-empty factors
@@ -287,7 +291,9 @@ def get_conditional_mrf(factors, rvs, evidence):
     g = Graph()
     g.rvs = remaining_rvs
     g.factors = cond_factors
-    g.init_nb()  # update .nb attributes of rvs
+    if update_rv_nbs:
+        print('WARNING: updating rvs to use neighboring factors in the conditioned graph')
+        g.init_nb()  # update .nb attributes of rvs
     return g
 
 
