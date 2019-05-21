@@ -1,7 +1,9 @@
 from RelationalGraph import *
 from Potential import GaussianPotential
 from EPBPLogVersion import EPBP
-from VarInference import VarInference
+from VarInference import VarInference as VI
+from LiftedVarInference import VarInference as LVI
+from C2FVarInference import VarInference as C2FVI
 from GaBP import GaBP
 import numpy as np
 import time
@@ -15,8 +17,6 @@ avg_err = dict()
 max_err = dict()
 err_var = dict()
 time_cost = dict()
-
-time_log = list()
 
 num_test = 5
 evidence_ratio = 0.2
@@ -41,26 +41,10 @@ for i in range(num_test):
         if key not in data:
             ans[key] = infer.map(rvs_table[key])
 
-    name = 'EPBP'
-    infer = EPBP(g, n=20)
-    start_time = time.process_time()
-    infer.run(15, log_enable=False)
-    time_cost[name] = (time.process_time() - start_time) / num_test + time_cost.get(name, 0)
-    print(name, f'time {time.process_time() - start_time}')
-    err = []
-    for key in key_list:
-        if key not in data:
-            err.append(abs(infer.map(rvs_table[key]) - ans[key]))
-    avg_err[name] = np.average(err) / num_test + avg_err.get(name, 0)
-    max_err[name] = np.max(err) / num_test + max_err.get(name, 0)
-    err_var[name] = np.average(err) ** 2 / num_test + err_var.get(name, 0)
-    print(name, f'avg err {np.average(err)}')
-    print(name, f'max err {np.max(err)}')
-
     name = 'VI'
-    infer = VarInference(g, num_mixtures=1, num_quadrature_points=3)
+    infer = VI(g, num_mixtures=1, num_quadrature_points=3)
     start_time = time.process_time()
-    infer.run(1000)
+    infer.run(300)
     time_cost[name] = (time.process_time() - start_time) / num_test + time_cost.get(name, 0)
     print(name, f'time {time.process_time() - start_time}')
     err = []

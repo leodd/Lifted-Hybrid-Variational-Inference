@@ -4,6 +4,7 @@ from numpy.polynomial.hermite import hermgauss
 from scipy.optimize import fminbound
 from math import sqrt, pi, e, log
 from itertools import product
+import time
 
 
 class VarInference:
@@ -257,6 +258,9 @@ class VarInference:
 
         self.t = 0
 
+        self.time_log = list()
+        self.start_time = time.process_time()
+
         # Bethe iteration
         self.ADAM_update(iteration)
 
@@ -298,7 +302,10 @@ class VarInference:
                     self.eta_tau[rv] = table
                     self.eta[rv] = self.softmax(table, 1)
 
-            print(self.free_energy())
+            current_time = time.process_time()
+            fe = self.free_energy()
+            print(current_time - self.start_time, fe)
+            self.time_log.append([current_time - self.start_time, fe])
 
     def GD_update(self, iteration, lr):
         for itr in range(iteration):

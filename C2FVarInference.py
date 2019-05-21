@@ -4,6 +4,7 @@ from numpy.polynomial.hermite import hermgauss
 from scipy.optimize import fminbound
 from math import sqrt, pi, e, log
 from itertools import product
+import time
 
 
 class VarInference:
@@ -11,7 +12,7 @@ class VarInference:
     k_mean_k = 2
     k_mean_its = 10
     update_obs_its = 20
-    output_its = 0
+    output_its = 100
     min_obs_var = 0
     gaussian_obs = True
 
@@ -333,6 +334,9 @@ class VarInference:
         d = epsilon * self.update_obs_its / (iteration - self.output_its)
         epsilon -= d
 
+        self.time_log = list()
+        self.start_time = time.process_time()
+
         # Bethe iteration
         for itr in range(int(iteration / self.update_obs_its)):
             # split evidence
@@ -380,7 +384,10 @@ class VarInference:
                     self.eta_tau[rv] = table
                     self.eta[rv] = self.softmax(table, 1)
 
-            print(self.free_energy())
+            current_time = time.process_time()
+            fe = self.free_energy()
+            print(current_time - self.start_time, fe)
+            self.time_log.append([current_time - self.start_time, fe])
 
     def GD_update(self, iteration, lr):
         for itr in range(iteration):
