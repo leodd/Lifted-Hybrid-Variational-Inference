@@ -1,4 +1,5 @@
 import numpy as np
+from math import log, exp
 
 
 def KL(q, p, domain):
@@ -17,10 +18,86 @@ def KL(q, p, domain):
     return res
 
 
+def kl_discrete(p, q):
+    """
+    Compute KL(p||q)
+    p, q are probability table (tensors) of the same shape
+    :param p:
+    :param q:
+    :return:
+    """
+
+    return np.sum(p * (np.log(p) - np.log(q)))  # naive implementation
+
+
+def kl_continuous(p, q, a, b, *args, **kwargs):
+    """
+    Compute KL(p||q), 1D
+    :param p:
+    :param q:
+    :param a:
+    :param b:
+    :param kwargs:
+    :return:
+    """
+    from scipy.integrate import quad
+    def integrand(x):
+        px = p(x)
+        qx = q(x)
+        return px * (log(px) - log(qx))
+
+    res = quad(integrand, a, b, *args, **kwargs)
+    if 'full_result' in kwargs and kwargs['full_result']:
+        return res
+    else:
+        return res[0]
+
+
+def kl_continuous_logpdf(log_p, log_q, a, b, *args, **kwargs):
+    """
+    Compute KL(p||q), 1D
+    :param p:
+    :param q:
+    :param a:
+    :param b:
+    :param kwargs:
+    :return:
+    """
+    from scipy.integrate import quad
+    def integrand(x):
+        logpx = log_p(x)
+        logqx = log_q(x)
+        px = exp(logpx)
+        return px * (logpx - logqx)
+
+    res = quad(integrand, a, b, *args, **kwargs)
+    if 'full_result' in kwargs and kwargs['full_result']:
+        return res
+    else:
+        return res[0]
+
+
+def kl_normal(mu1, mu2, sig1, sig2):
+    """
+    Compute KL(p||q), 1D
+    p ~ N(mu1, sig1^2), q ~ N(mu2, sig2^2)
+    $KL(p, q) = \log \frac{\sigma_2}{\sigma_1} + \frac{\sigma_1^2 + (\mu_1 - \mu_2)^2}{2 \sigma_2^2} - \frac{1}{2}$
+    :param mu1:
+    :param mu2:
+    :param sig1:
+    :param sig2:
+    :return:
+    """
+    res = log(sig2) - log(sig1) + (sig1 ** 2 + (mu1 - mu2) ** 2) / (2 * sig2 ** 2) - 0.5
+    return res
+
+
 if __name__ == '__main__':
     from Graph import Domain
 
-    domain = Domain([-30, 30], continuous=True)
+    lb = -0
+    ub = 30
+    domain = Domain([lb, ub], continuous=True, integral_points=np.linspace(lb, ub, 1000))
 
 
     def norm_pdf(x, mu, sig):
@@ -29,10 +106,14 @@ if __name__ == '__main__':
         return y
 
 
+    mu1, sig1 = 20, 1
+    mu2, sig2 = 0, 2
     res = KL(
-        lambda x: norm_pdf(x, 20, 1),
-        lambda x: norm_pdf(x, 0, 2),
+        lambda x: norm_pdf(x, mu1, sig1),
+        lambda x: norm_pdf(x, mu2, sig2),
         domain
     )
 
-    print(res)
+    print('ans1', res)
+    print('ans2', kl_continuous(p=lambda x: norm_pdf(x, mu1, sig1), q=lambda x: norm_pdf(x, mu2, sig2), a=lb, b=ub))
+    print('closed form ans', kl_normal(mu1, mu2, sig1, sig2))
