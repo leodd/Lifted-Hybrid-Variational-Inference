@@ -264,38 +264,39 @@ for test_num in range(num_tests):
     print(name, 'diff', np.average(np.average(abs(res), axis=1)))
     print(name, 'var', np.average(np.average(res ** 2, axis=1)) - np.average(np.average(abs(res), axis=1)) ** 2)
 
-    # name = 'LOSI'
-    # if cond:
-    #     cg = CompressedGraphSorted(cond_g)
-    # else:
-    #     cg = CompressedGraphSorted(g)  # technically incorrect; currently we should run LOSI on the conditional MRF
-    # cg.run()
-    # print('number of rvs in cg', len(cg.rvs))
-    # print('number of factors in cg', len(cg.factors))
-    # losi = LiftedOneShot(g=cg, K=K, T=T,
-    #                      seed=seed)  # can be moved outside of all loops if the ground MRF doesn't change
-    # for j in range(num_runs):
-    #     # utils.set_seed(test_seed + j)
-    #     start_time = time.process_time()
-    #     losi.run(lr=lr, its=its, fix_mix_its=fix_mix_its, logging_itv=logging_itv)
-    #     time_cost[name] = (time.process_time() - start_time) / num_runs / num_tests + time_cost.get(name, 0)
-    #     print(name, f'time {time.process_time() - start_time}')
-    #     for i, key in enumerate(key_list):
-    #         rv = rvs_table[key]
-    #         if cond:
-    #             mmap = losi.map(obs_rvs=[], query_rv=rv)
-    #         else:
-    #             mmap = losi.map(obs_rvs=obs_rvs, query_rv=rv)
-    #         res[i, j] = mmap
-    #     print(res[:, j])
-    #     # print(osi.params)
-    #     print('Mu =\n', losi.params['Mu'], '\nVar =\n', losi.params['Var'])
-    # for i, key in enumerate(key_list):
-    #     res[i, :] -= ans[key]
-    # avg_diff[name] = np.average(np.average(abs(res), axis=1)) / num_tests + avg_diff.get(name, 0)
-    # err_var[name] = np.average(np.average(res ** 2, axis=1)) / num_tests + err_var.get(name, 0)
-    # print(name, 'diff', np.average(np.average(abs(res), axis=1)))
-    # print(name, 'var', np.average(np.average(res ** 2, axis=1)) - np.average(np.average(abs(res), axis=1)) ** 2)
+    name = 'LOSI'
+    if cond:
+        cond_g.init_nb()  # this will make cond_g rvs' .nb attributes consistent (baseline/OSI didn't care so it was OK)
+        cg = CompressedGraphSorted(cond_g)
+    else:
+        cg = CompressedGraphSorted(g)  # technically incorrect; currently we should run LOSI on the conditional MRF
+    cg.run()
+    print('number of rvs in cg', len(cg.rvs))
+    print('number of factors in cg', len(cg.factors))
+    losi = LiftedOneShot(g=cg, K=K, T=T,
+                         seed=seed)  # can be moved outside of all loops if the ground MRF doesn't change
+    for j in range(num_runs):
+        # utils.set_seed(test_seed + j)
+        start_time = time.process_time()
+        losi.run(lr=lr, its=its, fix_mix_its=fix_mix_its, logging_itv=logging_itv)
+        time_cost[name] = (time.process_time() - start_time) / num_runs / num_tests + time_cost.get(name, 0)
+        print(name, f'time {time.process_time() - start_time}')
+        for i, key in enumerate(key_list):
+            rv = rvs_table[key]
+            if cond:
+                mmap = losi.map(obs_rvs=[], query_rv=rv)
+            else:
+                mmap = losi.map(obs_rvs=obs_rvs, query_rv=rv)
+            res[i, j] = mmap
+        print(res[:, j])
+        # print(osi.params)
+        print('Mu =\n', losi.params['Mu'], '\nVar =\n', losi.params['Var'])
+    for i, key in enumerate(key_list):
+        res[i, :] -= ans[key]
+    avg_diff[name] = np.average(np.average(abs(res), axis=1)) / num_tests + avg_diff.get(name, 0)
+    err_var[name] = np.average(np.average(res ** 2, axis=1)) / num_tests + err_var.get(name, 0)
+    print(name, 'diff', np.average(np.average(abs(res), axis=1)))
+    print(name, 'var', np.average(np.average(res ** 2, axis=1)) - np.average(np.average(abs(res), axis=1)) ** 2)
 
 print('plotting example marginal from last run')
 
@@ -314,6 +315,9 @@ for test_crv_idx in range(len(Vc)):
     if baseline == 'gibbs':
         plt.hist(hgsampler.cont_samples[:, test_crv_idx], normed=True, label='samples')
 
+    plot_losi = True
+    if plot_losi:
+        osi = losi
     osi_test_crv_marg_params = osi.params['w'], osi.params['Mu'][test_crv_idx], osi.params['Var'][test_crv_idx]
     plt.plot(xs, np.exp(utils.get_scalar_gm_log_prob(xs, w=osi_test_crv_marg_params[0], mu=osi_test_crv_marg_params[1],
                                                      var=osi_test_crv_marg_params[2])),
