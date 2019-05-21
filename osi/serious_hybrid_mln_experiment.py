@@ -229,7 +229,7 @@ for test_num in range(num_tests):
 
     name = 'OSI'
     cond = True
-    K = 1
+    K = 2
     T = 10
     lr = 0.5
     its = 500
