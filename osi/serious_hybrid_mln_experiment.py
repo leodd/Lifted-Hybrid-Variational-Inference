@@ -44,12 +44,12 @@ atom_C2 = Atom(domain_bool, logical_variables=(lv_y, lv_s2), name='C')
 atom_D = Atom(domain_bool, logical_variables=(lv_x, lv_y), name='D')
 
 f1 = ParamF(  # disc
-    MLNPotential(lambda x: imp_op(x[0] * x[1], x[2]), w=0.2),
+    MLNPotential(lambda x: imp_op(x[0] * x[1], x[2]), w=0.1),
     nb=(atom_D, atom_C, atom_C2),
     constrain=lambda sub: (sub[lv_s] == 'T1' and sub[lv_s2] == 'T1') or (sub[lv_s] == 'T1' and sub[lv_s2] == 'T2')
 )
 
-w_h = 0.15
+w_h = 0.2  # the stronger the more multi-modal things tend to be
 f2 = ParamF(  # hybrid
     MLNPotential(lambda x: x[0] * eq_op(x[1], x[2]), w=w_h),
     nb=(atom_C, atom_A, atom_B)
@@ -60,7 +60,7 @@ equiv_hybrid_pot = HybridQuadraticPotential(
     c=w_h * np.array([0., 0.])
 )  # equals 0 if x[0]==0, equals -(x[1]-x[1])^2 if x[0]==1
 
-prior_strength = 0.02
+prior_strength = 0.01
 f3 = ParamF(  # cont
     QuadraticPotential(A=-prior_strength * (np.eye(2)), b=np.array([0., 0.]), c=0.),
     nb=[atom_A, atom_B]
@@ -102,7 +102,7 @@ for test_num in range(num_tests):
     #         data[('E', y_, f's{s_}')] = np.random.choice([0, 1])
     #
 
-    B_vals = np.random.normal(loc=0, scale=3, size=len(S))  # special treatment for the story
+    B_vals = np.random.normal(loc=0, scale=5, size=len(S))  # special treatment for the story
     for i, s in enumerate(S):
         data[('B', s)] = B_vals[i]
 
