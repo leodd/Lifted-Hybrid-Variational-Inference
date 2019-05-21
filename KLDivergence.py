@@ -15,3 +15,24 @@ def KL(q, p, domain):
         res += qx * np.log(qx / px)
 
     return res
+
+
+if __name__ == '__main__':
+    from Graph import Domain
+
+    domain = Domain([-30, 30], continuous=True)
+
+
+    def norm_pdf(x, mu, sig):
+        u = (x - mu) / sig
+        y = np.exp(-u * u * 0.5) / (2.506628274631 * sig)
+        return y
+
+
+    res = KL(
+        lambda x: norm_pdf(x, 20, 1),
+        lambda x: norm_pdf(x, 0, 2),
+        domain
+    )
+
+    print(res)
