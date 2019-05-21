@@ -297,7 +297,9 @@ class VarInference:
         for rv, table in self.eta_tau.items():
             self.eta[rv] = self.softmax(table, 1)
 
-    def run(self, iteration=100, lr=0.1):
+    def run(self, iteration=100, lr=0.1, is_log=True):
+        self.is_log = is_log
+
         # initiate compressed graph
         self.g.init_cluster(is_split_cont_evidence=False)
 
@@ -334,8 +336,9 @@ class VarInference:
         d = epsilon * self.update_obs_its / (iteration - self.output_its)
         epsilon -= d
 
-        self.time_log = list()
-        self.start_time = time.process_time()
+        if self.is_log:
+            self.time_log = list()
+            self.start_time = time.process_time()
 
         # Bethe iteration
         for itr in range(int(iteration / self.update_obs_its)):
@@ -384,10 +387,11 @@ class VarInference:
                     self.eta_tau[rv] = table
                     self.eta[rv] = self.softmax(table, 1)
 
-            current_time = time.process_time()
-            fe = self.free_energy()
-            print(current_time - self.start_time, fe)
-            self.time_log.append([current_time - self.start_time, fe])
+            if self.is_log:
+                current_time = time.process_time()
+                fe = self.free_energy()
+                print(fe)
+                self.time_log.append([current_time - self.start_time, fe])
 
     def GD_update(self, iteration, lr):
         for itr in range(iteration):

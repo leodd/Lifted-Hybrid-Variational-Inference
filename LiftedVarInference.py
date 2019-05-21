@@ -234,7 +234,9 @@ class VarInference:
         for rv, table in self.eta_tau.items():
             self.eta[rv] = self.softmax(table, 1)
 
-    def run(self, iteration=100, lr=0.1):
+    def run(self, iteration=100, lr=0.1, is_log=True):
+        self.is_log = is_log
+
         # initiate parameters
         self.init_param()
 
@@ -258,8 +260,9 @@ class VarInference:
 
         self.t = 0
 
-        self.time_log = list()
-        self.start_time = time.process_time()
+        if self.is_log:
+            self.time_log = list()
+            self.start_time = time.process_time()
 
         # Bethe iteration
         self.ADAM_update(iteration)
@@ -302,10 +305,11 @@ class VarInference:
                     self.eta_tau[rv] = table
                     self.eta[rv] = self.softmax(table, 1)
 
-            current_time = time.process_time()
-            fe = self.free_energy()
-            print(current_time - self.start_time, fe)
-            self.time_log.append([current_time - self.start_time, fe])
+            if self.is_log:
+                current_time = time.process_time()
+                fe = self.free_energy()
+                print(fe)
+                self.time_log.append([current_time - self.start_time, fe])
 
     def GD_update(self, iteration, lr):
         for itr in range(iteration):
