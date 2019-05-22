@@ -12,7 +12,7 @@ import time
 
 from copy import copy
 
-seed = 1
+seed = 3
 utils.set_seed(seed)
 
 from hybrid_gaussian_mrf import HybridGaussianSampler
@@ -22,7 +22,7 @@ import sampling_utils
 
 from KLDivergence import kl_continuous_logpdf
 
-num_x = 2
+num_x = 4
 num_y = 2
 
 X = []
@@ -99,7 +99,7 @@ for test_num in range(num_tests):
             if x != y:
                 data[('D', x, y)] = np.random.randint(2)
 
-    evidence_ratio = 0.1
+    evidence_ratio = 0.5
     x_idx = np.random.choice(len(X), int(len(X) * evidence_ratio), replace=False)
     for i in x_idx:
         data['C', X[i], 'T1'] = np.random.randint(2)
