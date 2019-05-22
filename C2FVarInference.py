@@ -309,7 +309,7 @@ class VarInference:
         self.alpha = lr
         self.b1 = 0.9
         self.b2 = 0.999
-        self.eps = 1e-100
+        self.eps = 1e-8
 
         self.w_tau_g = [np.zeros(self.K), np.zeros(self.K)]
         self.eta_g = [dict(), dict()]

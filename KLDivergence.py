@@ -42,9 +42,9 @@ def kl_continuous(p, q, a, b, *args, **kwargs):
     :return:
     """
     def integrand(x):
-        px = p(x) + 1e-100
-        qx = q(x) + 1e-100
-        return px * (log(px) - log(qx))
+        px = p(x)
+        qx = q(x)
+        return log(px ** px) - log(qx ** px)
 
     res = quad(integrand, a, b, *args, **kwargs)
     if 'full_result' in kwargs and kwargs['full_result']:
