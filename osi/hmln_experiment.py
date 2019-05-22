@@ -82,8 +82,9 @@ record_fields = ['cpu_time',
                  'kl_err',  # kl(p(xi)||q(xi)), avg over all nodes i
                  ]
 # algo_names = ['baseline', 'EPBP', 'OSI', 'LOSI']
-algo_names = ['baseline', 'EPBP']
-assert algo_names[0] == 'baseline'
+# algo_names = ['baseline', 'EPBP']
+algo_names = ['EPBP']
+# assert algo_names[0] == 'baseline'
 # for each algorithm, we keep a record, which is a dict mapping a record_field to a list (which will eventually be
 # averaged over)
 records = {algo_name: {record_field: [] for record_field in record_fields} for algo_name in algo_names}
@@ -122,6 +123,14 @@ for test_num in range(num_tests):
 
     rel_g.data = data
     g, rvs_table = rel_g.grounded_graph()
+    # good_fs = []
+    # for f in g.factors_list:
+    #     if len(f.nb) == len(set(f.nb)):
+    #         good_fs.append(f)
+    # g.factors = good_fs
+    # g.rvs = sum([f.nb for f in good_fs], [])
+    # g.init_nb()
+
     g_rv_nbs = [copy(rv.nb) for rv in g.rvs_list]  # keep a copy of rv neighbors in the original graph
     print(rvs_table)
 
@@ -278,7 +287,8 @@ for test_num in range(num_tests):
                 assert rv.domain_type[0] == 'c', 'only looking at kl for cnode queries for now'
                 # lb, ub = -np.inf, np.inf
                 lb, ub = rv.domain.values[0], rv.domain.values[1]
-                marg_kl = max(0, kl_continuous_logpdf(log_p=baseline_margs[i], log_q=margs[i], a=lb, b=ub))
+                # marg_kl = max(0, kl_continuous_logpdf(log_p=baseline_margs[i], log_q=margs[i], a=lb, b=ub))
+                marg_kl = 100
                 marg_kls[i] = marg_kl
 
         elif algo_name == 'OSI' or algo_name == 'LOSI':
@@ -338,9 +348,11 @@ for test_num in range(num_tests):
 
         # same for all algos
         print('pred mmap', mmap)
-        print('true mmap', baseline_mmap)
-        mmap_err = np.mean(np.abs(mmap - baseline_mmap))
-        kl_err = np.mean(marg_kls)
+        # print('true mmap', baseline_mmap)
+        # mmap_err = np.mean(np.abs(mmap - baseline_mmap))
+        # kl_err = np.mean(marg_kls)
+        mmap_err = 100
+        kl_err = 100
         algo_record = dict(cpu_time=cpu_time, wall_time=wall_time, obj=obj, mmap_err=mmap_err, kl_err=kl_err)
         for key, value in algo_record.items():
             records[algo_name][key].append(value)
