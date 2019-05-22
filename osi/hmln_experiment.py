@@ -6,6 +6,7 @@ from MLNPotential import *
 from Potential import QuadraticPotential, TablePotential, HybridQuadraticPotential
 from EPBPLogVersion import EPBP
 from OneShot import OneShot, LiftedOneShot
+from NPVI import NPVI, LiftedNPVI
 from CompressedGraphSorted import CompressedGraphSorted
 import numpy as np
 import time
@@ -81,7 +82,9 @@ record_fields = ['cpu_time',
                  'mmap_err',  # |argmax p(xi) - argmax q(xi)|, avg over all nodes i
                  'kl_err',  # kl(p(xi)||q(xi)), avg over all nodes i
                  ]
-algo_names = ['baseline', 'EPBP', 'OSI', 'LOSI']
+# algo_names = ['baseline', 'EPBP', 'OSI', 'LOSI']
+# algo_names = ['baseline', 'NPVI', 'OSI', ]
+algo_names = ['baseline', 'NPVI', 'LNPVI', 'OSI', 'LOSI']
 # algo_names = ['baseline', 'EPBP']
 # algo_names = ['EPBP']
 # assert algo_names[0] == 'baseline'
@@ -95,7 +98,8 @@ for test_num in range(num_tests):
 
     # regenerate/reload evidence
     data.clear()
-    B_vals = np.random.normal(loc=0, scale=10, size=len(S))  # special treatment for the story
+    obs_scale = 5
+    B_vals = np.random.normal(loc=0, scale=obs_scale, size=len(S))  # special treatment for the story
     # B_vals = np.random.uniform(low=domain_real.values[0], high=domain_real.values[1], size=len(S))
     # B_vals = [-14, 2, 20]
     for i, s in enumerate(S):
@@ -287,27 +291,30 @@ for test_num in range(num_tests):
                 assert rv.domain_type[0] == 'c', 'only looking at kl for cnode queries for now'
                 # lb, ub = -np.inf, np.inf
                 lb, ub = rv.domain.values[0], rv.domain.values[1]
-                # marg_kl = max(0, kl_continuous_logpdf(log_p=baseline_margs[i], log_q=margs[i], a=lb, b=ub))
-                marg_kl = 100
+                marg_kl = max(0, kl_continuous_logpdf(log_p=baseline_margs[i], log_q=margs[i], a=lb, b=ub))
                 marg_kls[i] = marg_kl
 
-        elif algo_name == 'OSI' or algo_name == 'LOSI':
+        elif algo_name in ('OSI', 'LOSI', 'NPVI', 'LNPVI'):
             cond = True
             if cond:
                 cond_g.init_nb()  # this will make cond_g rvs' .nb attributes consistent (baseline didn't care so it was OK)
-            K = 2
+            K = 3
             T = 16
             lr = 0.5
-            its = 1000
+            its = 1500
             fix_mix_its = int(its * 0.5)
             logging_itv = 50
             utils.set_log_potential_funs(g.factors_list, skip_existing=True)  # g factors' lpot_fun should still be None
             # above will also set the lpot_fun in all the (completely unobserved) factors in cond_g
-            if algo_name == 'OSI':
-                if cond:
-                    osi = OneShot(g=cond_g, K=K, T=T, seed=seed)
+            if algo_name in ('OSI', 'NPVI'):
+                if cond:  # TODO: ugly; fix
+                    _g = cond_g
                 else:
-                    osi = OneShot(g=g, K=K, T=T, seed=seed)
+                    _g = g
+                if algo_name == 'OSI':
+                    vi = OneShot(g=_g, K=K, T=T, seed=seed)
+                else:
+                    vi = NPVI(g=_g, K=K, T=T, isotropic_cov=False, seed=seed)
             else:
                 if cond:
                     cg = CompressedGraphSorted(cond_g)
@@ -317,29 +324,32 @@ for test_num in range(num_tests):
                 cg.run()
                 print('number of rvs in cg', len(cg.rvs))
                 print('number of factors in cg', len(cg.factors))
-                osi = LiftedOneShot(g=cg, K=K, T=T, seed=seed)
+                if algo_name == 'LOSI':
+                    vi = LiftedOneShot(g=cg, K=K, T=T, seed=seed)
+                else:
+                    vi = LiftedNPVI(g=cg, K=K, T=T, seed=seed)
             if cond:  # clean up; only needed cond_g.init_nb() for defining symbolic objective
                 for i, rv in enumerate(g.rvs_list):
                     rv.nb = g_rv_nbs[i]  # restore; undo possible mutation from cond_g.init_nb()
 
             start_time = time.process_time()
             start_wall_time = time.time()
-            res = osi.run(lr=lr, its=its, fix_mix_its=fix_mix_its, logging_itv=logging_itv)
+            res = vi.run(lr=lr, its=its, fix_mix_its=fix_mix_its, logging_itv=logging_itv)
             cpu_time = time.process_time() - start_time
             wall_time = time.time() - start_wall_time
-            obj = res['record']['bfe'][-1]
+            obj = res['record']['obj'][-1]
 
             for i, rv in enumerate(query_rvs):
                 if cond:
-                    m = osi.map(obs_rvs=[], query_rv=rv)
+                    m = vi.map(obs_rvs=[], query_rv=rv)
                     crv_idx = cond_g.Vc_idx[rv]
                 else:
-                    m = osi.map(obs_rvs=obs_rvs, query_rv=rv)
+                    m = vi.map(obs_rvs=obs_rvs, query_rv=rv)
                     crv_idx = g.Vc_idx[rv]
                 mmap[i] = m
 
                 assert rv.domain_type[0] == 'c', 'only looking at kl for cnode queries for now'
-                crv_marg_params = osi.params['w'], osi.params['Mu'][crv_idx], osi.params['Var'][crv_idx]
+                crv_marg_params = vi.params['w'], vi.params['Mu'][crv_idx], vi.params['Var'][crv_idx]
                 marg_logpdf = utils.get_scalar_gm_log_prob(None, *crv_marg_params, get_fun=True)
                 margs[i] = marg_logpdf
                 # lb, ub = -np.inf, np.inf

@@ -219,7 +219,7 @@ class OneShot:
         self.sess = sess  # will cache session from last run
 
         gvnames = ['g' + v.name.split(':')[0] for v in trainable_params]
-        record = {n: [] for n in gvnames + ['bfe']}
+        record = {n: [] for n in gvnames + ['obj']}
 
         sess.run(tf.global_variables_initializer())  # always reinit
         for it in range(its):
@@ -264,7 +264,7 @@ class OneShot:
                     grad = grad.values  # somehow gMu is a IndexedSlicesValue
                 avg_grads.append(np.mean(np.abs(grad)))
             it_record = dict(zip(gvnames, avg_grads))
-            it_record['bfe'] = bfe_
+            it_record['obj'] = bfe_
             it_record['t'] = it
             if it % logging_itv == 0 or it + 1 == its:
                 for key in sorted(it_record.keys()):
