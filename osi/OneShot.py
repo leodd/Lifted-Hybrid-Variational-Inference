@@ -23,7 +23,7 @@ class OneShot:
         Define symbolic BFE and auxiliary objective expression to be optimized by tensorflow, given a factor graph.
         We'll use the one default tensorflow computation graph; to make sure we don't redefine it, everytime it'll
         be cleared/reset whenever a new instance of OneShot is created.
-        :param g: a grounded graph corresponding to a plain old MLN; its factors must have .log_potential_fun callable
+        :param g: a grounded graph corresponding to a plain old PGM; its factors must have .log_potential_fun callable
         on tf tensors
         :param K: num mixture comps
         :param T: num quad points

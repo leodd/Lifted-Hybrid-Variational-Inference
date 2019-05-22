@@ -81,9 +81,9 @@ record_fields = ['cpu_time',
                  'mmap_err',  # |argmax p(xi) - argmax q(xi)|, avg over all nodes i
                  'kl_err',  # kl(p(xi)||q(xi)), avg over all nodes i
                  ]
-# algo_names = ['baseline', 'EPBP', 'OSI', 'LOSI']
+algo_names = ['baseline', 'EPBP', 'OSI', 'LOSI']
 # algo_names = ['baseline', 'EPBP']
-algo_names = ['EPBP']
+# algo_names = ['EPBP']
 # assert algo_names[0] == 'baseline'
 # for each algorithm, we keep a record, which is a dict mapping a record_field to a list (which will eventually be
 # averaged over)
@@ -293,23 +293,23 @@ for test_num in range(num_tests):
 
         elif algo_name == 'OSI' or algo_name == 'LOSI':
             cond = True
+            if cond:
+                cond_g.init_nb()  # this will make cond_g rvs' .nb attributes consistent (baseline didn't care so it was OK)
             K = 2
             T = 16
             lr = 0.5
             its = 1000
             fix_mix_its = int(its * 0.5)
             logging_itv = 50
+            utils.set_log_potential_funs(g.factors_list, skip_existing=True)  # g factors' lpot_fun should still be None
+            # above will also set the lpot_fun in all the (completely unobserved) factors in cond_g
             if algo_name == 'OSI':
                 if cond:
-                    utils.set_log_potential_funs(cond_g.factors_list, skip_existing=True)
                     osi = OneShot(g=cond_g, K=K, T=T, seed=seed)
                 else:
-                    utils.set_log_potential_funs(g.factors_list, skip_existing=True)
                     osi = OneShot(g=g, K=K, T=T, seed=seed)
             else:
                 if cond:
-                    # this will make cond_g rvs' .nb attributes consistent (baseline/OSI didn't care so it was OK)
-                    cond_g.init_nb()
                     cg = CompressedGraphSorted(cond_g)
                 else:
                     # technically incorrect; currently we should run LOSI on the conditional MRF
@@ -318,6 +318,7 @@ for test_num in range(num_tests):
                 print('number of rvs in cg', len(cg.rvs))
                 print('number of factors in cg', len(cg.factors))
                 osi = LiftedOneShot(g=cg, K=K, T=T, seed=seed)
+            if cond:  # clean up; only needed cond_g.init_nb() for defining symbolic objective
                 for i, rv in enumerate(g.rvs_list):
                     rv.nb = g_rv_nbs[i]  # restore; undo possible mutation from cond_g.init_nb()
 
@@ -348,11 +349,9 @@ for test_num in range(num_tests):
 
         # same for all algos
         print('pred mmap', mmap)
-        # print('true mmap', baseline_mmap)
-        # mmap_err = np.mean(np.abs(mmap - baseline_mmap))
-        # kl_err = np.mean(marg_kls)
-        mmap_err = 100
-        kl_err = 100
+        print('true mmap', baseline_mmap)
+        mmap_err = np.mean(np.abs(mmap - baseline_mmap))
+        kl_err = np.mean(marg_kls)
         algo_record = dict(cpu_time=cpu_time, wall_time=wall_time, obj=obj, mmap_err=mmap_err, kl_err=kl_err)
         for key, value in algo_record.items():
             records[algo_name][key].append(value)

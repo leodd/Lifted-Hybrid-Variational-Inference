@@ -16,6 +16,7 @@ import time
 import matplotlib.pyplot as plt
 from OneShot import OneShot, LiftedOneShot
 from CompressedGraphSorted import CompressedGraphSorted
+from copy import copy
 
 cluster_mat = scipy.io.loadmat('Data/cluster_NcutDiscrete.mat')['NcutDiscrete']
 well_t = scipy.io.loadmat('Data/well_t.mat')['well_t']
@@ -62,6 +63,7 @@ for i in range(num_test):
     evidence = {rv: rv.value for rv in obs_rvs}
     cond_g = utils.get_conditional_mrf(g.factors_list, g.rvs,
                                        evidence)  # this will also condition log_potential_funs
+    g_rv_nbs = [copy(rv.nb) for rv in g.rvs_list]  # keep a copy of rv neighbors in the original graph
 
     algo = 'LOSI'
     # algo = 'EPBP'
@@ -80,6 +82,8 @@ for i in range(num_test):
         obs_rvs = [v for v in g.rvs if v.value is not None]
         # cond = True
         cond = True
+        if cond:
+            cond_g.init_nb()  # this will make cond_g rvs' .nb attributes consistent; OSI uses when defining obj
 
     if algo == 'EPBP':
         bp = EPBP(g, n=50, proposal_approximation='simple')
@@ -135,6 +139,11 @@ for i in range(num_test):
                 result[idx, i] = osi.map(obs_rvs=[], query_rv=rv)
             else:
                 result[idx, i] = osi.map(obs_rvs=obs_rvs, query_rv=rv)
+
+    if 'OSI' in algo:
+        if cond:  # clearn up just in case someone need to uses rvs.nb in g later
+            for i, rv in enumerate(g.rvs_list):
+                rv.nb = g_rv_nbs[i]  # restore; undo possible mutation from cond_g.init_nb()
 
     # guaranteed exact baseline by solving linear equations (marginal means = marginal modes in Gaussians)
     quadratic_params, rvs_idx = utils.get_quadratic_params_from_factor_graph(cond_g.factors, cond_g.rvs_list)
