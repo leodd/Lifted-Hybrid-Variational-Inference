@@ -66,7 +66,7 @@ f3 = ParamF(  # cont
     nb=[atom_A, atom_B]
 )  # needed to ensure normalizability; model will be indefinite when all discrete nodes are 0
 
-rel_g = RelationalGraph()
+rel_g = RelationalGraphSorted()
 rel_g.atoms = (atom_A, atom_B, atom_C, atom_D)
 rel_g.param_factors = (f1, f2, f3)
 rel_g.init_nb()
