@@ -52,7 +52,7 @@ f1 = ParamF(  # disc
     constrain=lambda sub: (sub[lv_s] == 'T1' and sub[lv_s2] == 'T1') or (sub[lv_s] == 'T1' and sub[lv_s2] == 'T2')
 )
 
-w_h = 0.4  # the stronger the more multi-modal things tend to be
+w_h = 1  # the stronger the more multi-modal things tend to be
 f2 = ParamF(  # hybrid
     MLNPotential(lambda x: x[0] * eq_op(x[1], x[2]), w=w_h),
     nb=(atom_C, atom_A, atom_B)
@@ -81,8 +81,8 @@ record_fields = ['cpu_time',
                  'mmap_err',  # |argmax p(xi) - argmax q(xi)|, avg over all nodes i
                  'kl_err',  # kl(p(xi)||q(xi)), avg over all nodes i
                  ]
-algo_names = ['baseline', 'EPBP', 'OSI', 'LOSI']
-# algo_names = ['baseline', 'EPBP']
+# algo_names = ['baseline', 'EPBP', 'OSI', 'LOSI']
+algo_names = ['baseline', 'EPBP']
 assert algo_names[0] == 'baseline'
 # for each algorithm, we keep a record, which is a dict mapping a record_field to a list (which will eventually be
 # averaged over)
