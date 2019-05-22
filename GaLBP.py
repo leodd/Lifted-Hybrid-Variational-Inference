@@ -14,8 +14,8 @@ class GaLBP:
 
     @staticmethod
     def norm_pdf(x, mu, sig):
-        u = (x - mu) / sig
-        y = exp(-u * u * 0.5) / (2.506628274631 * sig)
+        u = (x - mu)
+        y = exp(-u * u * 0.5 / sig) / (2.506628274631 * sig)
         return y
 
     def message_rv_to_f(self, rv, f):

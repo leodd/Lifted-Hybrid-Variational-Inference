@@ -3,6 +3,7 @@ from Potential import GaussianPotential
 import numpy as np
 import time
 from Demo.Data.RGM.Generator import generate_rel_graph, load_data
+import json
 
 
 rel_g = generate_rel_graph()
@@ -22,6 +23,10 @@ g, rvs_table = rel_g.grounded_graph()
 
 time_log = dict()
 
+with open('Data/RGM/time_log', 'r') as file:
+    s = file.read()
+    time_log = json.loads(s)
+
 # # infer = EPBP(g, n=10, proposal_approximation='simple')
 # infer = VI(g, num_mixtures=1, num_quadrature_points=3)
 # infer.run(200, lr=0.2)
@@ -36,17 +41,6 @@ time_log = dict()
 # time_log['C2FVI'] = infer.time_log
 
 
-import json
-
-
-with open('Data/RGM/time_log', 'r') as file:
-    s = file.read()
-    time_log = json.loads(s)
-
-# infer = C2FVI(g, num_mixtures=1, num_quadrature_points=3)
-# infer.run(200, lr=0.2)
-# time_log['C2FVI'] = infer.time_log
-#
 # with open('Data/RGM/time_log', 'w+') as file:
 #     file.write(json.dumps(time_log))
 
@@ -63,7 +57,7 @@ for name, t_log in time_log.items():
     x = list()
     y = list()
     for t, fe in t_log:
-        if t > 350: break
+        if t > 150: break
         x.append(t)
         y.append(fe)
     plt.plot(x, y, color=color[name])

@@ -12,9 +12,9 @@ from KLDivergence import kl_continuous
 import osi.utils as utils
 
 
-def norm_pdf(x, mu, sig):
-    u = (x - mu) / sig
-    y = np.exp(-u * u * 0.5) / (2.506628274631 * sig)
+def norm_pdf(x, mu, var):
+    u = (x - mu)
+    y = np.exp(-u * u * 0.5 / var) / (2.506628274631 * var)
     return y
 
 
@@ -46,8 +46,8 @@ for i in range(num_test):
     mu, sig = utils.get_gaussian_mean_params_from_quadratic_params(A=quadratic_params[0], b=quadratic_params[1],
                                                               mu_only=False)
 
-    infer = LVI(g, num_mixtures=1, num_quadrature_points=3)
-    infer.run(200, lr=0.1)
+    infer = VI(g, num_mixtures=1, num_quadrature_points=3)
+    infer.run(200, lr=0.2)
 
     kl_temp = list()
     map_err_temp = list()
@@ -69,8 +69,8 @@ for i in range(num_test):
     kl.extend(kl_temp)
     map_err.extend(map_err_temp)
 
-    print('average KL:', np.average(kl_temp))
+    print('average KL:', np.average(kl_temp), '±', np.std(kl_temp))
     print('average MAP error:', np.average(map_err_temp), '±', np.std(map_err_temp))
 
-print('average KL:', np.average(kl))
+print('average KL:', np.average(kl), '±', np.std(kl))
 print('average MAP error:', np.average(map_err), '±', np.std(map_err))

@@ -39,8 +39,8 @@ class OneShot:
 
     @staticmethod
     def norm_pdf(x, eta):
-        u = (x - eta[0]) / eta[1]
-        y = e ** (-u * u * 0.5) / (2.506628274631 * eta[1])
+        u = (x - eta[0])
+        y = e ** (-u * u * 0.5 / eta[1]) / (2.506628274631 * eta[1])
         return y
 
     @staticmethod

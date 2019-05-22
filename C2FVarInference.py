@@ -11,8 +11,8 @@ class VarInference:
     var_threshold = 0.1
     k_mean_k = 2
     k_mean_its = 10
-    update_obs_its = 20
-    output_its = 20
+    update_obs_its = 10
+    output_its = 150
     min_obs_var = 0
     gaussian_obs = True
 
@@ -68,8 +68,8 @@ class VarInference:
 
     @staticmethod
     def norm_pdf(x, eta):
-        u = (x - eta[0]) / eta[1]
-        y = e ** (-u * u * 0.5) / (2.506628274631 * eta[1])
+        u = (x - eta[0])
+        y = e ** (-u * u * 0.5 / eta[1]) / (2.506628274631 * eta[1])
         return y
 
     @staticmethod
