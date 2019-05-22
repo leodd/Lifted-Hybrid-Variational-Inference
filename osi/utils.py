@@ -34,16 +34,31 @@ def softmax(a, axis=None):
     return p
 
 
-def get_scalar_gm_log_prob(x, mu, var, w):
+def get_scalar_gm_log_prob(x, w, mu, var, get_fun=False):
     # convenience method; x can be tensor; mu, var, w should be len K vecs
     var_inv = 1 / var
     log_w = np.log(w)
     K = len(w)
-    mu = mu.reshape([K] + [1] * len(x.shape))
-    var_inv = var_inv.reshape([K] + [1] * len(x.shape))
-    log_w = log_w.reshape([K] + [1] * len(x.shape))
-    comp_log_probs = -0.5 * np.log(2 * np.pi) + 0.5 * np.log(var_inv) - 0.5 * (x - mu) ** 2 * var_inv
-    return logsumexp(log_w + comp_log_probs, axis=0)
+    if isinstance(x, np.ndarray):   # tensor; reshape params for broadcasting
+        mu = mu.reshape([K] + [1] * len(x.shape))
+        var_inv = var_inv.reshape([K] + [1] * len(x.shape))
+        log_w = log_w.reshape([K] + [1] * len(x.shape))
+    else:
+        # assert x must be scalar
+        pass
+
+    if not get_fun:
+        comp_log_probs = -0.5 * np.log(2 * np.pi) + 0.5 * np.log(var_inv) - 0.5 * (x - mu) ** 2 * var_inv
+        res = logsumexp(log_w + comp_log_probs, axis=0)
+    else:  # curry the consts for speed; x was used for reshaping params
+        const = -0.5 * np.log(2 * np.pi) + 0.5 * np.log(var_inv)
+        coef = -0.5 * var_inv
+        def f(arg):
+            comp_log_probs = const + coef * (arg - mu) ** 2
+            return logsumexp(log_w + comp_log_probs, axis=0)
+        res = f
+
+    return res
 
 
 def get_scalar_gm_mode(w, mu, var, bds, best_log_pdf=False):
@@ -60,8 +75,10 @@ def get_scalar_gm_mode(w, mu, var, bds, best_log_pdf=False):
     log_w = np.log(w)
     var_inv = 1 / var
 
+    const = -0.5 * np.log(2 * np.pi) + 0.5 * np.log(var_inv)
+    coef = -0.5 * var_inv
     def neg_gmm_log_prob(x):
-        comp_log_probs = -0.5 * np.log(2 * np.pi) + 0.5 * np.log(var_inv) - 0.5 * (x - mu) ** 2 * var_inv
+        comp_log_probs = const + coef * (x - mu) ** 2
         return -logsumexp(log_w + comp_log_probs)
 
     res = []
@@ -269,6 +286,21 @@ def condition_factors_on_evidence(factors, evidence):
             f = factor
         cond_factors.append(f)
     return cond_factors
+
+
+def set_nbrs_idx_in_factors(factors, Vd_idx, Vc_idx):
+    # create factor.disc_nb_idx/cont_nb_idx attrs for convenience (mostly used in hybrid mln baseline)
+    for factor in factors:
+        disc_nb_idx = ()
+        cont_nb_idx = ()
+        for rv in factor.nb:
+            if rv.domain_type[0] == 'd':
+                disc_nb_idx += (Vd_idx[rv],)
+            else:
+                assert rv.domain_type[0] == 'c'
+                cont_nb_idx += (Vc_idx[rv],)
+        factor.disc_nb_idx = disc_nb_idx
+        factor.cont_nb_idx = cont_nb_idx
 
 
 def get_conditional_mrf(factors, rvs, evidence, update_rv_nbs=False):  # TODO: fix this hot OOP mess
@@ -560,3 +592,12 @@ def calc_numerical_grad(vs, obj, sess, delta=1e-4):
     else:
         out = grads
     return out
+
+
+# miscellaneous
+def curry_epbp_belief(bp, rv, log_belief=True):
+    # capture environment variables to avoid dangling ref; may use too much mem
+    def f(x):
+        return bp.belief(x, rv, log_belief=True)
+    return f
+

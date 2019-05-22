@@ -269,15 +269,14 @@ class HybridGaussianSampler:
     Convenience object that wraps lower-level methods
     """
 
-    def __init__(self, g):
-        Vd, Vc, Vd_idx, Vc_idx = g.Vd, g.Vc, g.Vd_idx, g.Vc_idx
+    def __init__(self, factors, Vd, Vc, Vd_idx, Vc_idx):
         dstates = [rv.dstates for rv in Vd]
 
         self.__dict__.update(**locals())
 
     def block_gibbs_sample(self, num_burnin, num_samples, init_x_d=None, disc_block_its=100, seed=None):
         Vd, Vc, Vd_idx, Vc_idx, dstates = self.Vd, self.Vc, self.Vd_idx, self.Vc_idx, self.dstates
-        factors = self.g.factors_list
+        factors = self.factors
         disc_samples, cont_samples = block_gibbs_sample(factors, Vd, Vc, num_burnin, num_samples, init_x_d,
                                                         disc_block_its, seed)
 

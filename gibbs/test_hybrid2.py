@@ -28,12 +28,11 @@ factors = [F(nb=(rvs[0], rvs[2], rvs[3]),
            F(nb=(rvs[2],), log_potential_fun=LogQuadratic(A=-0.5 * np.ones([1, 1]), b=np.zeros([1]), c=0.))
            ]
 
-g = Graph()  # not really needed here; just to conform to existing API
-g.rvs = rvs
-g.factors = factors
-g.init_nb()
-g.init_rv_indices()  # all we really need is to create disc/cont indices and factor.disc_nb_idx/cont_nb_idx attrs
-Vd, Vc, Vd_idx, Vc_idx = g.Vd, g.Vc, g.Vd_idx, g.Vc_idx
+Vd = [rv for rv in rvs if rv.domain_type[0] == 'd']  # list of of discrete rvs
+Vc = [rv for rv in rvs if rv.domain_type[0] == 'c']  # list of cont rvs
+Vd_idx = {n: i for (i, n) in enumerate(Vd)}
+Vc_idx = {n: i for (i, n) in enumerate(Vc)}
+utils.set_nbrs_idx_in_factors(factors, Vd_idx=Vd_idx, Vc_idx=Vc_idx)  # pre-processing for hybrid mln stuff
 dstates = [rv.dstates for rv in Vd]
 
 bn = convert_to_bn(factors, Vd, Vc)

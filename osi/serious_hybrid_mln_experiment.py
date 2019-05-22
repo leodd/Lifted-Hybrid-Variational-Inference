@@ -18,7 +18,7 @@ from hybrid_gaussian_mrf import HybridGaussianSampler
 from hybrid_gaussian_mrf import convert_to_bn, block_gibbs_sample, get_crv_marg, get_drv_marg, \
     get_rv_marg_map_from_bn_params
 
-num_x = 2
+num_x = 4
 num_y = 2
 
 X = []
@@ -66,7 +66,7 @@ f3 = ParamF(  # cont
     nb=[atom_A, atom_B]
 )  # needed to ensure normalizability; model will be indefinite when all discrete nodes are 0
 
-rel_g = RelationalGraph()
+rel_g = RelationalGraphSorted()
 rel_g.atoms = (atom_A, atom_B, atom_C, atom_D)
 rel_g.param_factors = (f1, f2, f3)
 rel_g.init_nb()
@@ -83,25 +83,6 @@ data = dict()
 for test_num in range(num_tests):
     test_seed = seed + test_num
     data.clear()
-    #
-    # X_ = np.random.choice(num_x, int(num_x * 0.2), replace=False)
-    # for x_ in X_:
-    #     data[('B', f'x{x_}')] = np.clip(np.random.normal(0, 5), -10, 10)
-    #
-    # X_ = np.random.choice(num_x, int(num_x * 1), replace=False)
-    # for x_ in X_:
-    #     # S_ = np.random.choice(num_s, 2, replace=False)
-    #     S_ = np.random.choice(num_s, int(num_s * 1), replace=False)
-    #     for s_ in S_:
-    #         data[('D', f'x{x_}', f's{s_}')] = np.random.choice([0, 1])
-    #
-    # for y_ in Y:
-    #     # S_ = np.random.choice(num_s, 5, replace=False)
-    #     S_ = np.random.choice(num_s, int(num_s * 1), replace=False)
-    #     for s_ in S_:
-    #         data[('E', y_, f's{s_}')] = np.random.choice([0, 1])
-    #
-
     B_vals = np.random.normal(loc=0, scale=10, size=len(S))  # special treatment for the story
     for i, s in enumerate(S):
         data[('B', s)] = B_vals[i]
@@ -111,23 +92,24 @@ for test_num in range(num_tests):
             if x != y:
                 data[('D', x, y)] = np.random.randint(2)
 
-    x_idx = np.random.choice(len(X), int(len(X) / 10), replace=False)
+    evidence_ratio = 0.5
+    x_idx = np.random.choice(len(X), int(len(X) * evidence_ratio), replace=False)
     for i in x_idx:
         data['C', X[i], 'T1'] = np.random.randint(2)
 
-    x_idx = np.random.choice(len(X), int(len(X) / 10), replace=False)
+    x_idx = np.random.choice(len(X), int(len(X) * evidence_ratio), replace=False)
     for i in x_idx:
         data['C', X[i], 'T2'] = np.random.randint(2)
 
-    x_idx = np.random.choice(len(X), int(len(X) / 10), replace=False)
+    x_idx = np.random.choice(len(X), int(len(X) * evidence_ratio), replace=False)
     for i in x_idx:
         data['C', X[i], 'T3'] = np.random.randint(2)
 
-    # data[('A', 'x0')] = 1.3  # and whatever other evidence
     print(data)
 
     rel_g.data = data
     g, rvs_table = rel_g.grounded_graph()
+    g_rv_nbs = [copy(rv.nb) for rv in g.rvs_list]  # keep a copy of rv neighbors in the original graph
     print(rvs_table)
 
     # labels of query nodes
@@ -149,14 +131,17 @@ for test_num in range(num_tests):
     cond_g = utils.get_conditional_mrf(g.factors_list, g.rvs,
                                        evidence)  # this will also condition log_potential_funs
 
+    print('cond number of rvs', len(cond_g.rvs))
+    print('cond num drvs', len([rv for rv in cond_g.rvs if rv.domain_type[0] == 'd']))
+    print('cond num crvs', len([rv for rv in cond_g.rvs if rv.domain_type[0] == 'c']))
+
     baseline = 'exact'
     # baseline = 'gibbs'
 
     # preprocessing
     # convert factors to the form accepted by HybridGaussianSampler
     # Currently there's no lifting for sampling, so we don't need to ensure the same potentials share reference
-    g2 = copy(cond_g)  # shallow copy
-    g2.factors = []
+    converted_factors = []  # identical to cond_g.factors, except the potentials are converted to equivalent ones
     for factor in cond_g.factors:
         factor = copy(factor)
         if factor.domain_type == 'd' and not isinstance(factor.potential, TablePotential):
@@ -182,28 +167,39 @@ for test_num in range(num_tests):
                 raise NotImplementedError
         if factor.domain_type == 'c':
             if isinstance(factor.potential, MLNPotential):
-                print("shouldn't happen in this example...")
-                assert len(factor.nb) == 2
-                factor.potential = equiv_hybrid_pot
+                if len(factor.nb) == 2:
+                    factor.potential = equiv_hybrid_pot
+                else:
+                    assert len(factor.nb) == 1
+                    uncond_factor = factor.uncond_factor  # from conditioning
+                    obs = [v.value for v in uncond_factor.nb if v in obs_rvs]
+                    assert len(obs) == 2
+                    dobs, cobs = obs[0], obs[1]
+                    if dobs == 0:
+                        factor.potential = QuadraticPotential(A=np.zeros([1, 1]), b=np.zeros([1]), c=0)
+                    else:
+                        factor.potential = QuadraticPotential(A=w_h * -np.eye(1),
+                                                              b=w_h * np.array([2 * cobs]), c=w_h * -cobs ** 2)
 
         assert isinstance(factor.potential, (TablePotential, QuadraticPotential, HybridQuadraticPotential))
-        g2.factors.append(factor)
+        converted_factors.append(factor)
 
-    utils.set_log_potential_funs(g2.factors, skip_existing=False)  # create lpot_funs to be used by baseline
-    g2.init_rv_indices()
-    Vd, Vc, Vd_idx, Vc_idx = g2.Vd, g2.Vc, g2.Vd_idx, g2.Vc_idx
+    utils.set_log_potential_funs(converted_factors, skip_existing=False)  # create lpot_funs to be used by baseline
+    cond_g.init_rv_indices()  # create indices in the conditional mrf (for baseline and osi)
+    Vd, Vc, Vd_idx, Vc_idx = cond_g.Vd, cond_g.Vc, cond_g.Vd_idx, cond_g.Vc_idx
+    utils.set_nbrs_idx_in_factors(converted_factors, Vd_idx, Vc_idx)  # preprocessing for baseline
 
     # currently using the same ans
     if baseline == 'exact':
-        bn_res = convert_to_bn(g2.factors, Vd, Vc, return_Z=True)
+        bn_res = convert_to_bn(converted_factors, Vd, Vc, return_Z=True)
         bn = bn_res[:-1]
         Z = bn_res[-1]
         print('true -logZ', -np.log(Z))
         # print('BN params', bn)
 
-        num_dstates = np.prod(g2.dstates)
+        num_dstates = np.prod([rv.dstates for rv in Vd])
         if num_dstates > 1000:
-            print('num modes too large, exact mode finding might take a while, consider parallelizing...')
+            print('too many dstates, exact mode finding might take a while, consider parallelizing...')
         for i, key in enumerate(key_list):
             rv = rvs_table[key]
             ans[key] = get_rv_marg_map_from_bn_params(*bn, Vd_idx, Vc_idx, rv)
@@ -213,7 +209,7 @@ for test_num in range(num_tests):
         num_samples = 500
         num_gm_components_for_crv = 3
         disc_block_its = 40
-        hgsampler = HybridGaussianSampler(g2)
+        hgsampler = HybridGaussianSampler(converted_factors, Vd, Vc, Vd_idx, Vc_idx)
         hgsampler.block_gibbs_sample(num_burnin=num_burnin, num_samples=num_samples, disc_block_its=disc_block_its)
         # np.save('cont_samples', hgsampler.cont_samples)
         # np.save('disc_samples', hgsampler.disc_samples)
@@ -284,10 +280,12 @@ for test_num in range(num_tests):
     name = 'LOSI'
     if cond:
         cond_g.init_nb()  # this will make cond_g rvs' .nb attributes consistent (baseline/OSI didn't care so it was OK)
-        cg = CompressedGraphSorted(cond_g)
+        cg = CompressedGraphSorted(cond_g)  # compressed conditional graph
     else:
         cg = CompressedGraphSorted(g)  # technically incorrect; currently we should run LOSI on the conditional MRF
     cg.run()
+    for i, rv in enumerate(g.rvs_list):
+        rv.nb = g_rv_nbs[i]  # restore; undo possible mutation from cond_g.init_nb() for LOSI
     print('number of rvs in cg', len(cg.rvs))
     print('number of factors in cg', len(cg.factors))
     losi = LiftedOneShot(g=cg, K=K, T=T,
@@ -332,7 +330,7 @@ for test_crv_idx in range(len(Vc)):
     if baseline == 'gibbs':
         plt.hist(hgsampler.cont_samples[:, test_crv_idx], normed=True, label='samples')
 
-    plot_losi = True
+    plot_losi = False
     if plot_losi:
         osi = losi
     osi_test_crv_marg_params = osi.params['w'], osi.params['Mu'][test_crv_idx], osi.params['Var'][test_crv_idx]
