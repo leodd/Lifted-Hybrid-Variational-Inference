@@ -17,17 +17,17 @@ from C2FVarInference import VarInference as C2FVI
 from GaBP import GaBP
 
 
-data = load_data('Data/RGM/time_log_test')
+data = load_data('Data/RGM/time_log_5percent')
 rel_g.data = data
 g, rvs_table = rel_g.grounded_graph()
 
 time_log = dict()
 
-with open('Data/RGM/time_log', 'r') as file:
+with open('Data/RGM/time_log_20_result', 'r') as file:
     s = file.read()
     time_log = json.loads(s)
 
-# # infer = EPBP(g, n=10, proposal_approximation='simple')
+# infer = EPBP(g, n=10, proposal_approximation='simple')
 # infer = VI(g, num_mixtures=1, num_quadrature_points=3)
 # infer.run(200, lr=0.2)
 # time_log['VI'] = infer.time_log
@@ -41,7 +41,7 @@ with open('Data/RGM/time_log', 'r') as file:
 # time_log['C2FVI'] = infer.time_log
 
 
-# with open('Data/RGM/time_log', 'w+') as file:
+# with open('Data/RGM/time_log_5_result', 'w+') as file:
 #     file.write(json.dumps(time_log))
 
 

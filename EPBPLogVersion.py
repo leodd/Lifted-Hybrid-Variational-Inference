@@ -25,6 +25,7 @@ class EPBP:
         self.sample = dict()
         self.q = dict()
         self.eta_message = dict()
+        self.cache = dict()
 
     @staticmethod
     def gaussian_product(*gaussian):
@@ -313,11 +314,15 @@ class EPBP:
                 #     lambda val: e ** self.belief_rv(val, rv, self.sample),
                 #     rv.domain.values[0], rv.domain.values[1]
                 # )[0]
-                z, shift = self.log_area(
-                    lambda val: self.belief_rv(val, rv, self.sample),
-                    rv.domain.values[0], rv.domain.values[1],
-                    20
-                )
+                if rv in self.cache:
+                    z, shift = self.cache[rv]
+                else:
+                    z, shift = self.log_area(
+                        lambda val: self.belief_rv(val, rv, self.sample),
+                        rv.domain.values[0], rv.domain.values[1],
+                        20
+                    )
+                    self.cache[rv] = (z, shift)
                 logz = log(z)
                 if log_belief:
                     return (self.belief_rv(x, rv, self.sample) - shift) - logz
