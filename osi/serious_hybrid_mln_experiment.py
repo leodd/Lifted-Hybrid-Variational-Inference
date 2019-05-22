@@ -109,6 +109,7 @@ for test_num in range(num_tests):
 
     rel_g.data = data
     g, rvs_table = rel_g.grounded_graph()
+    g_rv_nbs = [copy(rv.nb) for rv in g.rvs_list]  # keep a copy of rv neighbors in the original graph
     print(rvs_table)
 
     # labels of query nodes
@@ -140,8 +141,7 @@ for test_num in range(num_tests):
     # preprocessing
     # convert factors to the form accepted by HybridGaussianSampler
     # Currently there's no lifting for sampling, so we don't need to ensure the same potentials share reference
-    g2 = copy(cond_g)  # shallow copy
-    g2.factors = []
+    converted_factors = []  # identical to cond_g.factors, except the potentials are converted to equivalent ones
     for factor in cond_g.factors:
         factor = copy(factor)
         if factor.domain_type == 'd' and not isinstance(factor.potential, TablePotential):
@@ -182,21 +182,22 @@ for test_num in range(num_tests):
                                                               b=w_h * np.array([2 * cobs]), c=w_h * -cobs ** 2)
 
         assert isinstance(factor.potential, (TablePotential, QuadraticPotential, HybridQuadraticPotential))
-        g2.factors.append(factor)
+        converted_factors.append(factor)
 
-    utils.set_log_potential_funs(g2.factors, skip_existing=False)  # create lpot_funs to be used by baseline
-    g2.init_rv_indices()
-    Vd, Vc, Vd_idx, Vc_idx = g2.Vd, g2.Vc, g2.Vd_idx, g2.Vc_idx
+    utils.set_log_potential_funs(converted_factors, skip_existing=False)  # create lpot_funs to be used by baseline
+    cond_g.init_rv_indices()  # create indices in the conditional mrf (for baseline and osi)
+    Vd, Vc, Vd_idx, Vc_idx = cond_g.Vd, cond_g.Vc, cond_g.Vd_idx, cond_g.Vc_idx
+    utils.set_nbrs_idx_in_factors(converted_factors, Vd_idx, Vc_idx)  # preprocessing for baseline
 
     # currently using the same ans
     if baseline == 'exact':
-        bn_res = convert_to_bn(g2.factors, Vd, Vc, return_Z=True)
+        bn_res = convert_to_bn(converted_factors, Vd, Vc, return_Z=True)
         bn = bn_res[:-1]
         Z = bn_res[-1]
         print('true -logZ', -np.log(Z))
         # print('BN params', bn)
 
-        num_dstates = np.prod(g2.dstates)
+        num_dstates = np.prod([rv.dstates for rv in Vd])
         if num_dstates > 1000:
             print('num modes too large, exact mode finding might take a while, consider parallelizing...')
         for i, key in enumerate(key_list):
@@ -279,10 +280,12 @@ for test_num in range(num_tests):
     name = 'LOSI'
     if cond:
         cond_g.init_nb()  # this will make cond_g rvs' .nb attributes consistent (baseline/OSI didn't care so it was OK)
-        cg = CompressedGraphSorted(cond_g)
+        cg = CompressedGraphSorted(cond_g)  # compressed conditional graph
     else:
         cg = CompressedGraphSorted(g)  # technically incorrect; currently we should run LOSI on the conditional MRF
     cg.run()
+    for i, rv in enumerate(g.rvs_list):
+        rv.nb = g_rv_nbs[i]  # restore; undo possible mutation from cond_g.init_nb() for LOSI
     print('number of rvs in cg', len(cg.rvs))
     print('number of factors in cg', len(cg.factors))
     losi = LiftedOneShot(g=cg, K=K, T=T,

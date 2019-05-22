@@ -271,6 +271,21 @@ def condition_factors_on_evidence(factors, evidence):
     return cond_factors
 
 
+def set_nbrs_idx_in_factors(factors, Vd_idx, Vc_idx):
+    # create factor.disc_nb_idx/cont_nb_idx attrs for convenience (mostly used in hybrid mln baseline)
+    for factor in factors:
+        disc_nb_idx = ()
+        cont_nb_idx = ()
+        for rv in factor.nb:
+            if rv.domain_type[0] == 'd':
+                disc_nb_idx += (Vd_idx[rv],)
+            else:
+                assert rv.domain_type[0] == 'c'
+                cont_nb_idx += (Vc_idx[rv],)
+        factor.disc_nb_idx = disc_nb_idx
+        factor.cont_nb_idx = cont_nb_idx
+
+
 def get_conditional_mrf(factors, rvs, evidence, update_rv_nbs=False):  # TODO: fix this hot OOP mess
     """
 
