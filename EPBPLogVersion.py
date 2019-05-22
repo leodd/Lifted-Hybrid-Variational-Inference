@@ -306,7 +306,7 @@ class EPBP:
             prev = current
         return res * 0.5, shift
 
-    def belief(self, x, rv):
+    def belief(self, x, rv, log_belief=False):
         if rv.value is None:
             if rv.domain.continuous:
                 # z = quad(
@@ -318,10 +318,13 @@ class EPBP:
                     rv.domain.values[0], rv.domain.values[1],
                     20
                 )
+                logz = log(z)
+                if log_belief:
+                    return (self.belief_rv(x, rv, self.sample) - shift) - logz
 
-                b = e ** (self.belief_rv(x, rv, self.sample) - shift)
-
-                return b / z
+                else:
+                    b = e ** (self.belief_rv(x, rv, self.sample) - shift)
+                    return b / z
             else:
                 b = dict()
 
@@ -330,9 +333,15 @@ class EPBP:
 
                 self.message_normalization(b)
 
-                return b[x]
+                if log_belief:
+                    return log(b[x])
+                else:
+                    return b[x]
         else:
-            return 1 if x == rv.value else 0
+            if log_belief:
+                return 0 if x == rv.value else -np.inf
+            else:
+                return 1 if x == rv.value else 0
 
     def probability(self, a, b, rv):
         # only for continuous hidden variable
