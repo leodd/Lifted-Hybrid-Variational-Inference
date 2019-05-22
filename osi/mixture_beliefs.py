@@ -157,13 +157,16 @@ def eval_hfactors_belief(factors, axes, w):
     return tf.reduce_sum(w_broadcast * joint_comp_probs, axis=0)  # C x M x V1 x V2 x ... Vn
 
 
-def hfactors_bfe_obj(factors, T, w, dtype='float64'):
+def hfactors_bfe_obj(factors, T, w, dtype='float64', neg_lpot_only=False):
     """
     Get the contribution to the BFE from multiple hybrid (or continuous) factors that have the same types of neighboring
     rvs.
     :param factors: length C list of factor objects that have the same nb_domain_type.
     :param T:
     :param w:
+    :param dtype: float type to use
+    :param neg_lpot_only: if False (default), compute E_b[-log pot + log b] as in BFE;
+    if True, only compute E_b[-log pot] (with no log belief in the expectant), to be used with neg ELBO (for NPVI)
     :return:
     """
     # group factors with the same types of log potentials together for efficient evaluation later
@@ -237,7 +240,10 @@ def hfactors_bfe_obj(factors, T, w, dtype='float64'):
     lpot = group_eval_log_potential_funs(factors_with_unique_log_potential_fun_types, unique_log_potential_fun_types,
                                          axes)  # C x K x V1 x V2 x ... Vn
     log_belief = tf.log(belief)
-    F = -lpot + log_belief
+    if neg_lpot_only:
+        F = -lpot
+    else:
+        F = -lpot + log_belief
     w_broadcast = tf.reshape(w, [-1] + [1] * n)  # K x 1 x 1 ... x 1
     prod = tf.stop_gradient(w_broadcast * coefs * F)  # weighted component-wise Hadamard products for C x K expectations
     factors_bfes = tf.reduce_sum(prod, axis=list(range(1, n + 2)))  # reduce the last (n+1) dimensions
@@ -284,12 +290,14 @@ def dfactor_bfe_obj(factor, w):
     return bfe, aux_obj
 
 
-def dfactors_bfe_obj(factors, w):
+def dfactors_bfe_obj(factors, w, neg_lpot_only=False):
     """
     Get the contribution to the BFE from multiple discrete factors that have the same kinds of neighboring rvs (i.e.,
     the rvs in factor.nb should have the same number of dstates).
     :param factors: length C list of factor objects that have the same factor.nb_domain_types.
     :param w:
+    :param neg_lpot_only: if False (default), compute E_b[-log pot + log b] as in BFE;
+    if True, only compute E_b[-log pot] (with no log belief in the expectant), to be used with neg ELBO (for NPVI)
     :return:
     """
     # group factors with the same types of log potentials together for efficient evaluation later
@@ -314,9 +322,12 @@ def dfactors_bfe_obj(factors, w):
                                          axes)  # C x V1 x V2 x ... Vn
     # if not lpot.dtype in ('float32', 'float64'):
     if not lpot.dtype == 'float64':  # tf crashes when adding int type to float
-        lpot = tf.cast(lpot,'float64')
+        lpot = tf.cast(lpot, 'float64')
     log_belief = tf.log(belief)
-    F = - lpot + log_belief
+    if neg_lpot_only:
+        F = -lpot
+    else:
+        F = -lpot + log_belief
     prod = tf.stop_gradient(belief * F)  # stop_gradient is needed for aux_obj
 
     factors_bfes = tf.reduce_sum(prod, axis=list(range(1, n + 1)))  # reduce the last n dimensions
@@ -732,4 +743,79 @@ def marginal_map(X, obs_rvs, query_rv, w):
         mu, var = query_rv.belief_params['mu'], query_rv.belief_params['var']
         bds = (query_rv.values[0], query_rv.values[1])
         out = crv_belief_map(cond_w, mu, var, bds)
+    return out
+
+
+def get_gm_entropy_lb(w, Mu, Sigs, sharing_counts=None):
+    """
+    Get symbolic tensor representing Jensen's inequality lower-bound for the mixture entropy term (using the formulae
+    from Gershman 2012 NPV paper)
+    :param w: K tensor of mixture weights
+    :param Mu: N x K tensor of diagonal gaussian mixture nodes means
+    :param Sigs:
+    :return:
+    """
+    [N, K] = map(int, Mu.shape)
+
+    # need to compute an K x K (symmetric) matrix of convolutions of the ith component with the jth (which turn out to
+    # be simply pdf evaluations of N-dimensional Gaussians)
+    conv_Mu_diffs = tf.reshape(Mu, [N, K, 1]) - tf.reshape(Mu, [N, 1, K])  # N x K x K
+    conv_Sigs = tf.reshape(Sigs, [N, K, 1]) + tf.reshape(Sigs, [N, 1, K])  # N x K x K
+    conv_Sigs_inv = 1 / conv_Sigs
+    conv_mahalanobis_dists = tf.reduce_sum(conv_Mu_diffs ** 2 * conv_Sigs_inv, axis=0)  # K x K
+
+    log_comp_integrals = (-0.5 * np.log(2 * np.pi)) \
+                         - 0.5 * tf.log(conv_Sigs) - 0.5 * conv_mahalanobis_dists  # N x K x K
+    if sharing_counts:  # weigh each \int q_k(xi) * q_j(xi) by the sharing count of node i
+        sharing_counts = np.array(sharing_counts).reshape([N, 1, 1])
+        log_comp_integrals *= sharing_counts  # will translate to \int q_k(xi) * q_j(xi) ^ {sharing_count[i]}
+
+    log_comp_integrals = tf.reduce_sum(log_comp_integrals, axis=0)
+
+    # w_col = tf.reshape(w, [K, 1])
+    # inner_integrals = tf.log(tf.exp(log_comp_integrals) @ w_col)
+    inner_integrals = tf.reduce_logsumexp(log_comp_integrals + tf.log(w), axis=1)
+    out = - tf.reduce_sum(w * inner_integrals)
+    return out
+
+
+def get_hybrid_mixture_entropy_lb(w, Mu, Var, Pi, drv_sharing_counts, crv_sharing_counts):
+    # if not drv_sharing_counts:
+    #     res = get_gm_entropy_lb(w, Mu, Var, crv_sharing_counts)
+    # else:
+    all_log_comp_integrals = 0  # sum for all nodes
+    if Mu is not None:  # has cont nodes
+        Sigs = Var
+        [N, K] = map(int, Mu.shape)
+        conv_Mu_diffs = tf.reshape(Mu, [N, K, 1]) - tf.reshape(Mu, [N, 1, K])  # N x K x K
+        conv_Sigs = tf.reshape(Sigs, [N, K, 1]) + tf.reshape(Sigs, [N, 1, K])  # N x K x K
+        conv_Sigs_inv = 1 / conv_Sigs
+        conv_mahalanobis_dists = tf.reduce_sum(conv_Mu_diffs ** 2 * conv_Sigs_inv, axis=0)  # K x K
+        log_comp_integrals = (-0.5 * np.log(2 * np.pi)) \
+                             - 0.5 * tf.log(conv_Sigs) - 0.5 * conv_mahalanobis_dists  # N x K x K
+        sharing_counts = crv_sharing_counts
+        if sharing_counts:  # weigh each \int q_k(xi) * q_j(xi) by the sharing count of node i
+            sharing_counts = np.array(sharing_counts).reshape([N, 1, 1])
+            log_comp_integrals *= sharing_counts  # will translate to \int q_k(xi) * q_j(xi) ^
+
+            all_log_comp_integrals += tf.reduce_sum(log_comp_integrals, axis=0)  # N x K x K -> K x K
+
+    if Pi is not None:
+        assert isinstance(Pi, (tf.Tensor, tf.Variable)), 'currently only handle shared num dstates'
+        [N, K, S] = map(int, Pi.shape)
+        # log_Pi = tf.log(Pi)
+        comp_integrals = tf.reduce_sum(tf.reshape(Pi, [N, K, 1, S]) * tf.reshape(Pi, [N, 1, K, S]),
+                                       axis=-1)  # N x K x K; basically inner products b/w Pi[i,j,:] and Pi[i,k,:]
+        log_comp_integrals = tf.log(comp_integrals)
+        sharing_counts = drv_sharing_counts  # TODO: no more code copying
+        if sharing_counts:  # weigh each \int q_k(xi) * q_j(xi) by the sharing count of node i
+            sharing_counts = np.array(sharing_counts).reshape([N, 1, 1])
+            log_comp_integrals *= sharing_counts  # will translate to \int q_k(xi) * q_j(xi) ^
+
+            all_log_comp_integrals += tf.reduce_sum(log_comp_integrals, axis=0)  # N x K x K -> K x K
+
+    # w_col = tf.reshape(w, [K, 1])
+    # inner_integrals = tf.log(tf.exp(all_log_comp_integrals) @ w_col)
+    inner_integrals = tf.reduce_logsumexp(all_log_comp_integrals + tf.log(w), axis=1)
+    out = - tf.reduce_sum(w * inner_integrals)
     return out
