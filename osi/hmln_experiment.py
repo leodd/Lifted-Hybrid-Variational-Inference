@@ -17,6 +17,9 @@ utils.set_seed(seed)
 from hybrid_gaussian_mrf import HybridGaussianSampler
 from hybrid_gaussian_mrf import convert_to_bn, block_gibbs_sample, get_crv_marg, get_drv_marg, \
     get_rv_marg_map_from_bn_params
+import sampling_utils
+
+from KLDivergence import kl_continuous_logpdf
 
 num_x = 4
 num_y = 2
@@ -71,17 +74,25 @@ rel_g.atoms = (atom_A, atom_B, atom_C, atom_D)
 rel_g.param_factors = (f1, f2, f3)
 rel_g.init_nb()
 
-num_tests = 1  # num rounds with different queries
-num_runs = 1
-
-avg_diff = dict()
-err_var = dict()
-time_cost = dict()
+num_tests = 2  # number of times evidence will vary; each time all methods are run to perform conditional inference
+record_fields = ['cpu_time',
+                 'wall_time',
+                 'obj',  # this is BFE/-ELBO for variational methods, -logZ for exact baseline
+                 'mmap_err',  # |argmax p(xi) - argmax q(xi)|, avg over all nodes i
+                 'kl_err',  # kl(p(xi)||q(xi)), avg over all nodes i
+                 ]
+# algo_names = ['baseline', 'EPBP', 'OSI', 'LOSI']
+algo_names = ['baseline', 'EPBP']
+assert algo_names[0] == 'baseline'
+# for each algorithm, we keep a record, which is a dict mapping a record_field to a list (which will eventually be
+# averaged over)
+records = {algo_name: {record_field: [] for record_field in record_fields} for algo_name in algo_names}
 
 data = dict()
-
 for test_num in range(num_tests):
     test_seed = seed + test_num
+
+    # regenerate/reload evidence
     data.clear()
     B_vals = np.random.normal(loc=0, scale=10, size=len(S))  # special treatment for the story
     for i, s in enumerate(S):
@@ -117,8 +128,7 @@ for test_num in range(num_tests):
     for x_ in X:
         if ('A', x_) not in data:
             key_list.append(('A', x_))
-
-    ans = dict()
+    query_rvs = [rvs_table[key] for key in key_list]
 
     print('number of rvs', len(g.rvs))
     print('num drvs', len([rv for rv in g.rvs if rv.domain_type[0] == 'd']))
@@ -135,183 +145,204 @@ for test_num in range(num_tests):
     print('cond num drvs', len([rv for rv in cond_g.rvs if rv.domain_type[0] == 'd']))
     print('cond num crvs', len([rv for rv in cond_g.rvs if rv.domain_type[0] == 'c']))
 
+    all_margs = {algo_name: [None] * len(query_rvs) for algo_name in algo_names}  # for plotting convenience
+
     baseline = 'exact'
     # baseline = 'gibbs'
+    for algo_name in algo_names:
+        print('running', algo_name)
 
-    # preprocessing
-    # convert factors to the form accepted by HybridGaussianSampler
-    # Currently there's no lifting for sampling, so we don't need to ensure the same potentials share reference
-    converted_factors = []  # identical to cond_g.factors, except the potentials are converted to equivalent ones
-    for factor in cond_g.factors:
-        factor = copy(factor)
-        if factor.domain_type == 'd' and not isinstance(factor.potential, TablePotential):
-            assert isinstance(factor.potential, MLNPotential), 'currently can only handle MLN'
-            factor.potential = utils.convert_disc_MLNPotential_to_TablePotential(factor.potential, factor.nb)
-        if factor.domain_type == 'h':
-            assert isinstance(factor.potential, MLNPotential), 'currently can only handle MLN'
-            nb = factor.nb
-            num_dnb = len([v for v in nb if v.domain_type[0] == 'd'])
-            num_cnb = len([v for v in nb if v.domain_type[0] == 'c'])
-            assert num_dnb == 1 and nb[0].dstates == 2, 'must have 1st nb boolean for the hack to work'
-            if num_cnb == 2:  # of the form MLNPotential(lambda x: x[0] * eq_op(x[1], x[2]), w=w_h)
-                factor.potential = equiv_hybrid_pot
-            elif num_cnb == 1:  # one cont observed in the uncond factor
-                uncond_factor = factor.uncond_factor  # from conditioning
-                obs = [v.value for v in uncond_factor.nb if v in obs_rvs]
-                assert len(obs) == 1
-                obs = obs[0]
-                factor.potential = HybridQuadraticPotential(A=w_h * np.array([np.zeros([1, 1]), -np.eye(1)]),
-                                                            b=w_h * np.array([[0.], [2 * obs]]),
-                                                            c=w_h * np.array([0., -obs ** 2]))
-            else:
-                raise NotImplementedError
-        if factor.domain_type == 'c':
-            if isinstance(factor.potential, MLNPotential):
-                if len(factor.nb) == 2:
-                    factor.potential = equiv_hybrid_pot
-                else:
-                    assert len(factor.nb) == 1
-                    uncond_factor = factor.uncond_factor  # from conditioning
-                    obs = [v.value for v in uncond_factor.nb if v in obs_rvs]
-                    assert len(obs) == 2
-                    dobs, cobs = obs[0], obs[1]
-                    if dobs == 0:
-                        factor.potential = QuadraticPotential(A=np.zeros([1, 1]), b=np.zeros([1]), c=0)
+        # temp storage
+        mmap = np.zeros(len(query_rvs))
+        margs = [None] * len(query_rvs)
+        marg_kls = np.zeros(len(query_rvs))
+        obj = -1
+
+        if algo_name == 'baseline':
+            # preprocessing
+            # convert factors to the form accepted by HybridGaussianSampler
+            # Currently there's no lifting for sampling, so we don't need to ensure the same potentials share reference
+            converted_factors = []  # identical to cond_g.factors, except the potentials are converted to equivalent ones
+            for factor in cond_g.factors:
+                factor = copy(factor)
+                if factor.domain_type == 'd' and not isinstance(factor.potential, TablePotential):
+                    assert isinstance(factor.potential, MLNPotential), 'currently can only handle MLN'
+                    factor.potential = utils.convert_disc_MLNPotential_to_TablePotential(factor.potential, factor.nb)
+                if factor.domain_type == 'h':
+                    assert isinstance(factor.potential, MLNPotential), 'currently can only handle MLN'
+                    nb = factor.nb
+                    num_dnb = len([v for v in nb if v.domain_type[0] == 'd'])
+                    num_cnb = len([v for v in nb if v.domain_type[0] == 'c'])
+                    assert num_dnb == 1 and nb[0].dstates == 2, 'must have 1st nb boolean for the hack to work'
+                    if num_cnb == 2:  # of the form MLNPotential(lambda x: x[0] * eq_op(x[1], x[2]), w=w_h)
+                        factor.potential = equiv_hybrid_pot
+                    elif num_cnb == 1:  # one cont observed in the uncond factor
+                        uncond_factor = factor.uncond_factor  # from conditioning
+                        obs = [v.value for v in uncond_factor.nb if v in obs_rvs]
+                        assert len(obs) == 1
+                        obs = obs[0]
+                        factor.potential = HybridQuadraticPotential(A=w_h * np.array([np.zeros([1, 1]), -np.eye(1)]),
+                                                                    b=w_h * np.array([[0.], [2 * obs]]),
+                                                                    c=w_h * np.array([0., -obs ** 2]))
                     else:
-                        factor.potential = QuadraticPotential(A=w_h * -np.eye(1),
-                                                              b=w_h * np.array([2 * cobs]), c=w_h * -cobs ** 2)
+                        raise NotImplementedError
+                if factor.domain_type == 'c':
+                    if isinstance(factor.potential, MLNPotential):
+                        if len(factor.nb) == 2:
+                            factor.potential = equiv_hybrid_pot
+                        else:
+                            assert len(factor.nb) == 1
+                            uncond_factor = factor.uncond_factor  # from conditioning
+                            obs = [v.value for v in uncond_factor.nb if v in obs_rvs]
+                            assert len(obs) == 2
+                            dobs, cobs = obs[0], obs[1]
+                            if dobs == 0:
+                                factor.potential = QuadraticPotential(A=np.zeros([1, 1]), b=np.zeros([1]), c=0)
+                            else:
+                                factor.potential = QuadraticPotential(A=w_h * -np.eye(1),
+                                                                      b=w_h * np.array([2 * cobs]), c=w_h * -cobs ** 2)
 
-        assert isinstance(factor.potential, (TablePotential, QuadraticPotential, HybridQuadraticPotential))
-        converted_factors.append(factor)
+                assert isinstance(factor.potential, (TablePotential, QuadraticPotential, HybridQuadraticPotential))
+                converted_factors.append(factor)
 
-    utils.set_log_potential_funs(converted_factors, skip_existing=False)  # create lpot_funs to be used by baseline
-    cond_g.init_rv_indices()  # create indices in the conditional mrf (for baseline and osi)
-    Vd, Vc, Vd_idx, Vc_idx = cond_g.Vd, cond_g.Vc, cond_g.Vd_idx, cond_g.Vc_idx
-    utils.set_nbrs_idx_in_factors(converted_factors, Vd_idx, Vc_idx)  # preprocessing for baseline
+            utils.set_log_potential_funs(converted_factors,
+                                         skip_existing=False)  # create lpot_funs to be used by baseline
+            cond_g.init_rv_indices()  # create indices in the conditional mrf (for baseline and osi)
+            utils.set_nbrs_idx_in_factors(converted_factors, cond_g.Vd_idx, cond_g.Vc_idx)  # preprocessing for baseline
 
-    # currently using the same ans
-    if baseline == 'exact':
-        bn_res = convert_to_bn(converted_factors, Vd, Vc, return_Z=True)
-        bn = bn_res[:-1]
-        Z = bn_res[-1]
-        print('true -logZ', -np.log(Z))
-        # print('BN params', bn)
+            if baseline == 'exact':
+                bn_res = convert_to_bn(converted_factors, cond_g.Vd, cond_g.Vc, return_Z=True)
+                bn = bn_res[:-1]
+                Z = bn_res[-1]
+                print('true -logZ', -np.log(Z))
+                obj = -np.log(Z)
+                # print('BN params', bn)
 
-        num_dstates = np.prod([rv.dstates for rv in Vd])
-        if num_dstates > 1000:
-            print('too many dstates, exact mode finding might take a while, consider parallelizing...')
-        for i, key in enumerate(key_list):
-            rv = rvs_table[key]
-            ans[key] = get_rv_marg_map_from_bn_params(*bn, Vd_idx, Vc_idx, rv)
+                num_dstates = np.prod([rv.dstates for rv in cond_g.Vd])
+                if num_dstates > 1000:
+                    print('too many dstates, exact mode finding might take a while, consider parallelizing...')
 
-    if baseline == 'gibbs':
-        num_burnin = 200
-        num_samples = 500
-        num_gm_components_for_crv = 3
-        disc_block_its = 40
-        hgsampler = HybridGaussianSampler(converted_factors, Vd, Vc, Vd_idx, Vc_idx)
-        hgsampler.block_gibbs_sample(num_burnin=num_burnin, num_samples=num_samples, disc_block_its=disc_block_its)
-        # np.save('cont_samples', hgsampler.cont_samples)
-        # np.save('disc_samples', hgsampler.disc_samples)
-        for i, key in enumerate(key_list):
-            rv = rvs_table[key]
-            ans[key] = hgsampler.map(rv, num_gm_components_for_crv=num_gm_components_for_crv)
+                for i, rv in enumerate(query_rvs):
+                    m = get_rv_marg_map_from_bn_params(*bn, cond_g.Vd_idx, cond_g.Vc_idx, rv)
+                    mmap[i] = m
+                    assert rv.domain_type[0] == 'c', 'only looking at kl for cnode queries for now'
+                    crv_idx = cond_g.Vc_idx[rv]
+                    crv_marg_params = get_crv_marg(*bn, crv_idx)
+                    marg_logpdf = utils.get_scalar_gm_log_prob(None, *crv_marg_params, get_fun=True)
+                    margs[i] = marg_logpdf
 
-    print('baseline', [ans[key] for i, key in enumerate(key_list)])
+            if baseline == 'gibbs':
+                num_burnin = 200
+                num_samples = 500
+                num_gm_components_for_crv = 3
+                disc_block_its = 40
+                hgsampler = HybridGaussianSampler(converted_factors, cond_g.Vd, cond_g.Vc, cond_g.Vd_idx, cond_g.Vc_idx)
+                hgsampler.block_gibbs_sample(num_burnin=num_burnin, num_samples=num_samples,
+                                             disc_block_its=disc_block_its)
+                # np.save('cont_samples', hgsampler.cont_samples)
+                # np.save('disc_samples', hgsampler.disc_samples)
+                # TODO: estimate obj = -logZ from samples
 
-    name = 'EPBP'
-    res = np.zeros((len(key_list), num_runs))
-    for j in range(num_runs):
-        # np.random.seed(test_seed + j)
-        bp = EPBP(g, n=20, proposal_approximation='simple')
-        start_time = time.process_time()
-        bp.run(10, log_enable=False)
-        time_cost[name] = (time.process_time() - start_time) / num_runs / num_tests + time_cost.get(name, 0)
-        print(name, f'time {time.process_time() - start_time}')
-        for i, key in enumerate(key_list):
-            res[i, j] = bp.map(rvs_table[key])
-        print(res[:, j])
-    # for i, key in enumerate(key_list):
-    #     ans[key] = np.average(res[i, :])
-    for i, key in enumerate(key_list):
-        res[i, :] -= ans[key]
-    avg_diff[name] = np.average(np.average(abs(res), axis=1)) / num_tests + avg_diff.get(name, 0)
-    err_var[name] = np.average(np.average(res ** 2, axis=1)) / num_tests + err_var.get(name, 0)
-    print(name, 'diff', np.average(np.average(abs(res), axis=1)))
-    print(name, 'var', np.average(np.average(res ** 2, axis=1)) - np.average(np.average(abs(res), axis=1)) ** 2)
+                for i, rv in enumerate(query_rvs):
+                    m = hgsampler.map(rv, num_gm_components_for_crv=num_gm_components_for_crv)
+                    mmap[i] = m
+                    assert rv.domain_type[0] == 'c', 'only looking at kl for cnode queries for now'
+                    # TODO: fitting gm twice, wasteful
+                    cont_samples = hgsampler.cont_samples
+                    crv_idx = cond_g.Vc_idx[rv]
+                    crv_marg_params = sampling_utils.fit_scalar_gm_from_samples(cont_samples[:, crv_idx],
+                                                                                K=num_gm_components_for_crv)
+                    marg_logpdf = utils.get_scalar_gm_log_prob(None, *crv_marg_params, get_fun=True)
+                    margs[i] = marg_logpdf
+            # save baseline
+            baseline_mmap = mmap
+            baseline_margs = margs
+            marg_kls = np.zeros_like(mmap)
+            cpu_time = wall_time = 0  # don't care
 
-    name = 'OSI'
-    cond = True
-    K = 3
-    T = 16
-    lr = 0.5
-    its = 1500
-    fix_mix_its = int(its * 0.5)
-    logging_itv = 50
-    res = np.zeros((len(key_list), num_runs))
-    utils.set_log_potential_funs(g.factors_list)
-    if cond:
-        osi = OneShot(g=cond_g, K=K, T=T, seed=seed)
-    else:
-        osi = OneShot(g=g, K=K, T=T, seed=seed)
-    for j in range(num_runs):
-        # utils.set_seed(test_seed + j)
-        start_time = time.process_time()
-        osi.run(lr=lr, its=its, fix_mix_its=fix_mix_its, logging_itv=logging_itv)
-        time_cost[name] = (time.process_time() - start_time) / num_runs / num_tests + time_cost.get(name, 0)
-        print(name, f'time {time.process_time() - start_time}')
-        for i, key in enumerate(key_list):
-            rv = rvs_table[key]
-            if cond:
-                mmap = osi.map(obs_rvs=[], query_rv=rv)
+        elif algo_name == 'EPBP':
+            bp = EPBP(g, n=20, proposal_approximation='simple')
+            start_time = time.process_time()
+            start_wall_time = time.time()
+            bp.run(10, log_enable=False)
+            cpu_time = time.process_time() - start_time
+            wall_time = time.time() - start_wall_time
+
+            for i, rv in enumerate(query_rvs):
+                mmap[i] = bp.map(rv)
+                # marg_logpdf = lambda x: bp.belief(x, rv, log_belief=True)  # probly slightly faster if not plotting
+                marg_logpdf = utils.curry_epbp_belief(bp, rv, log_belief=True)
+                margs[i] = marg_logpdf
+                assert rv.domain_type[0] == 'c', 'only looking at kl for cnode queries for now'
+                # lb, ub = -np.inf, np.inf
+                lb, ub = rv.domain.values[0], rv.domain.values[1]
+                marg_kl = max(0, kl_continuous_logpdf(log_p=baseline_margs[i], log_q=margs[i], a=lb, b=ub))
+                marg_kls[i] = marg_kl
+
+        elif algo_name == 'OSI' or algo_name == 'LOSI':
+            cond = True
+            K = 2
+            T = 16
+            lr = 0.5
+            its = 1000
+            fix_mix_its = int(its * 0.5)
+            logging_itv = 50
+            if algo_name == 'OSI':
+                if cond:
+                    utils.set_log_potential_funs(cond_g.factors_list, skip_existing=True)
+                    osi = OneShot(g=cond_g, K=K, T=T, seed=seed)
+                else:
+                    utils.set_log_potential_funs(g.factors_list, skip_existing=True)
+                    osi = OneShot(g=g, K=K, T=T, seed=seed)
             else:
-                mmap = osi.map(obs_rvs=obs_rvs, query_rv=rv)
-            res[i, j] = mmap
-        print(res[:, j])
-        # print(osi.params)
-        print('Mu =\n', osi.params['Mu'], '\nVar =\n', osi.params['Var'])
-    for i, key in enumerate(key_list):
-        res[i, :] -= ans[key]
-    avg_diff[name] = np.average(np.average(abs(res), axis=1)) / num_tests + avg_diff.get(name, 0)
-    err_var[name] = np.average(np.average(res ** 2, axis=1)) / num_tests + err_var.get(name, 0)
-    print(name, 'diff', np.average(np.average(abs(res), axis=1)))
-    print(name, 'var', np.average(np.average(res ** 2, axis=1)) - np.average(np.average(abs(res), axis=1)) ** 2)
+                if cond:
+                    # this will make cond_g rvs' .nb attributes consistent (baseline/OSI didn't care so it was OK)
+                    cond_g.init_nb()
+                    cg = CompressedGraphSorted(cond_g)
+                else:
+                    # technically incorrect; currently we should run LOSI on the conditional MRF
+                    cg = CompressedGraphSorted(g)
+                cg.run()
+                print('number of rvs in cg', len(cg.rvs))
+                print('number of factors in cg', len(cg.factors))
+                osi = LiftedOneShot(g=cg, K=K, T=T, seed=seed)
+                for i, rv in enumerate(g.rvs_list):
+                    rv.nb = g_rv_nbs[i]  # restore; undo possible mutation from cond_g.init_nb()
 
-    name = 'LOSI'
-    if cond:
-        cond_g.init_nb()  # this will make cond_g rvs' .nb attributes consistent (baseline/OSI didn't care so it was OK)
-        cg = CompressedGraphSorted(cond_g)  # compressed conditional graph
-    else:
-        cg = CompressedGraphSorted(g)  # technically incorrect; currently we should run LOSI on the conditional MRF
-    cg.run()
-    for i, rv in enumerate(g.rvs_list):
-        rv.nb = g_rv_nbs[i]  # restore; undo possible mutation from cond_g.init_nb() for LOSI
-    print('number of rvs in cg', len(cg.rvs))
-    print('number of factors in cg', len(cg.factors))
-    losi = LiftedOneShot(g=cg, K=K, T=T,
-                         seed=seed)  # can be moved outside of all loops if the ground MRF doesn't change
-    for j in range(num_runs):
-        # utils.set_seed(test_seed + j)
-        start_time = time.process_time()
-        losi.run(lr=lr, its=its, fix_mix_its=fix_mix_its, logging_itv=logging_itv)
-        time_cost[name] = (time.process_time() - start_time) / num_runs / num_tests + time_cost.get(name, 0)
-        print(name, f'time {time.process_time() - start_time}')
-        for i, key in enumerate(key_list):
-            rv = rvs_table[key]
-            if cond:
-                mmap = losi.map(obs_rvs=[], query_rv=rv)
-            else:
-                mmap = losi.map(obs_rvs=obs_rvs, query_rv=rv)
-            res[i, j] = mmap
-        print(res[:, j])
-        # print(osi.params)
-        print('Mu =\n', losi.params['Mu'], '\nVar =\n', losi.params['Var'])
-    for i, key in enumerate(key_list):
-        res[i, :] -= ans[key]
-    avg_diff[name] = np.average(np.average(abs(res), axis=1)) / num_tests + avg_diff.get(name, 0)
-    err_var[name] = np.average(np.average(res ** 2, axis=1)) / num_tests + err_var.get(name, 0)
-    print(name, 'diff', np.average(np.average(abs(res), axis=1)))
-    print(name, 'var', np.average(np.average(res ** 2, axis=1)) - np.average(np.average(abs(res), axis=1)) ** 2)
+            start_time = time.process_time()
+            start_wall_time = time.time()
+            res = osi.run(lr=lr, its=its, fix_mix_its=fix_mix_its, logging_itv=logging_itv)
+            cpu_time = time.process_time() - start_time
+            wall_time = time.time() - start_wall_time
+            obj = res['record']['bfe'][-1]
+
+            for i, rv in enumerate(query_rvs):
+                if cond:
+                    m = osi.map(obs_rvs=[], query_rv=rv)
+                    crv_idx = cond_g.Vc_idx[rv]
+                else:
+                    m = osi.map(obs_rvs=obs_rvs, query_rv=rv)
+                    crv_idx = g.Vc_idx[rv]
+                mmap[i] = m
+
+                assert rv.domain_type[0] == 'c', 'only looking at kl for cnode queries for now'
+                crv_marg_params = osi.params['w'], osi.params['Mu'][crv_idx], osi.params['Var'][crv_idx]
+                marg_logpdf = utils.get_scalar_gm_log_prob(None, *crv_marg_params, get_fun=True)
+                margs[i] = marg_logpdf
+                # lb, ub = -np.inf, np.inf
+                lb, ub = rv.domain.values[0], rv.domain.values[1]
+                marg_kl = max(0, kl_continuous_logpdf(log_p=baseline_margs[i], log_q=margs[i], a=lb, b=ub))
+                marg_kls[i] = marg_kl
+
+        # same for all algos
+        print('pred mmap', mmap)
+        print('true mmap', baseline_mmap)
+        mmap_err = np.mean(np.abs(mmap - baseline_mmap))
+        kl_err = np.mean(marg_kls)
+        algo_record = dict(cpu_time=cpu_time, wall_time=wall_time, obj=obj, mmap_err=mmap_err, kl_err=kl_err)
+        for key, value in algo_record.items():
+            records[algo_name][key].append(value)
+        all_margs[algo_name] = margs  # for plotting convenience
 
 print('plotting example marginal from last run')
 
@@ -320,23 +351,16 @@ import matplotlib.pyplot as plt
 plt.figure()
 xs = np.linspace(domain_real.values[0], domain_real.values[1], 100)
 
-for test_crv_idx in range(len(Vc)):
-    if baseline == 'exact':
-        test_crv_marg_params = get_crv_marg(*bn, test_crv_idx)
-        plt.plot(xs, np.exp(utils.get_scalar_gm_log_prob(xs, w=test_crv_marg_params[0], mu=test_crv_marg_params[1],
-                                                         var=test_crv_marg_params[2])),
-                 label=f'true marg pdf {test_crv_idx}')
+crv_idxs_to_plot = list(range(len([rv for rv in query_rvs if rv.domain_type[0] == 'c'])))
+num_to_plot = 1
+crv_idxs_to_plot = crv_idxs_to_plot[:num_to_plot]
+for test_crv_idx in crv_idxs_to_plot:
+    # for test_crv_idx in range(len(query_rvs)):
+    for algo_name in algo_names:
+        marg_logpdf = all_margs[algo_name][test_crv_idx]
+        # plt.plot(xs, np.exp(marg_logpdf(xs)), label=f'{algo_name} for {test_crv_idx}')
+        plt.plot(xs, np.exp([marg_logpdf(x) for x in xs]), label=f'{algo_name} for crv{test_crv_idx}')
 
-    if baseline == 'gibbs':
-        plt.hist(hgsampler.cont_samples[:, test_crv_idx], normed=True, label='samples')
-
-    plot_losi = False
-    if plot_losi:
-        osi = losi
-    osi_test_crv_marg_params = osi.params['w'], osi.params['Mu'][test_crv_idx], osi.params['Var'][test_crv_idx]
-    plt.plot(xs, np.exp(utils.get_scalar_gm_log_prob(xs, w=osi_test_crv_marg_params[0], mu=osi_test_crv_marg_params[1],
-                                                     var=osi_test_crv_marg_params[2])),
-             label=f'OSI marg pdf {test_crv_idx}')
 plt.legend(loc='best')
 plt.title('crv marginals')
 # plt.show()
@@ -344,8 +368,20 @@ save_name = __file__.split('.py')[0]
 plt.savefig('%s.png' % save_name)
 
 print('######################')
-for name, v in time_cost.items():
-    print(name, f'avg time {v}')
-for name, v in avg_diff.items():
-    print(name, f'diff {v}')
-    print(name, f'std {np.sqrt(abs(err_var[name] - v ** 2))}')  # sqrt arg can sometimes be a tiny bit negative
+from collections import OrderedDict
+
+avg_records = OrderedDict()
+for algo_name in algo_names:
+    record = records[algo_name]
+    avg_record = OrderedDict()
+    for record_field in record_fields:
+        avg_record[record_field] = (np.mean(record[record_field]), np.std(record[record_field]))
+    avg_records[algo_name] = avg_record
+
+from pprint import pprint
+
+for key, value in avg_records.items():
+    print(key + ':')
+    pprint(dict(value))
+# import json
+# output = json.dumps(avg_records, indent=0, sort_keys=True)
