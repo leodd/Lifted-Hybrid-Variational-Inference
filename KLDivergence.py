@@ -1,5 +1,6 @@
 import numpy as np
 from math import log, exp
+from scipy.integrate import quad
 
 
 def KL(q, p, domain):
@@ -40,7 +41,6 @@ def kl_continuous(p, q, a, b, *args, **kwargs):
     :param kwargs:
     :return:
     """
-    from scipy.integrate import quad
     def integrand(x):
         px = p(x) + 1e-100
         qx = q(x) + 1e-100
