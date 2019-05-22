@@ -21,7 +21,7 @@ import sampling_utils
 
 from KLDivergence import kl_continuous_logpdf
 
-num_x = 4
+num_x = 2
 num_y = 2
 
 X = []
@@ -74,15 +74,15 @@ rel_g.atoms = (atom_A, atom_B, atom_C, atom_D)
 rel_g.param_factors = (f1, f2, f3)
 rel_g.init_nb()
 
-num_tests = 2  # number of times evidence will vary; each time all methods are run to perform conditional inference
+num_tests = 1  # number of times evidence will vary; each time all methods are run to perform conditional inference
 record_fields = ['cpu_time',
                  'wall_time',
                  'obj',  # this is BFE/-ELBO for variational methods, -logZ for exact baseline
                  'mmap_err',  # |argmax p(xi) - argmax q(xi)|, avg over all nodes i
                  'kl_err',  # kl(p(xi)||q(xi)), avg over all nodes i
                  ]
-# algo_names = ['baseline', 'EPBP', 'OSI', 'LOSI']
-algo_names = ['baseline', 'EPBP']
+algo_names = ['baseline', 'EPBP', 'OSI', 'LOSI']
+# algo_names = ['baseline', 'EPBP']
 assert algo_names[0] == 'baseline'
 # for each algorithm, we keep a record, which is a dict mapping a record_field to a list (which will eventually be
 # averaged over)
@@ -95,6 +95,8 @@ for test_num in range(num_tests):
     # regenerate/reload evidence
     data.clear()
     B_vals = np.random.normal(loc=0, scale=10, size=len(S))  # special treatment for the story
+    # B_vals = np.random.uniform(low=domain_real.values[0], high=domain_real.values[1], size=len(S))
+    # B_vals = [-14, 2, 20]
     for i, s in enumerate(S):
         data[('B', s)] = B_vals[i]
 
@@ -103,7 +105,7 @@ for test_num in range(num_tests):
             if x != y:
                 data[('D', x, y)] = np.random.randint(2)
 
-    evidence_ratio = 0.5
+    evidence_ratio = 0.1
     x_idx = np.random.choice(len(X), int(len(X) * evidence_ratio), replace=False)
     for i in x_idx:
         data['C', X[i], 'T1'] = np.random.randint(2)
