@@ -42,8 +42,8 @@ def kl_continuous(p, q, a, b, *args, **kwargs):
     """
     from scipy.integrate import quad
     def integrand(x):
-        px = p(x)
-        qx = q(x)
+        px = p(x) + 1e-100
+        qx = q(x) + 1e-100
         return px * (log(px) - log(qx))
 
     res = quad(integrand, a, b, *args, **kwargs)

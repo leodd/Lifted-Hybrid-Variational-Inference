@@ -66,8 +66,8 @@ def load_data(f):
 
 
 if __name__ == "__main__":
-    evidence_ratio = 0.01
     rel_g = generate_rel_graph()
     for i in range(5):
-        f = str(evidence_ratio) + '_' + str(i)
+        evidence_ratio = np.random.uniform(0.05, 0.2)
+        f = str(i)
         generate_data(f, rel_g, evidence_ratio)
