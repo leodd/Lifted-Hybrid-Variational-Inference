@@ -363,8 +363,10 @@ def group_eval_log_potential_funs(factors_with_unique_log_potential_fun_types, u
             quad_form = tf.reduce_sum(outer_prods * A, axis=[0, 1]) + tf.reduce_sum(b * v, axis=0)
             from config import ignore_const_when_group_eval_LogQuadratic
             ignore_const = ignore_const_when_group_eval_LogQuadratic
-            if not ignore_const:
-                const = np.array([f.c for f in like_log_potential_funs])
+            const = np.array([f.c for f in like_log_potential_funs])
+            if ignore_const:
+                print('  dropping const in log quadratic potential:', np.sum(const))
+            else:
                 const = np.reshape(const, [c] + [1] * (len(v.shape) - 2))  # c x ones
                 quad_form += const
             lpot = quad_form
