@@ -6,21 +6,22 @@ import numpy as np
 
 dtype = 'float64'
 from mixture_beliefs import hfactor_bfe_obj, dfactor_bfe_obj, drv_bfe_obj, drvs_bfe_obj, crvs_bfe_obj, \
-    hfactors_bfe_obj, dfactors_bfe_obj, calc_cond_mixture_weights, drv_belief_map, crv_belief_map, marginal_map
+    hfactors_bfe_obj, dfactors_bfe_obj, calc_cond_mixture_weights, drv_belief_map, crv_belief_map, marginal_map, \
+    get_hybrid_mixture_entropy_lb
 import utils
 
 utils.set_path()
 
 
-class OneShot:
+class NPVI:
     """
     A wrapper class that defines and optimizes the BFE over mixture beliefs, given the factor graph of a (hybrid) MRF;
     also maintains all the local variables/results created along the way.
     """
 
-    def __init__(self, g, K, T, seed=None, Var_bds=None):
+    def __init__(self, g, K, T, isotropic_cov=False, Var_bds=None, seed=None):
         """
-        Define symbolic BFE and auxiliary objective expression to be optimized by tensorflow, given a factor graph.
+        Define symbolic -ELBO and auxiliary objective expression to be optimized by tensorflow, given a factor graph.
         We'll use the one default tensorflow computation graph; to make sure we don't redefine it, everytime it'll
         be cleared/reset whenever a new instance of OneShot is created.
         :param g: a grounded graph corresponding to a plain old PGM; its factors must have .log_potential_fun callable
@@ -52,7 +53,7 @@ class OneShot:
         w = tf.nn.softmax(tau, name='w')  # mixture weights
         fix_mix_op = tf.assign(tau, zeros_K)  # op that resets mixing weights to uniform
 
-        bfe = aux_obj = 0
+        neg_elbo = aux_obj = 0
         if g.Nd > 0:
             common_dstates = set(rv.dstates for rv in g.Vd)
             if len(common_dstates) == 1:
@@ -77,19 +78,6 @@ class OneShot:
             for rv in g.Vd:
                 i = g.Vd_idx[rv]  # ith disc node
                 rv.belief_params_ = {'pi': Pi[i]}  # K x dstates[i] matrix
-
-            # get discrete nodes' contributions to the objective
-            if common_dstates > 0:  # all discrete rvs have the same number of states
-                sharing_counts = [rv.sharing_count for rv in g.Vd]  # for lifting/param sharing; 1s if no lifting
-                delta_bfe, delta_aux_obj = drvs_bfe_obj(rvs=g.Vd, w=w, Pi=Pi, rvs_counts=sharing_counts)
-                bfe += delta_bfe
-                aux_obj += delta_aux_obj
-            else:
-                for rv in g.Vd:
-                    delta_bfe, delta_aux_obj = drv_bfe_obj(rv, w)
-                    sharing_count = rv.sharing_count
-                    bfe += sharing_count * delta_bfe
-                    aux_obj += sharing_count * delta_aux_obj
 
         clip_op = tf.no_op()  # will be replaced with real clip op if Nc > 0
         if g.Nc > 0:  # assuming Gaussian
@@ -121,11 +109,20 @@ class OneShot:
 
             # optimize the log of Var (sigma squared), for numeric stability
             lVar_bds = np.log(Var_bds)
-            # lVar = tf.Variable(np.log(np.random.uniform(low=Var_bds[0], high=Var_bds[1], size=[g.Nc, K])),
-            #                    dtype=dtype, trainable=True, name='lVar')
-            lVar = tf.Variable(np.random.uniform(low=lVar_bds[0], high=lVar_bds[1], size=[g.Nc, K]),
-                               dtype=dtype, trainable=True, name='lVar')
-            Var = tf.exp(lVar)
+
+            if not isotropic_cov:
+
+                # lVar = tf.Variable(np.log(np.random.uniform(low=Var_bds[0], high=Var_bds[1], size=[g.Nc, K])),
+                #                    dtype=dtype, trainable=True, name='lVar')
+                lVar = tf.Variable(np.random.uniform(low=lVar_bds[0], high=lVar_bds[1], size=[g.Nc, K]),
+                                   dtype=dtype, trainable=True, name='lVar')
+                Var = tf.exp(lVar)
+            else:
+                # lVar = tf.Variable(np.log(np.random.uniform(low=Var_bds[0], high=Var_bds[1], size=[1, K])),
+                #                    dtype=dtype, trainable=True, name='lVar')
+                lVar = tf.Variable(np.random.uniform(low=lVar_bds[0], high=lVar_bds[1], size=[1, K]),
+                                   dtype=dtype, trainable=True, name='lVar')
+                Var = tf.exp(lVar) * tf.ones([g.Nc, K], dtype=dtype)
 
             clip_op = tf.group(tf.assign(Mu, tf.clip_by_value(Mu, *Mu_bds)),
                                tf.assign(lVar, tf.clip_by_value(lVar, *lVar_bds)))
@@ -137,21 +134,33 @@ class OneShot:
                     'var_K1': tf.reshape(Var[i], [K, 1]), 'var_inv_K1': tf.reshape(1 / Var[i], [K, 1])
                 }
 
-            # get continuous nodes' contribution to the objectives (assuming all Gaussian for now)
-            sharing_counts = [rv.sharing_count for rv in g.Vc]  # for lifting/param sharing; 1s if no lifting
-            delta_bfe, delta_aux_obj = crvs_bfe_obj(rvs=g.Vc, T=T, w=w, Mu=Mu, Var=Var, rvs_counts=sharing_counts)
-            bfe += delta_bfe
-            aux_obj += delta_aux_obj
-
         for factors in factors_with_unique_nb_domain_types:
             factor = factors[0]
             if factor.domain_type == 'd':
-                delta_bfe, delta_aux_obj = dfactors_bfe_obj(factors, w)
+                delta_neg_elbo, delta_aux_obj = dfactors_bfe_obj(factors, w, neg_lpot_only=True)
             else:
                 assert factor.domain_type in ('c', 'h')
-                delta_bfe, delta_aux_obj = hfactors_bfe_obj(factors, T, w, dtype=dtype)
-            bfe += delta_bfe
+                delta_neg_elbo, delta_aux_obj = hfactors_bfe_obj(factors, T, w, dtype=dtype, neg_lpot_only=True)
+            neg_elbo += delta_neg_elbo
             aux_obj += delta_aux_obj
+
+        # add negative entropy lower bound for NPVI
+        # TODO: ugly; fix
+        if g.Nc == 0:
+            _Mu, _Var, _crv_sharing_counts = None, None, None
+        else:
+            _Mu, _Var, _crv_sharing_counts = Mu, Var, [rv.sharing_count for rv in
+                                                       g.Vc]  # for lifting/param sharing; 1s if no lifting
+
+        if g.Nd == 0:
+            _Pi, _drv_sharing_counts = None, None
+        else:
+            _Pi, _drv_sharing_counts = Pi, [rv.sharing_count for rv in
+                                            g.Vd]  # for lifting/param sharing; 1s if no lifting
+
+        neg_ent_lb = -get_hybrid_mixture_entropy_lb(w, _Mu, _Var, _Pi, _drv_sharing_counts, _crv_sharing_counts)
+        neg_elbo += neg_ent_lb
+        aux_obj += neg_ent_lb
 
         self.__dict__.update(**locals())
 
@@ -192,7 +201,7 @@ class OneShot:
         :return:
         """
         g = self.g
-        bfe, aux_obj, clip_op = self.bfe, self.aux_obj, self.clip_op
+        obj, aux_obj, clip_op = self.neg_elbo, self.aux_obj, self.clip_op
         w = self.w
         if not optimizer:
             optimizer = tf.train.AdamOptimizer(lr)
@@ -224,22 +233,22 @@ class OneShot:
         sess.run(tf.global_variables_initializer())  # always reinit
         for it in range(its):
             if not grad_check:
-                # bfe_, grads_and_vars_ = sess.run([bfe, grads_and_vars])
+                # obj_, grads_and_vars_ = sess.run([bfe, grads_and_vars])
                 # sess.run(grads_update)
                 # note that grads_and_vars_ below will contain updated vars because grads_update is also run
-                bfe_, grads_and_vars_, _ = sess.run([bfe, grads_and_vars, grads_update])
+                obj_, grads_and_vars_, _ = sess.run([obj, grads_and_vars, grads_update])
 
             else:  # gradient check on the 0th iteration
                 if it == 1:
                     break
-                bfe_, grads_and_vars_ = sess.run([bfe, grads_and_vars])  # no need to run grads_update
+                obj_, grads_and_vars_ = sess.run([obj, grads_and_vars])  # no need to run grads_update
                 print('var vals')
                 print(dict(zip([v.name.split(':')[0] for v in trainable_params], [gv[1] for gv in grads_and_vars_])))
 
                 print(gvnames)
 
                 print('numerical grads')
-                num_grads = utils.calc_numerical_grad(trainable_params, bfe, sess, delta=1e-4)
+                num_grads = utils.calc_numerical_grad(trainable_params, obj, sess, delta=1e-4)
                 print(num_grads)
 
                 print('quad symbolic grads')
@@ -264,7 +273,7 @@ class OneShot:
                     grad = grad.values  # somehow gMu is a IndexedSlicesValue
                 avg_grads.append(np.mean(np.abs(grad)))
             it_record = dict(zip(gvnames, avg_grads))
-            it_record['obj'] = bfe_
+            it_record['obj'] = obj_
             it_record['t'] = it
             if it % logging_itv == 0 or it + 1 == its:
                 for key in sorted(it_record.keys()):
@@ -330,8 +339,8 @@ class OneShot:
         return out
 
 
-class LiftedOneShot(OneShot):
-    def __init__(self, g, K, T, seed=None, Var_bds=None):
+class LiftedNPVI(NPVI):
+    def __init__(self, g, K, T, isotropic_cov=False, Var_bds=None, seed=None):
         """
 
         :param g: cluster graph, containing cluster nodes and factors; should be of type CompressedGraphSorted
@@ -340,7 +349,7 @@ class LiftedOneShot(OneShot):
         :param seed:
         :param Var_bds:
         """
-        super().__init__(g, K, T, seed, Var_bds)
+        super().__init__(g, K, T, isotropic_cov=isotropic_cov, Var_bds=Var_bds, seed=seed)
         self.unlifted_g = g.g  # original (uncompressed) graph
 
     def run(self, its=100, lr=5e-2, tf_session=None, optimizer=None, trainable_params=None, grad_check=False,
@@ -357,8 +366,8 @@ class LiftedOneShot(OneShot):
         return res
 
 
-class LiftedOneShot2(OneShot):
-    def __init__(self, g, cg, K, T, seed=None, Var_bds=None, lifting_reg_coef=0):
+class LiftedNPVI2(NPVI):
+    def __init__(self, g, cg, K, T, isotropic_cov=True, Var_bds=None, lifting_reg_coef=0, seed=None):
         """
 
         :param g
@@ -368,7 +377,7 @@ class LiftedOneShot2(OneShot):
         :param seed:
         :param Var_bds:
         """
-        super().__init__(g, K, T, seed, Var_bds)
+        super().__init__(g, K, T, isotropic_cov=isotropic_cov, Var_bds=Var_bds, seed=seed)
         self.cg = cg
 
         lifting_reg = 0
@@ -387,8 +396,8 @@ class LiftedOneShot2(OneShot):
             lifting_reg += tf.nn.l2_loss(rvs_means - tf.reduce_mean(rvs_means))
         lifting_reg *= lifting_reg_coef
 
-        self.unreg_bfe = self.bfe
+        self.unreg_bfe = self.neg_elbo
         self.unreg_aux_obj = self.aux_obj
-        self.bfe += lifting_reg
+        self.neg_elbo += lifting_reg
         self.aux_obj += lifting_reg
         self.lifting_reg = lifting_reg

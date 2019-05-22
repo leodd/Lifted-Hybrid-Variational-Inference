@@ -9,6 +9,7 @@ import numpy as np
 import time
 from OneShot import OneShot, LiftedOneShot
 from CompressedGraphSorted import CompressedGraphSorted
+from copy import copy
 
 seed = 0
 utils.set_seed(seed=seed)
@@ -16,8 +17,8 @@ utils.set_seed(seed=seed)
 instance_category = []
 instance_bank = []
 for i in range(100):
-# for i in range(50):
-# for i in range(10):
+    # for i in range(50):
+    # for i in range(10):
     instance_category.append(f'c{i}')
 for i in range(5):
     instance_bank.append(f'b{i}')
@@ -91,6 +92,7 @@ for test_num in range(num_test):
     obs_rvs = [v for v in g.rvs if v.value is not None]
     evidence = {rv: rv.value for rv in obs_rvs}
     cond_g = utils.get_conditional_mrf(g.factors_list, g.rvs, evidence)  # this will also condition log_potential_funs
+    g_rv_nbs = [copy(rv.nb) for rv in g.rvs_list]  # keep a copy of rv neighbors in the original graph
     quadratic_params, rvs_idx = utils.get_quadratic_params_from_factor_graph(cond_g.factors, cond_g.rvs_list)
     print('det(J) in conditional MRF =', np.linalg.det(-2. * quadratic_params[0]))  # J = -2A
 
@@ -130,9 +132,14 @@ for test_num in range(num_test):
     # cond = True
     cond = True
     if cond:
+        cond_g.init_nb()  # this will make cond_g rvs' .nb attributes consistent (baseline didn't care so it was OK)
+    if cond:
         osi = OneShot(g=cond_g, K=K, T=T, seed=seed)
     else:
         osi = OneShot(g=g, K=K, T=T, seed=seed)
+    if cond:  # clearn up just in case someone need to uses rvs.nb in g later
+        for i, rv in enumerate(g.rvs_list):
+            rv.nb = g_rv_nbs[i]  # restore; undo possible mutation from cond_g.init_nb()
     start_time = time.process_time()
     osi.run(lr=lr, its=its, fix_mix_its=fix_mix_its, logging_itv=logging_itv)
     # print('Mu =\n', osi.params['Mu'], '\nVar =\n', osi.params['Var'])
@@ -156,6 +163,8 @@ for test_num in range(num_test):
 
     name = 'LOSI'
     if cond:
+        cond_g.init_nb()  # this will make cond_g rvs' .nb attributes consistent (baseline didn't care so it was OK)
+    if cond:
         cg = CompressedGraphSorted(cond_g)
     else:
         cg = CompressedGraphSorted(g)  # technically incorrect; currently we should run LOSI on the conditional MRF
@@ -163,6 +172,9 @@ for test_num in range(num_test):
     print('number of rvs in cg', len(cg.rvs))
     print('number of factors in cg', len(cg.factors))
     osi = LiftedOneShot(g=cg, K=K, T=T, seed=seed)
+    if cond:  # clearn up just in case someone need to uses rvs.nb in g later
+        for i, rv in enumerate(g.rvs_list):
+            rv.nb = g_rv_nbs[i]  # restore; undo possible mutation from cond_g.init_nb()
     start_time = time.process_time()
     osi.run(lr=lr, its=its, fix_mix_its=fix_mix_its, logging_itv=logging_itv)
     # print('Mu =\n', osi.params['Mu'], '\nVar =\n', osi.params['Var'])
