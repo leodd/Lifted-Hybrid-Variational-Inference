@@ -199,7 +199,7 @@ for test_num in range(num_tests):
 
         num_dstates = np.prod([rv.dstates for rv in Vd])
         if num_dstates > 1000:
-            print('num modes too large, exact mode finding might take a while, consider parallelizing...')
+            print('too many dstates, exact mode finding might take a while, consider parallelizing...')
         for i, key in enumerate(key_list):
             rv = rvs_table[key]
             ans[key] = get_rv_marg_map_from_bn_params(*bn, Vd_idx, Vc_idx, rv)
@@ -209,7 +209,7 @@ for test_num in range(num_tests):
         num_samples = 500
         num_gm_components_for_crv = 3
         disc_block_its = 40
-        hgsampler = HybridGaussianSampler(g2)
+        hgsampler = HybridGaussianSampler(converted_factors, Vd, Vc, Vd_idx, Vc_idx)
         hgsampler.block_gibbs_sample(num_burnin=num_burnin, num_samples=num_samples, disc_block_its=disc_block_its)
         # np.save('cont_samples', hgsampler.cont_samples)
         # np.save('disc_samples', hgsampler.disc_samples)
