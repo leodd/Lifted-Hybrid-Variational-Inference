@@ -98,6 +98,15 @@ for test_num in range(num_tests):
             quadratic_params, rvs_idx = utils.get_quadratic_params_from_factor_graph(cond_g.factors, cond_g.rvs_list)
             mu, Sig = utils.get_gaussian_mean_params_from_quadratic_params(A=quadratic_params[0], b=quadratic_params[1],
                                                                            mu_only=False)
+            Nc = len(mu)
+            A, b, c = quadratic_params
+            (sign, logdet) = np.linalg.slogdet(Sig)
+            assert sign == 1, 'cov mat must be PD'
+            log_joint_quadratic_integral = Nc / 2 * np.log(2 * np.pi) + 0.5 * logdet + 0.5 * np.dot(mu, b)
+            log_joint_quadratic_integral += c  # log integral of all cont & hybrid factors (with disc nodes substituted in)
+            obj = -log_joint_quadratic_integral  # -logZ
+            print('true obj', obj)
+
             for i, rv in enumerate(query_rvs):
                 rv_idx = rvs_idx[rv]
                 mmap[i] = mu[rv_idx]
