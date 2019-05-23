@@ -157,10 +157,11 @@ for test_num in range(num_tests):
 
     baseline = 'exact'
     # baseline = 'gibbs'
-    for algo_name in algo_names:
+    for a, algo_name in enumerate(algo_names):
         print('####')
         print('test_num', test_num)
         print('running', algo_name)
+        np.random.seed(test_seed + a)
 
         # temp storage
         mmap = np.zeros(len(query_rvs))
@@ -243,7 +244,7 @@ for test_num in range(num_tests):
 
             if baseline == 'gibbs':
                 num_burnin = 200
-                num_samples = 500
+                num_samples = 2000
                 num_gm_components_for_crv = 3
                 disc_block_its = 40
                 hgsampler = HybridGaussianSampler(converted_factors, cond_g.Vd, cond_g.Vc, cond_g.Vd_idx, cond_g.Vc_idx)
