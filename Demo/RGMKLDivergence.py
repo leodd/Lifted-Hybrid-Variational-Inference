@@ -20,13 +20,8 @@ def norm_pdf(x, mu, var):
 
 
 rel_g = generate_rel_graph()
-key_list = rel_g.key_list()
 
 num_test = 5
-evidence_ratio = 0.01
-
-print('number of vr', len(key_list))
-print('number of evidence', int(len(key_list) * evidence_ratio))
 
 kl = list()
 map_err = list()
@@ -35,6 +30,8 @@ for i in range(num_test):
     data = load_data('Data/RGM/' + str(i))
     rel_g.data = data
     g, rvs_table = rel_g.grounded_graph()
+    print('number of vr', len(g.rvs))
+    print('number of evidence', sum([0 if rv.value is None else 1 for rv in g.rvs]))
 
     # ans = GaBP(g)
     # ans.run(15, log_enable=False)
