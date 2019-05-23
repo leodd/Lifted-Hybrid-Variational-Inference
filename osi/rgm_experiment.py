@@ -41,8 +41,8 @@ record_fields = ['cpu_time',
                  'kl_err',  # kl(p(xi)||q(xi)), avg over all nodes i
                  ]
 # algo_names = ['baseline', 'EPBP', 'OSI', 'LOSI']
-# algo_names = ['baseline', 'NPVI', 'OSI', ]
-algo_names = ['baseline', 'GaBP', 'NPVI', 'LNPVI', 'OSI', 'LOSI']
+algo_names = ['baseline', 'LNPVI']  # , 'OSI', ]
+# algo_names = ['baseline', 'GaBP', 'NPVI', 'LNPVI', 'OSI', 'LOSI']
 # algo_names = ['baseline', 'EPBP']
 # algo_names = ['EPBP']
 # assert algo_names[0] == 'baseline'
@@ -190,14 +190,11 @@ for test_num in range(num_tests):
             for i, rv in enumerate(query_rvs):
                 if cond:
                     m = vi.map(obs_rvs=[], query_rv=rv)
-                    crv_idx = cond_g.Vc_idx[rv]
                 else:
                     m = vi.map(obs_rvs=obs_rvs, query_rv=rv)
-                    crv_idx = g.Vc_idx[rv]
                 mmap[i] = m
-
                 assert rv.domain_type[0] == 'c', 'only looking at kl for cnode queries for now'
-                crv_marg_params = vi.params['w'], vi.params['Mu'][crv_idx], vi.params['Var'][crv_idx]
+                crv_marg_params = vi.params['w'], rv.belief_params['mu'], rv.belief_params['var']
                 margs[i] = utils.get_scalar_gm_log_prob(None, *crv_marg_params, get_fun=True)
 
         else:
