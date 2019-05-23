@@ -110,9 +110,9 @@ record_fields = [
     'mmap_err',  # |argmax p(xi) - argmax q(xi)|, avg over all nodes i
     'kl_err',  # kl(p(xi)||q(xi)), avg over all nodes i
 ]
-algo_names = ['baseline', 'EPBP', 'NPVI', 'OSI']
+# algo_names = ['baseline', 'EPBP', 'NPVI', 'OSI']
 # algo_names = ['baseline', 'NPVI', 'OSI', ]
-# algo_names = ['baseline', 'NPVI', 'LNPVI', 'OSI', 'LOSI']
+algo_names = ['baseline', 'EPBP', 'NPVI', 'LNPVI', 'OSI', 'LOSI']
 # algo_names = ['baseline', 'EPBP']
 # algo_names = ['EPBP']
 # assert algo_names[0] == 'baseline'
@@ -289,7 +289,7 @@ for test_num in range(num_tests):
             cond = True
             if cond:
                 cond_g.init_nb()  # this will make cond_g rvs' .nb attributes consistent (baseline didn't care so it was OK)
-            K = 3
+            K = 1
             T = 16
             lr = 0.5
             its = 1500
