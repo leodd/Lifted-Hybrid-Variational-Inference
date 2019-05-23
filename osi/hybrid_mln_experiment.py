@@ -155,10 +155,10 @@ for test_num in range(num_tests):
 
     # currently using the same ans
     if baseline == 'exact':
-        bn_res = convert_to_bn(g2.factors, Vd, Vc, return_Z=True)
+        bn_res = convert_to_bn(g2.factors, Vd, Vc, return_logZ=True)
         bn = bn_res[:-1]
-        Z = bn_res[-1]
-        print('true -logZ', -np.log(Z))
+        logZ = bn_res[-1]
+        print('true -logZ', -logZ)
         # print('BN params', bn)
 
         num_dstates = np.prod(g2.dstates)

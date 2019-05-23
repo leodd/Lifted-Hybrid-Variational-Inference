@@ -39,7 +39,7 @@ def get_scalar_gm_log_prob(x, w, mu, var, get_fun=False):
     var_inv = 1 / var
     log_w = np.log(w)
     K = len(w)
-    if isinstance(x, np.ndarray):   # tensor; reshape params for broadcasting
+    if isinstance(x, np.ndarray):  # tensor; reshape params for broadcasting
         mu = mu.reshape([K] + [1] * len(x.shape))
         var_inv = var_inv.reshape([K] + [1] * len(x.shape))
         log_w = log_w.reshape([K] + [1] * len(x.shape))
@@ -53,9 +53,11 @@ def get_scalar_gm_log_prob(x, w, mu, var, get_fun=False):
     else:  # curry the consts for speed; x was used for reshaping params
         const = -0.5 * np.log(2 * np.pi) + 0.5 * np.log(var_inv)
         coef = -0.5 * var_inv
+
         def f(arg):
             comp_log_probs = const + coef * (arg - mu) ** 2
             return logsumexp(log_w + comp_log_probs, axis=0)
+
         res = f
 
     return res
@@ -77,6 +79,7 @@ def get_scalar_gm_mode(w, mu, var, bds, best_log_pdf=False):
 
     const = -0.5 * np.log(2 * np.pi) + 0.5 * np.log(var_inv)
     coef = -0.5 * var_inv
+
     def neg_gmm_log_prob(x):
         comp_log_probs = const + coef * (x - mu) ** 2
         return -logsumexp(log_w + comp_log_probs)
@@ -598,6 +601,16 @@ def calc_numerical_grad(vs, obj, sess, delta=1e-4):
 def curry_epbp_belief(bp, rv, log_belief=True):
     # capture environment variables to avoid dangling ref; may use too much mem
     def f(x):
-        return bp.belief(x, rv, log_belief=True)
+        return bp.belief(x, rv, log_belief=log_belief)
+
     return f
 
+
+def curry_normal_logpdf(mu, var):
+    from scipy.stats import norm
+    sig = var ** 0.5
+
+    def f(x):
+        return norm.logpdf(x, loc=mu, scale=sig)
+
+    return f
