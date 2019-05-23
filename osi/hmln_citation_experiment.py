@@ -53,17 +53,19 @@ f1 = ParamF(  # disc
 )
 
 w_h = 0.4  # the stronger the more multi-modal things tend to be
+c1, c2 = (7., 1)  # mu1 = c2 - c1 is shared mean for comp1
+d1, d2 = (-10.1, 3.0)  # mu2 = d2 - d1 is shared mean for comp2
 f2 = ParamF(
-    MLNPotential(lambda x: x[0] * eq_op(x[1], x[2]), w=w_h),
+    MLNPotential(lambda x: x[0] * eq_op(x[1] - c1, x[2] - c2) + (1 - x[0]) * eq_op(x[1] - d1, x[2] - d2), w=w_h),
     nb=(atom_paperIn, atom_paper_popularity, atom_topic_popularity)
 )
 equiv_hybrid_pot = HybridQuadraticPotential(
-    A=w_h * np.array([np.array([[0., 0], [0, 0]]), np.array([[-1., 1.], [1., -1.]])]),
-    b=w_h * np.array([[0., 0.], [0., 0.]]),
-    c=w_h * np.array([0., 0.])
+    A=w_h * np.array([np.array([[-1., 1.], [1., -1.]]), np.array([[-1., 1.], [1., -1.]])]),
+    b=w_h * 2 * np.array([[d1 - d2, d2 - d1], [c1 - c2, c2 - c1]]),
+    c=w_h * np.array([-(d1 - d2) ** 2, -(c1 - c2) ** 2])
 )  # equals 0 if x[0]==0, equals -(x[1]-x[1])^2 if x[0]==1
 
-prior_strength = 0.01
+prior_strength = 0.02
 locs = [-3., 1]
 f3 = ParamF(  # cont
     QuadraticPotential(A=prior_strength * -(np.eye(2)), b=prior_strength * 2 * np.array(locs),
@@ -103,13 +105,12 @@ rel_g.param_factors = (f1, f2, f3)
 rel_g.init_nb()
 
 num_tests = 1  # number of times evidence will vary; each time all methods are run to perform conditional inference
-record_fields = ['cpu_time',
-                 'wall_time',
-                 'obj',  # this is BFE/-ELBO for variational methods, -logZ for exact baseline
-                 'mmap_err',  # |argmax p(xi) - argmax q(xi)|, avg over all nodes i
-                 'kl_err',  # kl(p(xi)||q(xi)), avg over all nodes i
-                 ]
-algo_names = ['baseline']  # , 'EPBP', 'NPVI']
+record_fields = [
+    'obj',  # this is BFE/-ELBO for variational methods, -logZ for exact baseline
+    'mmap_err',  # |argmax p(xi) - argmax q(xi)|, avg over all nodes i
+    'kl_err',  # kl(p(xi)||q(xi)), avg over all nodes i
+]
+algo_names = ['baseline', 'EPBP', 'NPVI', 'OSI']
 # algo_names = ['baseline', 'NPVI', 'OSI', ]
 # algo_names = ['baseline', 'NPVI', 'LNPVI', 'OSI', 'LOSI']
 # algo_names = ['baseline', 'EPBP']
@@ -267,15 +268,10 @@ for test_num in range(num_tests):
             baseline_mmap = mmap
             baseline_margs = margs
             marg_kls = np.zeros_like(mmap)
-            cpu_time = wall_time = 0  # don't care
 
         elif algo_name == 'EPBP':
             bp = EPBP(g, n=20, proposal_approximation='simple')
-            start_time = time.process_time()
-            start_wall_time = time.time()
             bp.run(10, log_enable=False)
-            cpu_time = time.process_time() - start_time
-            wall_time = time.time() - start_wall_time
 
             for i, rv in enumerate(query_rvs):
                 mmap[i] = bp.map(rv)
@@ -326,11 +322,7 @@ for test_num in range(num_tests):
                 for i, rv in enumerate(g.rvs_list):
                     rv.nb = g_rv_nbs[i]  # restore; undo possible mutation from cond_g.init_nb()
 
-            start_time = time.process_time()
-            start_wall_time = time.time()
             res = vi.run(lr=lr, its=its, fix_mix_its=fix_mix_its, logging_itv=logging_itv)
-            cpu_time = time.process_time() - start_time
-            wall_time = time.time() - start_wall_time
             obj = res['record']['obj'][-1]
 
             for i, rv in enumerate(query_rvs):
@@ -352,7 +344,8 @@ for test_num in range(num_tests):
         print('true mmap', baseline_mmap)
         mmap_err = np.mean(np.abs(mmap - baseline_mmap))
         kl_err = np.mean(marg_kls)
-        algo_record = dict(cpu_time=cpu_time, wall_time=wall_time, obj=obj, mmap_err=mmap_err, kl_err=kl_err)
+        print('mmap_err', mmap_err, 'kl_err', kl_err)
+        algo_record = dict(obj=obj, mmap_err=mmap_err, kl_err=kl_err)
         for key, value in algo_record.items():
             records[algo_name][key].append(value)
         all_margs[algo_name] = margs  # for plotting convenience
@@ -365,7 +358,7 @@ plt.figure()
 xs = np.linspace(domain_real.values[0], domain_real.values[1], 100)
 
 crv_idxs_to_plot = list(range(len([rv for rv in query_rvs if rv.domain_type[0] == 'c'])))
-num_to_plot = len(crv_idxs_to_plot)
+num_to_plot = 1
 crv_idxs_to_plot = crv_idxs_to_plot[:num_to_plot]
 for test_crv_idx in crv_idxs_to_plot:
     # for test_crv_idx in range(len(query_rvs)):
