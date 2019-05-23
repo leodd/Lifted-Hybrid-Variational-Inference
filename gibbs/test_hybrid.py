@@ -38,7 +38,7 @@ print('BN params', bn)
 num_burnin = 200
 num_samples = 1000
 disc_samples, cont_samples = block_gibbs_sample(factors, Vd=Vd, Vc=Vc, num_burnin=num_burnin,
-                                                num_samples=num_samples, disc_block_its=2)
+                                                num_samples=num_samples, disc_block_its=2, seed=seed)
 sampled_disc_marginal_table = sampling_utils.get_disc_marg_table_from_samples(disc_samples, dstates)
 
 test_drv_idx = 0

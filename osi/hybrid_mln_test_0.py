@@ -98,11 +98,11 @@ for factor in factors:
         factor.potential = utils.convert_disc_MLNPotential_to_TablePotential(factor.potential, factor.nb)
 utils.set_log_potential_funs(factors, skip_existing=False)  # create lpot_funs to be used by baseline
 
-bn_res = convert_to_bn(factors, Vd, Vc, return_Z=True)
+bn_res = convert_to_bn(factors, Vd, Vc, return_logZ=True)
 bn = bn_res[:-1]
-Z = bn_res[-1]
+logZ = bn_res[-1]
 print('BN params', bn)
-print('true -logZ', -np.log(Z))
+print('true -logZ', -logZ)
 true_mmap = np.empty(len(rvs))
 for i, rv in enumerate(rvs):
     true_mmap[i] = get_rv_marg_map_from_bn_params(*bn, Vd_idx, Vc_idx, rv)

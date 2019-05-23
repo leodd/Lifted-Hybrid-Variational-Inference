@@ -202,11 +202,11 @@ for test_num in range(num_tests):
         utils.set_nbrs_idx_in_factors(converted_factors, cond_g.Vd_idx, cond_g.Vc_idx)  # preprocessing for baseline
 
         if baseline == 'exact':
-            bn_res = convert_to_bn(converted_factors, cond_g.Vd, cond_g.Vc, return_Z=True)
+            bn_res = convert_to_bn(converted_factors, cond_g.Vd, cond_g.Vc, return_logZ=True)
             bn = bn_res[:-1]
-            Z = bn_res[-1]
-            print('true -logZ', -np.log(Z))
-            obj = -np.log(Z)
+            logZ = bn_res[-1]
+            print('true -logZ', -logZ)
+            obj = -logZ
             # print('BN params', bn)
 
             num_dstates = np.prod([rv.dstates for rv in cond_g.Vd])

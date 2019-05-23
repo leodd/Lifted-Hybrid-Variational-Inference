@@ -10,7 +10,7 @@ import utils
 import sampling_utils
 
 
-def convert_to_bn(factors, Vd, Vc, return_Z=False):
+def convert_to_bn(factors, Vd, Vc, return_logZ=False):
     """
     Brute-force convert a hybrid Gaussian MRF into equivalent Bayesian network, p(x_d, x_c) = p(x_d) p(x_c | x_d)
     :param factors: list of Graph.F
@@ -29,7 +29,7 @@ def convert_to_bn(factors, Vd, Vc, return_Z=False):
     for disc_config in all_disc_config:
         quadratic_factor_params = []  # each obtained from a (reduced) hybrid factor when given disc nb node values
         quadratic_factor_scopes = []
-        disc_pot_prod = 0  # table/discrete potential's contribution to \prod_c \psi_c (product of all potentials)
+        log_disc_pot_prod = 0  # table/discrete potential's contribution to \prod_c \psi_c (product of all potentials)
         for factor in factors:
             # pot = factor.potential  # .potential is for interfacing with the code outside /osi
             assert hasattr(factor, 'log_potential_fun')  # actually I'll only work with log_potential_fun for simplicity
@@ -40,7 +40,7 @@ def convert_to_bn(factors, Vd, Vc, return_Z=False):
             else:
                 disc_vals_in_factor = tuple(disc_config[i] for i in factor.disc_nb_idx)
                 if isinstance(lpot_fun, LogTable):
-                    disc_pot_prod += lpot_fun(disc_vals_in_factor)
+                    log_disc_pot_prod += lpot_fun(disc_vals_in_factor)
                 else:
                     assert isinstance(lpot_fun, LogHybridQuadratic)
                     # plugging in disc values has the effect of selecting one log quadratic
@@ -55,21 +55,21 @@ def convert_to_bn(factors, Vd, Vc, return_Z=False):
 
         # use the log partition function formula for Gaussian to figure out \int exp{x^T A x + x^T b} =
         # \int exp{-0.5 x^T J x + x^T J mu} = (int exp{-0.5 (x-mu)^T J (x-mu)} * exp{0.5 mu^T J mu}
-        joint_quadratic_integral = (2 * np.pi) ** (Nc / 2) * np.linalg.det(Sig) ** 0.5 * \
-                                   np.e ** (0.5 * np.dot(mu, b))
-        joint_quadratic_integral *= np.e ** c  # integral of all cont & hybrid factors (with disc nodes substituted in)
+        (sign, logdet) = np.linalg.slogdet(Sig)
+        assert sign == 1, 'cov mat must be PD'
+        log_joint_quadratic_integral = Nc / 2 * np.log(2 * np.pi) + 0.5 * logdet + 0.5 * np.dot(mu, b)
+        log_joint_quadratic_integral += c  # log integral of all cont & hybrid factors (with disc nodes substituted in)
 
-        disc_pot_prod = np.e ** disc_pot_prod
         disc_marginal_table[disc_config] = \
-            disc_pot_prod * joint_quadratic_integral  # = \tilde p(x_d=disc_config) = \int_{x_c} \tilde p(x_c, x_d=disc_config)
+            log_disc_pot_prod + log_joint_quadratic_integral  # = log \tilde p(x_d=disc_config) = log \int_{x_c} \tilde p(x_c, x_d=disc_config)
 
-    Z = np.sum(disc_marginal_table)
-    disc_marginal_table /= Z
+    logZ = utils.logsumexp(disc_marginal_table)
+    disc_marginal_table = np.exp(disc_marginal_table - logZ)
 
-    if not return_Z:
+    if not return_logZ:
         return disc_marginal_table, gaussian_means, gaussian_covs
     else:
-        return disc_marginal_table, gaussian_means, gaussian_covs, Z
+        return disc_marginal_table, gaussian_means, gaussian_covs, logZ
 
 
 def get_crv_marg(disc_marginal_table, gaussian_means, gaussian_covs, crv_idx, flatten_params=True):
