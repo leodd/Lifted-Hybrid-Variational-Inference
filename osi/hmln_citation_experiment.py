@@ -22,42 +22,40 @@ import sampling_utils
 
 from KLDivergence import kl_continuous_logpdf
 
-num_x = 2
-num_y = 2
+num_paper = 2
+num_topic = 2
 
-X = []
-for x in range(num_x):
-    X.append(f'x{x}')
-Y = []
-for y in range(num_y):
-    Y.append(f'y{y}')
-S = ['T1', 'T2', 'T3']
+Paper = []
+for i in range(num_paper):
+    Paper.append(f'paper{i}')
+Topic = []
+for i in range(num_topic):
+    Topic.append(f'topic{i}')
 
 domain_bool = Domain((0, 1))
 domain_real = Domain((-15, 15), continuous=True, integral_points=linspace(-15, 15, 20))
 
-lv_x = LV(X)
-lv_y = LV(X)
-lv_s = LV(S)
-lv_s2 = LV(S)
+lv_paper = LV(Paper)
+lv_paper_2 = LV(Paper)
+lv_topic = LV(Topic)
 
-atom_A = Atom(domain_real, logical_variables=(lv_x,), name='A')
-atom_B = Atom(domain_real, logical_variables=(lv_s,), name='B')
-atom_C = Atom(domain_bool, logical_variables=(lv_x, lv_s), name='C')
-atom_C2 = Atom(domain_bool, logical_variables=(lv_y, lv_s2), name='C')
-atom_D = Atom(domain_bool, logical_variables=(lv_x, lv_y), name='D')
+atom_paper_popularity = Atom(domain_real, logical_variables=(lv_paper,), name='popularity')
+atom_topic_popularity = Atom(domain_real, logical_variables=(lv_topic,), name='popularity')
+atom_paperIn = Atom(domain_bool, logical_variables=(lv_paper, lv_topic), name='paperIn')
+atom_paperIn_2 = Atom(domain_bool, logical_variables=(lv_paper_2, lv_topic), name='paperIn')
+atom_cites = Atom(domain_bool, logical_variables=(lv_paper, lv_paper_2), name='cites')
 
+w_d = 0.1
 f1 = ParamF(  # disc
-    MLNPotential(lambda x: imp_op(x[0] * x[1], x[2]), w=0.1),
-    nb=(atom_D, atom_C, atom_C2),
-    constrain=lambda sub: ((sub[lv_s] == 'T1' and sub[lv_s2] == 'T1') or (sub[lv_s] == 'T1' and sub[lv_s2] == 'T2'))
-                          and (sub[lv_x] != sub[lv_y])
+    MLNPotential(lambda x: imp_op(x[0] * x[1], x[2]), w=w_d),
+    nb=(atom_cites, atom_paperIn, atom_paperIn_2),
+    constrain=lambda sub: sub[lv_paper] != sub[lv_paper_2]
 )
 
-w_h = 1  # the stronger the more multi-modal things tend to be
-f2 = ParamF(  # hybrid
+w_h = 0.4  # the stronger the more multi-modal things tend to be
+f2 = ParamF(
     MLNPotential(lambda x: x[0] * eq_op(x[1], x[2]), w=w_h),
-    nb=(atom_C, atom_A, atom_B)
+    nb=(atom_paperIn, atom_paper_popularity, atom_topic_popularity)
 )
 equiv_hybrid_pot = HybridQuadraticPotential(
     A=w_h * np.array([np.array([[0., 0], [0, 0]]), np.array([[-1., 1.], [1., -1.]])]),
@@ -66,13 +64,41 @@ equiv_hybrid_pot = HybridQuadraticPotential(
 )  # equals 0 if x[0]==0, equals -(x[1]-x[1])^2 if x[0]==1
 
 prior_strength = 0.01
+locs = [-3., 1]
 f3 = ParamF(  # cont
-    QuadraticPotential(A=-prior_strength * (np.eye(2)), b=np.array([0., 0.]), c=0.),
-    nb=[atom_A, atom_B]
+    QuadraticPotential(A=prior_strength * -(np.eye(2)), b=prior_strength * 2 * np.array(locs),
+                       c=prior_strength * -(np.square(locs).sum())),
+    nb=[atom_paper_popularity, atom_topic_popularity]
 )  # needed to ensure normalizability; model will be indefinite when all discrete nodes are 0
 
+
+def generate_data(evidence_ratios=(.2, .5)):
+    data = dict()
+    X_ = np.random.choice(num_paper, int(num_paper * evidence_ratios[0]), replace=False)
+    for x_ in X_:
+        data[str(('popularity', f'paper{x_}'))] = np.clip(np.random.normal(0, 3), -10, 10)
+
+    X_ = np.random.choice(num_topic, int(num_topic * evidence_ratios[1]), replace=False)
+    for x_ in X_:
+        data[str(('popularity', f'topic{x_}'))] = np.clip(np.random.normal(0, 3), -10, 10)
+
+    X_ = np.random.choice(num_paper, int(num_paper * evidence_ratios[0]), replace=False)
+    for x_ in X_:
+        Y_ = np.random.choice(num_topic, np.random.randint(3), replace=False)
+        for y_ in Y_:
+            data[str(('paperIn', f'paper{x_}', f'topic{y_}'))] = int(np.random.choice([0, 1]))
+
+    X_ = np.random.choice(num_paper, int(num_paper * 1), replace=False)
+    for x_ in X_:
+        Y_ = np.random.choice(num_paper, int(num_paper * 1), replace=False)
+        for y_ in Y_:
+            data[str(('cites', f'paper{x_}', f'paper{y_}'))] = int(np.random.choice([0, 0, 0, 1]))
+
+    return data
+
+
 rel_g = RelationalGraphSorted()
-rel_g.atoms = (atom_A, atom_B, atom_C, atom_D)
+rel_g.atoms = (atom_cites, atom_paperIn, atom_paper_popularity, atom_topic_popularity)
 rel_g.param_factors = (f1, f2, f3)
 rel_g.init_nb()
 
@@ -83,9 +109,9 @@ record_fields = ['cpu_time',
                  'mmap_err',  # |argmax p(xi) - argmax q(xi)|, avg over all nodes i
                  'kl_err',  # kl(p(xi)||q(xi)), avg over all nodes i
                  ]
-# algo_names = ['baseline', 'EPBP', 'OSI', 'LOSI']
+algo_names = ['baseline']  # , 'EPBP', 'NPVI']
 # algo_names = ['baseline', 'NPVI', 'OSI', ]
-algo_names = ['baseline', 'EPBP', 'NPVI']  # ,'LNPVI', 'OSI', 'LOSI']
+# algo_names = ['baseline', 'NPVI', 'LNPVI', 'OSI', 'LOSI']
 # algo_names = ['baseline', 'EPBP']
 # algo_names = ['EPBP']
 # assert algo_names[0] == 'baseline'
@@ -96,55 +122,20 @@ records = {algo_name: {record_field: [] for record_field in record_fields} for a
 data = dict()
 for test_num in range(num_tests):
     test_seed = seed + test_num
+    np.random.seed(test_seed)
 
     # regenerate/reload evidence
-    data.clear()
-    obs_scale = 5
-    B_vals = np.random.normal(loc=0, scale=obs_scale, size=len(S))  # special treatment for the story
-    # B_vals = np.random.uniform(low=domain_real.values[0], high=domain_real.values[1], size=len(S))
-    # B_vals = [-14, 2, 20]
-    for i, s in enumerate(S):
-        data[('B', s)] = B_vals[i]
-
-    for x in X:
-        for y in X:
-            if x != y:
-                data[('D', x, y)] = np.random.randint(2)
-
-    evidence_ratio = 0.1
-    x_idx = np.random.choice(len(X), int(len(X) * evidence_ratio), replace=False)
-    for i in x_idx:
-        data['C', X[i], 'T1'] = np.random.randint(2)
-
-    x_idx = np.random.choice(len(X), int(len(X) * evidence_ratio), replace=False)
-    for i in x_idx:
-        data['C', X[i], 'T2'] = np.random.randint(2)
-
-    x_idx = np.random.choice(len(X), int(len(X) * evidence_ratio), replace=False)
-    for i in x_idx:
-        data['C', X[i], 'T3'] = np.random.randint(2)
-
-    print(data)
+    evidence_ratios = (0.2, 0.5)
+    data = generate_data(evidence_ratios)
 
     rel_g.data = data
     g, rvs_table = rel_g.grounded_graph()
-    # good_fs = []
-    # for f in g.factors_list:
-    #     if len(f.nb) == len(set(f.nb)):
-    #         good_fs.append(f)
-    # g.factors = good_fs
-    # g.rvs = sum([f.nb for f in good_fs], [])
-    # g.init_nb()
 
     g_rv_nbs = [copy(rv.nb) for rv in g.rvs_list]  # keep a copy of rv neighbors in the original graph
     print(rvs_table)
 
     # labels of query nodes
-    key_list = list()
-    for x_ in X:
-        if ('A', x_) not in data:
-            key_list.append(('A', x_))
-    query_rvs = [rvs_table[key] for key in key_list]
+    query_rvs = [rv for rv in g.rvs_list if rv.domain_type[0] == 'c']
 
     print('number of rvs', len(g.rvs))
     print('num drvs', len([rv for rv in g.rvs if rv.domain_type[0] == 'd']))
@@ -163,8 +154,8 @@ for test_num in range(num_tests):
 
     all_margs = {algo_name: [None] * len(query_rvs) for algo_name in algo_names}  # for plotting convenience
 
-    # baseline = 'exact'
-    baseline = 'gibbs'
+    baseline = 'exact'
+    # baseline = 'gibbs'
     for algo_name in algo_names:
         print('####')
         print('test_num', test_num)
@@ -228,9 +219,6 @@ for test_num in range(num_tests):
             cond_g.init_rv_indices()  # create indices in the conditional mrf (for baseline and osi)
             utils.set_nbrs_idx_in_factors(converted_factors, cond_g.Vd_idx, cond_g.Vc_idx)  # preprocessing for baseline
 
-            num_dstates = np.prod([rv.dstates for rv in cond_g.Vd])
-            print(f'running {algo_name} baseline with {num_dstates} joint discrete configs')
-
             if baseline == 'exact':
                 bn_res = convert_to_bn(converted_factors, cond_g.Vd, cond_g.Vc, return_logZ=True)
                 bn = bn_res[:-1]
@@ -239,7 +227,7 @@ for test_num in range(num_tests):
                 obj = -logZ
                 # print('BN params', bn)
 
-                # num_dstates = np.prod([rv.dstates for rv in cond_g.Vd])
+                num_dstates = np.prod([rv.dstates for rv in cond_g.Vd])
                 if num_dstates > 1000:
                     print('too many dstates, exact mode finding might take a while, consider parallelizing...')
 
@@ -254,7 +242,7 @@ for test_num in range(num_tests):
 
             if baseline == 'gibbs':
                 num_burnin = 200
-                num_samples = 1000
+                num_samples = 500
                 num_gm_components_for_crv = 3
                 disc_block_its = 40
                 hgsampler = HybridGaussianSampler(converted_factors, cond_g.Vd, cond_g.Vc, cond_g.Vd_idx, cond_g.Vc_idx)
@@ -304,7 +292,7 @@ for test_num in range(num_tests):
             cond = True
             if cond:
                 cond_g.init_nb()  # this will make cond_g rvs' .nb attributes consistent (baseline didn't care so it was OK)
-            K = 3
+            K = 2
             T = 16
             lr = 0.5
             its = 1500
@@ -377,7 +365,7 @@ plt.figure()
 xs = np.linspace(domain_real.values[0], domain_real.values[1], 100)
 
 crv_idxs_to_plot = list(range(len([rv for rv in query_rvs if rv.domain_type[0] == 'c'])))
-num_to_plot = 1
+num_to_plot = len(crv_idxs_to_plot)
 crv_idxs_to_plot = crv_idxs_to_plot[:num_to_plot]
 for test_crv_idx in crv_idxs_to_plot:
     # for test_crv_idx in range(len(query_rvs)):
@@ -408,5 +396,7 @@ from pprint import pprint
 for key, value in avg_records.items():
     print(key + ':')
     pprint(dict(value))
+
+
 # import json
 # output = json.dumps(avg_records, indent=0, sort_keys=True)

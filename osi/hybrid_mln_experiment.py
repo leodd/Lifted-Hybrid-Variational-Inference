@@ -11,7 +11,7 @@ import numpy as np
 import time
 from copy import copy
 
-seed = 0
+seed = 1
 utils.set_seed(seed)
 
 from hybrid_gaussian_mrf import HybridGaussianSampler
@@ -54,7 +54,7 @@ f1 = ParamF(  # disc
 )
 
 w_h = 0.2  # smaller (like 0.06) gives skew instead
-a = 8.
+a = 2.
 b = -7.
 f2 = ParamF(  # hybrid
     # MLNPotential(lambda x: x[0] * eq_op(x[1], x[2]), w=w_h), nb=(atom_C, atom_A, atom_B)  # unimodal
@@ -66,7 +66,7 @@ equiv_hybrid_pot = HybridQuadraticPotential(
     c=-w_h * np.array([a ** 2, b ** 2])
 )
 
-prior_strength = 0.05
+prior_strength = 0.04
 f3 = ParamF(  # cont
     QuadraticPotential(A=-prior_strength * (np.eye(2)), b=np.array([0., 0.]), c=0.),
     nb=[atom_A, atom_B]
@@ -188,7 +188,7 @@ for test_num in range(num_tests):
     res = np.zeros((len(key_list), num_runs))
     for j in range(num_runs):
         # np.random.seed(test_seed + j)
-        bp = EPBP(g, n=20, proposal_approximation='simple')
+        bp = EPBP(g, n=1, proposal_approximation='simple')
         start_time = time.process_time()
         bp.run(10, log_enable=False)
         time_cost[name] = (time.process_time() - start_time) / num_runs / num_tests + time_cost.get(name, 0)
