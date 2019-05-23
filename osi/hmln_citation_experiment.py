@@ -53,17 +53,19 @@ f1 = ParamF(  # disc
 )
 
 w_h = 0.4  # the stronger the more multi-modal things tend to be
+c1, c2 = (7., 1)  # mu1 = c2 - c1 is shared mean for comp1
+d1, d2 = (-10.1, 2)  # mu2 = d2 - d1 is shared mean for comp2
 f2 = ParamF(
-    MLNPotential(lambda x: x[0] * eq_op(x[1], x[2]), w=w_h),
+    MLNPotential(lambda x: x[0] * eq_op(x[1] - c1, x[2] - c2) + (1 - x[0]) * eq_op(x[1] - d1, x[2] - d2), w=w_h),
     nb=(atom_paperIn, atom_paper_popularity, atom_topic_popularity)
 )
 equiv_hybrid_pot = HybridQuadraticPotential(
-    A=w_h * np.array([np.array([[0., 0], [0, 0]]), np.array([[-1., 1.], [1., -1.]])]),
-    b=w_h * np.array([[0., 0.], [0., 0.]]),
-    c=w_h * np.array([0., 0.])
+    A=w_h * np.array([np.array([[-1., 1.], [1., -1.]]), np.array([[-1., 1.], [1., -1.]])]),
+    b=w_h * 2 * np.array([[d1 - d2, d2 - d1], [c1 - c2, c2 - c1]]),
+    c=w_h * np.array([-(d1 - d2) ** 2, -(c1 - c2) ** 2])
 )  # equals 0 if x[0]==0, equals -(x[1]-x[1])^2 if x[0]==1
 
-prior_strength = 0.01
+prior_strength = 0.02
 locs = [-3., 1]
 f3 = ParamF(  # cont
     QuadraticPotential(A=prior_strength * -(np.eye(2)), b=prior_strength * 2 * np.array(locs),
