@@ -165,6 +165,8 @@ for test_num in range(num_tests):
     baseline = 'exact'
     # baseline = 'gibbs'
     for algo_name in algo_names:
+        print('####')
+        print('test_num', test_num)
         print('running', algo_name)
 
         # temp storage
@@ -342,16 +344,12 @@ for test_num in range(num_tests):
             for i, rv in enumerate(query_rvs):
                 if cond:
                     m = vi.map(obs_rvs=[], query_rv=rv)
-                    crv_idx = cond_g.Vc_idx[rv]
                 else:
                     m = vi.map(obs_rvs=obs_rvs, query_rv=rv)
-                    crv_idx = g.Vc_idx[rv]
                 mmap[i] = m
-
                 assert rv.domain_type[0] == 'c', 'only looking at kl for cnode queries for now'
-                crv_marg_params = vi.params['w'], vi.params['Mu'][crv_idx], vi.params['Var'][crv_idx]
-                marg_logpdf = utils.get_scalar_gm_log_prob(None, *crv_marg_params, get_fun=True)
-                margs[i] = marg_logpdf
+                crv_marg_params = vi.params['w'], rv.belief_params['mu'], rv.belief_params['var']
+                margs[i] = utils.get_scalar_gm_log_prob(None, *crv_marg_params, get_fun=True)
                 # lb, ub = -np.inf, np.inf
                 lb, ub = rv.domain.values[0], rv.domain.values[1]
                 marg_kl = max(0, kl_continuous_logpdf(log_p=baseline_margs[i], log_q=margs[i], a=lb, b=ub))
