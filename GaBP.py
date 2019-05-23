@@ -184,6 +184,21 @@ class GaBP:
         else:
             return 1 if x == rv.value else 0
 
+    def get_belief_params(self, rv):
+        assert rv.value is None
+        mu, sig = 0, 0
+        for nb in rv.nb:
+            nb_mu, nb_sig = self.message[(nb, rv)]
+            if nb_sig is None:
+                mu -= nb_mu
+            else:
+                mu += nb_sig ** -1 * nb_mu
+                sig += nb_sig ** -1
+        sig = sig ** -1
+        mu = sig * mu
+        var = sig
+        return mu, var
+
     def map(self, rv):
         if rv.value is None:
             mu, sig = 0, 0
