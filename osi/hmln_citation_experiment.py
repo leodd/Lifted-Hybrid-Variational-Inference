@@ -54,7 +54,7 @@ f1 = ParamF(  # disc
 
 w_h = 0.4  # the stronger the more multi-modal things tend to be
 c1, c2 = (7., 1)  # mu1 = c2 - c1 is shared mean for comp1
-d1, d2 = (-10.1, 2)  # mu2 = d2 - d1 is shared mean for comp2
+d1, d2 = (-10.1, 4.0)  # mu2 = d2 - d1 is shared mean for comp2
 f2 = ParamF(
     MLNPotential(lambda x: x[0] * eq_op(x[1] - c1, x[2] - c2) + (1 - x[0]) * eq_op(x[1] - d1, x[2] - d2), w=w_h),
     nb=(atom_paperIn, atom_paper_popularity, atom_topic_popularity)
