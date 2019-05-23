@@ -41,7 +41,7 @@ record_fields = ['cpu_time',
                  'kl_err',  # kl(p(xi)||q(xi)), avg over all nodes i
                  ]
 # algo_names = ['baseline', 'EPBP', 'OSI', 'LOSI']
-algo_names = ['baseline', 'LNPVI']  # , 'OSI', ]
+algo_names = ['baseline', 'GaBP', 'NPVI', 'LNPVI']  # , 'OSI', ]
 # algo_names = ['baseline', 'GaBP', 'NPVI', 'LNPVI', 'OSI', 'LOSI']
 # algo_names = ['baseline', 'EPBP']
 # algo_names = ['EPBP']
@@ -140,7 +140,7 @@ for test_num in range(num_tests):
             if cond:
                 cond_g.init_nb()  # this will make cond_g rvs' .nb attributes consistent (baseline didn't care so it was OK)
             K = 1
-            T = 5
+            T = 3
             lr = 0.5
             its = 500
             fix_mix_its = int(its * 0.5)
