@@ -22,7 +22,7 @@ import sampling_utils
 
 from KLDivergence import kl_continuous_logpdf
 
-num_paper = 2
+num_paper = 3
 num_topic = 2
 
 Paper = []
