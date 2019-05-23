@@ -50,7 +50,8 @@ atom_D = Atom(domain_bool, logical_variables=(lv_x, lv_y), name='D')
 f1 = ParamF(  # disc
     MLNPotential(lambda x: imp_op(x[0] * x[1], x[2]), w=0.1),
     nb=(atom_D, atom_C, atom_C2),
-    constrain=lambda sub: (sub[lv_s] == 'T1' and sub[lv_s2] == 'T1') or (sub[lv_s] == 'T1' and sub[lv_s2] == 'T2')
+    constrain=lambda sub: ((sub[lv_s] == 'T1' and sub[lv_s2] == 'T1') or (sub[lv_s] == 'T1' and sub[lv_s2] == 'T2'))
+                          and (sub[lv_x] != sub[lv_y])
 )
 
 w_h = 1  # the stronger the more multi-modal things tend to be
@@ -84,7 +85,7 @@ record_fields = ['cpu_time',
                  ]
 # algo_names = ['baseline', 'EPBP', 'OSI', 'LOSI']
 # algo_names = ['baseline', 'NPVI', 'OSI', ]
-algo_names = ['baseline', 'NPVI', 'LNPVI', 'OSI', 'LOSI']
+algo_names = ['baseline', 'EPBP', 'NPVI']  # ,'LNPVI', 'OSI', 'LOSI']
 # algo_names = ['baseline', 'EPBP']
 # algo_names = ['EPBP']
 # assert algo_names[0] == 'baseline'
@@ -162,8 +163,8 @@ for test_num in range(num_tests):
 
     all_margs = {algo_name: [None] * len(query_rvs) for algo_name in algo_names}  # for plotting convenience
 
-    baseline = 'exact'
-    # baseline = 'gibbs'
+    # baseline = 'exact'
+    baseline = 'gibbs'
     for algo_name in algo_names:
         print('####')
         print('test_num', test_num)
@@ -227,6 +228,9 @@ for test_num in range(num_tests):
             cond_g.init_rv_indices()  # create indices in the conditional mrf (for baseline and osi)
             utils.set_nbrs_idx_in_factors(converted_factors, cond_g.Vd_idx, cond_g.Vc_idx)  # preprocessing for baseline
 
+            num_dstates = np.prod([rv.dstates for rv in cond_g.Vd])
+            print(f'running {algo_name} baseline with {num_dstates} joint discrete configs')
+
             if baseline == 'exact':
                 bn_res = convert_to_bn(converted_factors, cond_g.Vd, cond_g.Vc, return_logZ=True)
                 bn = bn_res[:-1]
@@ -235,7 +239,7 @@ for test_num in range(num_tests):
                 obj = -logZ
                 # print('BN params', bn)
 
-                num_dstates = np.prod([rv.dstates for rv in cond_g.Vd])
+                # num_dstates = np.prod([rv.dstates for rv in cond_g.Vd])
                 if num_dstates > 1000:
                     print('too many dstates, exact mode finding might take a while, consider parallelizing...')
 
@@ -250,7 +254,7 @@ for test_num in range(num_tests):
 
             if baseline == 'gibbs':
                 num_burnin = 200
-                num_samples = 500
+                num_samples = 1000
                 num_gm_components_for_crv = 3
                 disc_block_its = 40
                 hgsampler = HybridGaussianSampler(converted_factors, cond_g.Vd, cond_g.Vc, cond_g.Vd_idx, cond_g.Vc_idx)
