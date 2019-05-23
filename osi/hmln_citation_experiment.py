@@ -12,7 +12,7 @@ import numpy as np
 import time
 from copy import copy
 
-seed = 1
+seed = 0
 utils.set_seed(seed)
 
 from hybrid_gaussian_mrf import HybridGaussianSampler
@@ -155,8 +155,8 @@ for test_num in range(num_tests):
 
     all_margs = {algo_name: [None] * len(query_rvs) for algo_name in algo_names}  # for plotting convenience
 
-    # baseline = 'exact'
-    baseline = 'gibbs'
+    baseline = 'exact'
+    # baseline = 'gibbs'
     for a, algo_name in enumerate(algo_names):
         print('####')
         print('test_num', test_num)
