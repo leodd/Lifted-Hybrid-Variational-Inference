@@ -294,7 +294,7 @@ for test_num in range(num_tests):
             lr = 0.5
             its = 1500
             fix_mix_its = int(its * 0.5)
-            logging_itv = 50
+            logging_itv = 200
             utils.set_log_potential_funs(g.factors_list, skip_existing=True)  # g factors' lpot_fun should still be None
             # above will also set the lpot_fun in all the (completely unobserved) factors in cond_g
             if algo_name in ('OSI', 'NPVI'):
