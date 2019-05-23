@@ -155,8 +155,8 @@ for test_num in range(num_tests):
 
     all_margs = {algo_name: [None] * len(query_rvs) for algo_name in algo_names}  # for plotting convenience
 
-    baseline = 'exact'
-    # baseline = 'gibbs'
+    # baseline = 'exact'
+    baseline = 'gibbs'
     for a, algo_name in enumerate(algo_names):
         print('####')
         print('test_num', test_num)
