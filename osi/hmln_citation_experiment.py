@@ -289,7 +289,7 @@ for test_num in range(num_tests):
             cond = True
             if cond:
                 cond_g.init_nb()  # this will make cond_g rvs' .nb attributes consistent (baseline didn't care so it was OK)
-            K = 8
+            K = 1
             T = 16
             lr = 0.5
             its = 1500
@@ -377,12 +377,15 @@ plt.savefig('%s.png' % save_name)
 print('######################')
 from collections import OrderedDict
 
+print('all records', records)
+
 avg_records = OrderedDict()
 for algo_name in algo_names:
     record = records[algo_name]
     avg_record = OrderedDict()
     for record_field in record_fields:
-        avg_record[record_field] = (np.mean(record[record_field]), np.std(record[record_field]))
+        # avg_record[record_field] = (np.mean(record[record_field]), np.std(record[record_field]))
+        avg_record[record_field] = (np.min(record[record_field]), np.max(record[record_field]))
     avg_records[algo_name] = avg_record
 
 from pprint import pprint
