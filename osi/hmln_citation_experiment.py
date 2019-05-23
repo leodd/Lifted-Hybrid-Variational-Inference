@@ -104,7 +104,7 @@ rel_g.atoms = (atom_cites, atom_paperIn, atom_paper_popularity, atom_topic_popul
 rel_g.param_factors = (f1, f2, f3)
 rel_g.init_nb()
 
-num_tests = 1  # number of times evidence will vary; each time all methods are run to perform conditional inference
+num_tests = 5  # number of times evidence will vary; each time all methods are run to perform conditional inference
 record_fields = [
     'obj',  # this is BFE/-ELBO for variational methods, -logZ for exact baseline
     'mmap_err',  # |argmax p(xi) - argmax q(xi)|, avg over all nodes i
@@ -155,8 +155,8 @@ for test_num in range(num_tests):
 
     all_margs = {algo_name: [None] * len(query_rvs) for algo_name in algo_names}  # for plotting convenience
 
-    # baseline = 'exact'
-    baseline = 'gibbs'
+    baseline = 'exact'
+    # baseline = 'gibbs'
     for a, algo_name in enumerate(algo_names):
         print('####')
         print('test_num', test_num)
