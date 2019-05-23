@@ -348,9 +348,14 @@ class VarInference:
     def map(self, rv):
         if rv.value is None:
             if rv.domain.continuous:
+                p = dict()
+                for x in self.eta[rv.cluster][:, 0]:
+                    p[x] = self.belief(x, rv)
+                x0 = max(p.keys(), key=(lambda k: p[k]))
+
                 res = minimize(
                     lambda val: -self.belief(val, rv),
-                    x0=self.eta[rv.cluster][:, 0],
+                    x0=np.array([x0]),
                     options={'disp': False}
                 )['x']
             else:
