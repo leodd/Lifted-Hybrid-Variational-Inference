@@ -106,7 +106,7 @@ class VarInference:
 
             for k in range(self.K):
                 if rv.value is not None:
-                    if self.gaussian_obs and len(rv.rvs) > 1:
+                    if self.gaussian_obs and rv.variance > self.min_obs_var:
                         arg = (True, (rv.value, rv.variance))
                     else:
                         arg = (False, ((rv.value,), (1,)))
@@ -125,7 +125,7 @@ class VarInference:
                 args = list()
                 for rv in f.nb:
                     if rv.value is not None:
-                        if self.gaussian_obs and len(rv.rvs) > 1:
+                        if self.gaussian_obs and rv.variance > self.min_obs_var:
                             args.append((True, (rv.value, rv.variance)))
                         else:
                             args.append((False, ((rv.value,), (1,))))
@@ -169,7 +169,7 @@ class VarInference:
                 args = list()
                 for rv_ in f.nb:
                     if rv_.value is not None:
-                        if self.gaussian_obs and len(rv_.rvs) > 1:
+                        if self.gaussian_obs and rv_.variance > self.min_obs_var:
                             args.append((True, (rv_.value, rv_.variance)))
                         else:
                             args.append((False, ((rv_.value,), (1,))))
@@ -198,7 +198,7 @@ class VarInference:
                 for i, rv_ in enumerate(f.nb):
                     if i is not idx:
                         if rv_.value is not None:
-                            if self.gaussian_obs and len(rv_.rvs) > 1:
+                            if self.gaussian_obs and rv_.variance > self.min_obs_var:
                                 args.append((True, (rv_.value, rv_.variance)))
                             else:
                                 args.append((False, ((rv_.value,), (1,))))
@@ -225,7 +225,7 @@ class VarInference:
 
             for k in range(self.K):
                 if rv.value is not None:
-                    if self.gaussian_obs and len(rv.rvs) > 1:
+                    if self.gaussian_obs and rv.variance > self.min_obs_var:
                         arg = (True, (rv.value, rv.variance))
                     else:
                         arg = (False, ((rv.value,), (1,)))
@@ -244,7 +244,7 @@ class VarInference:
                 args = list()
                 for rv in f.nb:
                     if rv.value is not None:
-                        if self.gaussian_obs and len(rv.rvs) > 1:
+                        if self.gaussian_obs and rv.variance > self.min_obs_var:
                             args.append((True, (rv.value, rv.variance)))
                         else:
                             args.append((False, ((rv.value,), (1,))))
@@ -262,7 +262,7 @@ class VarInference:
 
         for i, rv in enumerate(rvs):
             if rv.value is not None:
-                if self.gaussian_obs and len(rv.rvs) > 1:
+                if self.gaussian_obs and rv.variance > self.min_obs_var:
                     b *= self.norm_pdf(x[i], (rv.value, rv.variance))
                 else:
                     if x[i] != rv.value:

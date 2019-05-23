@@ -50,7 +50,7 @@ for i in range(num_test):
 
     g, rvs_table = kmf.grounded_graph(t, data)
     # infer = EPBP(g, n=50, proposal_approximation='simple')
-    infer = VI(g, 1, 3)
+    infer = C2FVI(g, 1, 3)
     print('number of vr', len(g.rvs))
     num_evidence = 0
     for rv in g.rvs:

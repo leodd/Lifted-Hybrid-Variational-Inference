@@ -236,7 +236,9 @@ class CompressedGraph:
                 # split evidence
                 new_rvs = rv.split_by_evidence(k, iteration)
                 if len(new_rvs) > 1:
-                    self.clustered_evidence |= new_rvs
+                    for rv_ in new_rvs:
+                        if rv_.variance > epsilon:
+                            self.clustered_evidence.add(rv_)
                 elif len(next(iter(new_rvs)).rvs) == 1:
                     self.clustered_evidence -= new_rvs
                 self.rvs |= new_rvs

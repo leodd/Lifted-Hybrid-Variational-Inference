@@ -55,8 +55,8 @@ for i in range(num_test):
                        param[1, i])
 
     g, rvs_table = kmf.grounded_graph(t, data)
-    # infer = EPBP(g, n=50, proposal_approximation='simple')
-    infer = LVI(g, 1, 3)
+    infer = EPBP(g, n=50, proposal_approximation='simple')
+    # infer = VI(g, 1, 3)
     print('number of vr', len(g.rvs))
     num_evidence = 0
     for rv in g.rvs:
@@ -65,8 +65,8 @@ for i in range(num_test):
     print('number of evidence', num_evidence)
 
     start_time = time.process_time()
-    # infer.run(20, log_enable=False)
-    infer.run(200, 0.1)
+    infer.run(20, log_enable=False)
+    # infer.run(200, 0.1)
     time_cost.append(time.process_time() - start_time)
     print('time lapse', time.process_time() - start_time)
 
