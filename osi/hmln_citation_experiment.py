@@ -22,7 +22,7 @@ import sampling_utils
 
 from KLDivergence import kl_continuous_logpdf
 
-num_paper = 3
+num_paper = 2
 num_topic = 2
 
 Paper = []
@@ -109,7 +109,7 @@ record_fields = ['cpu_time',
                  'mmap_err',  # |argmax p(xi) - argmax q(xi)|, avg over all nodes i
                  'kl_err',  # kl(p(xi)||q(xi)), avg over all nodes i
                  ]
-algo_names = ['baseline', 'EPBP', 'OSI', 'NPVI']
+algo_names = ['baseline']  # , 'EPBP', 'NPVI']
 # algo_names = ['baseline', 'NPVI', 'OSI', ]
 # algo_names = ['baseline', 'NPVI', 'LNPVI', 'OSI', 'LOSI']
 # algo_names = ['baseline', 'EPBP']
@@ -365,7 +365,7 @@ plt.figure()
 xs = np.linspace(domain_real.values[0], domain_real.values[1], 100)
 
 crv_idxs_to_plot = list(range(len([rv for rv in query_rvs if rv.domain_type[0] == 'c'])))
-num_to_plot = 1
+num_to_plot = len(crv_idxs_to_plot)
 crv_idxs_to_plot = crv_idxs_to_plot[:num_to_plot]
 for test_crv_idx in crv_idxs_to_plot:
     # for test_crv_idx in range(len(query_rvs)):
