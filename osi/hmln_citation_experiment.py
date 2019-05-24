@@ -289,7 +289,7 @@ for test_num in range(num_tests):
             cond = True
             if cond:
                 cond_g.init_nb()  # this will make cond_g rvs' .nb attributes consistent (baseline didn't care so it was OK)
-            K = 4
+            K = 8
             T = 16
             lr = 0.5
             its = 1500
