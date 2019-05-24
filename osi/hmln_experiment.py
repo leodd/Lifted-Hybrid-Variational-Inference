@@ -47,8 +47,9 @@ atom_C = Atom(domain_bool, logical_variables=(lv_x, lv_s), name='C')
 atom_C2 = Atom(domain_bool, logical_variables=(lv_y, lv_s2), name='C')
 atom_D = Atom(domain_bool, logical_variables=(lv_x, lv_y), name='D')
 
+w_d = 1e-8
 f1 = ParamF(  # disc
-    MLNPotential(lambda x: imp_op(x[0] * x[1], x[2]), w=0.1),
+    MLNPotential(lambda x: imp_op(x[0] * x[1], x[2]), w=w_d),
     nb=(atom_D, atom_C, atom_C2),
     constrain=lambda sub: ((sub[lv_s] == 'T1' and sub[lv_s2] == 'T1') or (sub[lv_s] == 'T1' and sub[lv_s2] == 'T2'))
                           and (sub[lv_x] != sub[lv_y])
@@ -105,7 +106,6 @@ for test_num in range(num_tests):
     # B_vals = [-14, 2, 20]
     for i, s in enumerate(S):
         data[('B', s)] = B_vals[i]
-
     for x in X:
         for y in X:
             if x != y:
@@ -163,8 +163,8 @@ for test_num in range(num_tests):
 
     all_margs = {algo_name: [None] * len(query_rvs) for algo_name in algo_names}  # for plotting convenience
 
-    # baseline = 'exact'
-    baseline = 'gibbs'
+    baseline = 'exact'
+    # baseline = 'gibbs'
     for algo_name in algo_names:
         print('####')
         print('test_num', test_num)
