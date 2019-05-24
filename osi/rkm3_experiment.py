@@ -231,7 +231,10 @@ for test_num in range(num_tests):
 
         # same for all algos
         for i, rv in enumerate(query_rvs):
-            lb, ub = -np.inf, np.inf
+            if algo_name == 'EPBP':
+                lb, ub = rv.domain.values[0], rv.domain.values[1]
+            else:
+                lb, ub = -np.inf, np.inf
             marg_kl = kl_continuous_logpdf(log_p=baseline_margs[i], log_q=margs[i], a=lb, b=ub)
             marg_kls[i] = marg_kl
 
