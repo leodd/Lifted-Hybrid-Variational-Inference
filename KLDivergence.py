@@ -31,6 +31,30 @@ def kl_discrete(p, q):
     return np.sum(p * (np.log(p) - np.log(q)))  # naive implementation
 
 
+
+def kl_continuous_no_add_const(p, q, a, b, *args, **kwargs):
+    """
+    Compute KL(p||q), 1D
+    :param p:
+    :param q:
+    :param a:
+    :param b:
+    :param kwargs:
+    :return:
+    """
+    def integrand(x):
+        px = p(x)
+        qx = q(x)
+        return log(px ** px) - log(qx ** px)
+
+    res = quad(integrand, a, b, *args, **kwargs)
+    if 'full_result' in kwargs and kwargs['full_result']:
+        return res
+    else:
+        return res[0]
+
+
+
 def kl_continuous(p, q, a, b, *args, **kwargs):
     """
     Compute KL(p||q), 1D
@@ -105,15 +129,22 @@ if __name__ == '__main__':
         y = np.exp(-u * u * 0.5) / (2.506628274631 * sig)
         return y
 
+    def norm_logpdf(x, mu, sig):
+        u = (x - mu) / sig
+        y = (-u * u * 0.5) - np.log(2.506628274631 * sig)
+        return y
 
-    mu1, sig1 = 20, 1
-    mu2, sig2 = 0, 2
+    mu1, sig1 = 20, 0.1
+    mu2, sig2 = 0, 0.2
     res = KL(
         lambda x: norm_pdf(x, mu1, sig1),
         lambda x: norm_pdf(x, mu2, sig2),
         domain
     )
 
-    print('ans1', res)
-    print('ans2', kl_continuous(p=lambda x: norm_pdf(x, mu1, sig1), q=lambda x: norm_pdf(x, mu2, sig2), a=lb, b=ub))
     print('closed form ans', kl_normal(mu1, mu2, sig1, sig2))
+    print('ans1 bad', res)
+    print('ans2 add const', kl_continuous(p=lambda x: norm_pdf(x, mu1, sig1), q=lambda x: norm_pdf(x, mu2, sig2), a=lb, b=ub))
+    print('ans3 using logpdf', kl_continuous_logpdf(log_p=lambda x:
+        norm_logpdf(x, mu1, sig1), log_q=lambda x: norm_logpdf(x, mu2, sig2), a=lb, b=ub))
+    print('ans2 no add const', kl_continuous_no_add_const(p=lambda x: norm_pdf(x, mu1, sig1), q=lambda x: norm_pdf(x, mu2, sig2), a=lb, b=ub))
