@@ -178,7 +178,7 @@ for test_num in range(num_tests):
             K = 1
             T = 3
             lr = 0.5
-            its = 300
+            its = 200
             fix_mix_its = int(its * 0.5)
             logging_itv = 50
             utils.set_log_potential_funs(g.factors_list, skip_existing=True)  # g factors' lpot_fun should still be None
