@@ -288,8 +288,8 @@ for test_num in range(num_tests):
                 margs[i] = marg_logpdf
                 assert rv.domain_type[0] == 'c', 'only looking at kl for cnode queries for now'
                 # lb, ub = -np.inf, np.inf
-                lb, ub = rv.domain.values[0], rv.domain.values[1]
-                marg_kl = max(0, kl_continuous_logpdf(log_p=baseline_margs[i], log_q=margs[i], a=lb, b=ub))
+                lb, ub = -np.inf, np.inf
+                marg_kl = kl_continuous_logpdf(log_p=baseline_margs[i], log_q=margs[i], a=lb, b=ub)
                 marg_kls[i] = marg_kl
 
         elif algo_name in ('OSI', 'LOSI', 'NPVI', 'LNPVI'):
@@ -347,8 +347,8 @@ for test_num in range(num_tests):
                 crv_marg_params = vi.params['w'], rv.belief_params['mu'], rv.belief_params['var']
                 margs[i] = utils.get_scalar_gm_log_prob(None, *crv_marg_params, get_fun=True)
                 # lb, ub = -np.inf, np.inf
-                lb, ub = rv.domain.values[0], rv.domain.values[1]
-                marg_kl = max(0, kl_continuous_logpdf(log_p=baseline_margs[i], log_q=margs[i], a=lb, b=ub))
+                lb, ub = -np.inf, np.inf
+                marg_kl = kl_continuous_logpdf(log_p=baseline_margs[i], log_q=margs[i], a=lb, b=ub)
                 marg_kls[i] = marg_kl
 
         # same for all algos
