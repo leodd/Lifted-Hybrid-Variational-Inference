@@ -31,7 +31,9 @@ for x in range(num_x):
 Y = []
 for y in range(num_y):
     Y.append(f'y{y}')
-S = ['T1', 'T2', 'T3']
+# S = ['T1', 'T2', 'T3']
+num_S = 5
+S = ['T' + str(n) for n in range(num_S)]
 
 domain_bool = Domain((0, 1))
 domain_real = Domain((-15, 15), continuous=True, integral_points=linspace(-15, 15, 20))
@@ -104,8 +106,12 @@ for test_num in range(num_tests):
     B_vals = np.random.normal(loc=0, scale=obs_scale, size=len(S))  # special treatment for the story
     # B_vals = np.random.uniform(low=domain_real.values[0], high=domain_real.values[1], size=len(S))
     # B_vals = [-14, 2, 20]
-    # for i, s in enumerate(S):
-    #     data[('B', s)] = B_vals[i]
+
+    # S_obs_ratio = 0.2   # difficulty level for EPBP! smaller the more difficult
+    # num_S_obs = int(num_S * S_obs_ratio)
+    num_S_obs = 1
+    for i, s in enumerate(S[:num_S_obs]):
+        data[('B', s)] = B_vals[i]
     for x in X:
         for y in X:
             if x != y:
@@ -128,13 +134,16 @@ for test_num in range(num_tests):
 
     rel_g.data = data
     g, rvs_table = rel_g.grounded_graph()
-    # good_fs = []
-    # for f in g.factors_list:
-    #     if len(f.nb) == len(set(f.nb)):
-    #         good_fs.append(f)
-    # g.factors = good_fs
-    # g.rvs = sum([f.nb for f in good_fs], [])
-    # g.init_nb()
+
+    # manually get rid of bad factors
+    good_fs = []
+    for f in g.factors_list:
+        if len(f.nb) == len(set(f.nb)):
+            good_fs.append(f)
+    g.factors = good_fs
+    g.rvs = set(sum([f.nb for f in good_fs], []))
+    g.rvs = g.rvs_list
+    g.init_nb()
 
     g_rv_nbs = [copy(rv.nb) for rv in g.rvs_list]  # keep a copy of rv neighbors in the original graph
     print(rvs_table)
@@ -207,7 +216,7 @@ for test_num in range(num_tests):
                 if factor.domain_type == 'c':
                     if isinstance(factor.potential, MLNPotential):
                         if len(factor.nb) == 2:
-                            factor.potential = equiv_hybrid_pot
+                            factor.potential = equiv_hybrid_pot  # TODO: fix this; should be reduced to QuadraticPotential
                         else:
                             assert len(factor.nb) == 1
                             uncond_factor = factor.uncond_factor  # from conditioning
@@ -377,7 +386,7 @@ plt.figure()
 xs = np.linspace(domain_real.values[0], domain_real.values[1], 100)
 
 crv_idxs_to_plot = list(range(len([rv for rv in query_rvs if rv.domain_type[0] == 'c'])))
-num_to_plot = 1
+num_to_plot = len(crv_idxs_to_plot)
 crv_idxs_to_plot = crv_idxs_to_plot[:num_to_plot]
 for test_crv_idx in crv_idxs_to_plot:
     # for test_crv_idx in range(len(query_rvs)):
