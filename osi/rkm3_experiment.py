@@ -233,9 +233,17 @@ for test_num in range(num_tests):
         for i, rv in enumerate(query_rvs):
             if algo_name == 'EPBP':
                 lb, ub = rv.domain.values[0], rv.domain.values[1]
+                from scipy.integrate import quad
+
+                baseline_marg_logpdf = baseline_margs[i]
+                baseline_marg_pdf = lambda x: np.e ** (baseline_marg_logpdf(x))
+                itg_res = quad(baseline_marg_pdf, lb, ub)
+                baseline_marg_log_norm_const = np.log(itg_res[0])
+                truncated_baseline_marg_logpdf = lambda x: baseline_marg_logpdf(x) - baseline_marg_log_norm_const
+                marg_kl = kl_continuous_logpdf(log_p=truncated_baseline_marg_logpdf, log_q=margs[i], a=lb, b=ub)
             else:
                 lb, ub = -np.inf, np.inf
-            marg_kl = kl_continuous_logpdf(log_p=baseline_margs[i], log_q=margs[i], a=lb, b=ub)
+                marg_kl = kl_continuous_logpdf(log_p=baseline_margs[i], log_q=margs[i], a=lb, b=ub)
             marg_kls[i] = marg_kl
 
         # same for all algos
