@@ -83,16 +83,18 @@ for test_num in range(num_tests):
 
     baseline = 'exact'
     # baseline = 'gibbs'
-    for algo_name in algo_names:
+    for a, algo_name in enumerate(algo_names):
         print('####')
         print('test_num', test_num)
         print('running', algo_name)
+        np.random.seed(test_seed + a)
 
         # temp storage
-        mmap = np.zeros(len(query_rvs)) - 1
+        mmap = np.zeros(len(query_rvs)) - 123
         margs = [None] * len(query_rvs)
-        marg_kls = np.zeros(len(query_rvs)) - 1
+        marg_kls = np.zeros(len(query_rvs)) - 123
         obj = -1
+        cpu_time = wall_time = -1  # don't care
 
         if algo_name == 'baseline':
             # guaranteed exact baseline by solving linear equations (marginal means = marginal modes in Gaussians)
@@ -119,7 +121,11 @@ for test_num in range(num_tests):
 
         elif algo_name == 'GaBP':
             bp = GaBP(g)
+            start_time = time.process_time()
+            start_wall_time = time.time()
             bp.run(15, log_enable=False)
+            cpu_time = time.process_time() - start_time
+            wall_time = time.time() - start_wall_time
             for i, rv in enumerate(query_rvs):
                 mmap[i] = bp.map(rv)
                 belief_params = bp.get_belief_params(rv)
@@ -127,7 +133,11 @@ for test_num in range(num_tests):
 
         elif algo_name == 'EPBP':
             bp = EPBP(g, n=20, proposal_approximation='simple')
+            start_time = time.process_time()
+            start_wall_time = time.time()
             bp.run(10, log_enable=False)
+            cpu_time = time.process_time() - start_time
+            wall_time = time.time() - start_wall_time
 
             for i, rv in enumerate(query_rvs):
                 mmap[i] = bp.map(rv)
@@ -173,7 +183,11 @@ for test_num in range(num_tests):
                 for i, rv in enumerate(g.rvs_list):
                     rv.nb = g_rv_nbs[i]  # restore; undo possible mutation from cond_g.init_nb()
 
+            start_time = time.process_time()
+            start_wall_time = time.time()
             res = vi.run(lr=lr, its=its, fix_mix_its=fix_mix_its, logging_itv=logging_itv)
+            cpu_time = time.process_time() - start_time
+            wall_time = time.time() - start_wall_time
             obj = res['record']['obj'][-1]
 
             for i, rv in enumerate(query_rvs):
@@ -201,7 +215,7 @@ for test_num in range(num_tests):
         mmap_err = np.mean(np.abs(mmap - baseline_mmap))
         kl_err = np.mean(marg_kls)
         print('mmap_err', mmap_err, 'kl_err', kl_err)
-        algo_record = dict(obj=obj, mmap_err=mmap_err, kl_err=kl_err)
+        algo_record = dict(cpu_time=cpu_time, wall_time=wall_time, obj=obj, mmap_err=mmap_err, kl_err=kl_err)
         for key, value in algo_record.items():
             records[algo_name][key].append(value)
         all_margs[algo_name] = margs  # for plotting convenience

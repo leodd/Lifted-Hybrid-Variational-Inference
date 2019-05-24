@@ -106,6 +106,8 @@ rel_g.init_nb()
 
 num_tests = 5  # number of times evidence will vary; each time all methods are run to perform conditional inference
 record_fields = [
+    'cpu_time',
+    'wall_time',
     'obj',  # this is BFE/-ELBO for variational methods, -logZ for exact baseline
     'mmap_err',  # |argmax p(xi) - argmax q(xi)|, avg over all nodes i
     'kl_err',  # kl(p(xi)||q(xi)), avg over all nodes i
@@ -164,9 +166,9 @@ for test_num in range(num_tests):
         np.random.seed(test_seed + a)
 
         # temp storage
-        mmap = np.zeros(len(query_rvs))
+        mmap = np.zeros(len(query_rvs)) - 123
         margs = [None] * len(query_rvs)
-        marg_kls = np.zeros(len(query_rvs))
+        marg_kls = np.zeros(len(query_rvs)) - 123
         obj = -1
 
         if algo_name == 'baseline':
@@ -269,10 +271,15 @@ for test_num in range(num_tests):
             baseline_mmap = mmap
             baseline_margs = margs
             marg_kls = np.zeros_like(mmap)
+            cpu_time = wall_time = 0  # don't care
 
         elif algo_name == 'EPBP':
             bp = EPBP(g, n=20, proposal_approximation='simple')
+            start_time = time.process_time()
+            start_wall_time = time.time()
             bp.run(10, log_enable=False)
+            cpu_time = time.process_time() - start_time
+            wall_time = time.time() - start_wall_time
 
             for i, rv in enumerate(query_rvs):
                 mmap[i] = bp.map(rv)
@@ -323,7 +330,11 @@ for test_num in range(num_tests):
                 for i, rv in enumerate(g.rvs_list):
                     rv.nb = g_rv_nbs[i]  # restore; undo possible mutation from cond_g.init_nb()
 
+            start_time = time.process_time()
+            start_wall_time = time.time()
             res = vi.run(lr=lr, its=its, fix_mix_its=fix_mix_its, logging_itv=logging_itv)
+            cpu_time = time.process_time() - start_time
+            wall_time = time.time() - start_wall_time
             obj = res['record']['obj'][-1]
 
             for i, rv in enumerate(query_rvs):
@@ -345,8 +356,7 @@ for test_num in range(num_tests):
         print('true mmap', baseline_mmap)
         mmap_err = np.mean(np.abs(mmap - baseline_mmap))
         kl_err = np.mean(marg_kls)
-        print('mmap_err', mmap_err, 'kl_err', kl_err)
-        algo_record = dict(obj=obj, mmap_err=mmap_err, kl_err=kl_err)
+        algo_record = dict(cpu_time=cpu_time, wall_time=wall_time, obj=obj, mmap_err=mmap_err, kl_err=kl_err)
         for key, value in algo_record.items():
             records[algo_name][key].append(value)
         all_margs[algo_name] = margs  # for plotting convenience
