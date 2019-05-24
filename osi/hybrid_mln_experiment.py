@@ -11,7 +11,7 @@ import numpy as np
 import time
 from copy import copy
 
-seed = 5
+seed = 2
 utils.set_seed(seed)
 
 from hybrid_gaussian_mrf import HybridGaussianSampler
@@ -189,7 +189,7 @@ for test_num in range(num_tests):
     res = np.zeros((len(key_list), num_runs))
     for j in range(num_runs):
         # np.random.seed(test_seed + j)
-        bp = EPBP(g, n=1, proposal_approximation='simple')
+        bp = EPBP(g, n=10, proposal_approximation='simple')
         start_time = time.process_time()
         bp.run(10, log_enable=False)
         time_cost[name] = (time.process_time() - start_time) / num_runs / num_tests + time_cost.get(name, 0)
