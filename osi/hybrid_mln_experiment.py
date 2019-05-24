@@ -11,7 +11,7 @@ import numpy as np
 import time
 from copy import copy
 
-seed = 4
+seed = 5
 utils.set_seed(seed)
 
 from hybrid_gaussian_mrf import HybridGaussianSampler
