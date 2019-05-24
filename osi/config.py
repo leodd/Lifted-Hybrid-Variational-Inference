@@ -13,6 +13,6 @@ ignore_const_when_group_eval_LogQuadratic = False
 
 # initialize means on as large a grid as possible, for variational methods to
 # hopefully find better solution
-init_grid, init_grid_noise = True, 0.1
-# init_grid, init_grid_noise = False, -1
+# init_grid, init_grid_noise = True, 0.1
+init_grid, init_grid_noise = False, -1
 
