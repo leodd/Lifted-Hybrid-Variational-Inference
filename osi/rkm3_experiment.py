@@ -61,9 +61,9 @@ record_fields = ['cpu_time',
                  'kl_err',  # kl(p(xi)||q(xi)), avg over all nodes i
                  ]
 # algo_names = ['baseline', 'EPBP', 'OSI', 'LOSI']
-algo_names = ['baseline', 'GaBP', 'NPVI', 'LNPVI', 'OSI', 'LOSI']
 # algo_names = ['baseline', 'GaBP', 'NPVI', 'LNPVI', 'OSI', 'LOSI']
-# algo_names = ['baseline', 'EPBP']
+# algo_names = ['baseline', 'GaBP', 'NPVI', 'LNPVI', 'OSI', 'LOSI']
+algo_names = ['baseline', 'EPBP']
 # algo_names = ['EPBP']
 # assert algo_names[0] == 'baseline'
 # for each algorithm, we keep a record, which is a dict mapping a record_field to a list (which will eventually be
