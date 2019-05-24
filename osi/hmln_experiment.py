@@ -33,7 +33,7 @@ for y in range(num_y):
     Y.append(f'y{y}')
 # S = ['T1', 'T2', 'T3']
 num_S = 5
-S = ['T' + str(n) for n in range(num_S)]
+S = ['T' + str(s) for s in range(num_S)]
 
 domain_bool = Domain((0, 1))
 domain_real = Domain((-15, 15), continuous=True, integral_points=linspace(-15, 15, 20))
@@ -88,7 +88,7 @@ record_fields = ['cpu_time',
                  ]
 # algo_names = ['baseline', 'EPBP', 'OSI', 'LOSI']
 # algo_names = ['baseline', 'NPVI', 'OSI', ]
-algo_names = ['baseline', 'EPBP', 'NPVI']  # ,'LNPVI', 'OSI', 'LOSI']
+algo_names = ['baseline', 'EPBP' ]#, 'NPVI']  # ,'LNPVI', 'OSI', 'LOSI']
 # algo_names = ['baseline', 'EPBP']
 # algo_names = ['EPBP']
 # assert algo_names[0] == 'baseline'
@@ -112,23 +112,31 @@ for test_num in range(num_tests):
     num_S_obs = 1
     for i, s in enumerate(S[:num_S_obs]):
         data[('B', s)] = B_vals[i]
+    num_D_obs = 2
+    tmp = 0
     for x in X:
         for y in X:
             if x != y:
                 data[('D', x, y)] = np.random.randint(2)
+                tmp += 1
+            if tmp == num_D_obs:
+                break
+        if tmp == num_D_obs:
+            break
 
-    evidence_ratio = 0.1
-    x_idx = np.random.choice(len(X), int(len(X) * evidence_ratio), replace=False)
-    for i in x_idx:
-        data['C', X[i], 'T1'] = np.random.randint(2)
-
-    x_idx = np.random.choice(len(X), int(len(X) * evidence_ratio), replace=False)
-    for i in x_idx:
-        data['C', X[i], 'T2'] = np.random.randint(2)
-
-    x_idx = np.random.choice(len(X), int(len(X) * evidence_ratio), replace=False)
-    for i in x_idx:
-        data['C', X[i], 'T3'] = np.random.randint(2)
+    evidence_ratio = 0.5
+    for s in S[:num_S_obs]:
+        x_idx = np.random.choice(len(X), int(len(X) * evidence_ratio), replace=False)
+        for i in x_idx:
+            data['C', X[i], s] = np.random.randint(2)
+    #
+    # x_idx = np.random.choice(len(X), int(len(X) * evidence_ratio), replace=False)
+    # for i in x_idx:
+    #     data['C', X[i], 'T2'] = np.random.randint(2)
+    #
+    # x_idx = np.random.choice(len(X), int(len(X) * evidence_ratio), replace=False)
+    # for i in x_idx:
+    #     data['C', X[i], 'T3'] = np.random.randint(2)
 
     print(data)
 
@@ -216,7 +224,12 @@ for test_num in range(num_tests):
                 if factor.domain_type == 'c':
                     if isinstance(factor.potential, MLNPotential):
                         if len(factor.nb) == 2:
-                            factor.potential = equiv_hybrid_pot  # TODO: fix this; should be reduced to QuadraticPotential
+                            assert len(obs) == 1, 'must be 1 d node obs'
+                            # A, b, c = equiv_hybrid_pot.
+                            dobs = obs[0]
+                            hp = equiv_hybrid_pot
+                            factor.potential = QuadraticPotential(A=hp.A[dobs], b=hp.b[dobs], c=hp.c[dobs])
+
                         else:
                             assert len(factor.nb) == 1
                             uncond_factor = factor.uncond_factor  # from conditioning
