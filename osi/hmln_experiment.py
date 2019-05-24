@@ -104,8 +104,8 @@ for test_num in range(num_tests):
     B_vals = np.random.normal(loc=0, scale=obs_scale, size=len(S))  # special treatment for the story
     # B_vals = np.random.uniform(low=domain_real.values[0], high=domain_real.values[1], size=len(S))
     # B_vals = [-14, 2, 20]
-    for i, s in enumerate(S):
-        data[('B', s)] = B_vals[i]
+    # for i, s in enumerate(S):
+    #     data[('B', s)] = B_vals[i]
     for x in X:
         for y in X:
             if x != y:
