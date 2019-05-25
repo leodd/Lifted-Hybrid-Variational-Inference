@@ -38,22 +38,22 @@ g, rvs_table = rel_g.grounded_graph()
 
 print(rvs_table)
 
-from LiftedVarInference import VarInference
-
-# np.random.seed(9)
-vi = VarInference(g, num_mixtures=3, num_quadrature_points=5)
-
-vi.run(500, lr=0.1)
-
-print(vi.free_energy())
-
-for key, rv in sorted(rvs_table.items()):
-    if rv.value is None:  # only test non-evidence nodes
-        # p = dict()
-        # for x in rv.domain.values:
-        #     p[x] = osi.belief(x, rv)
-        # print(key, p)
-        print(key, vi.map(rv))
+# from LiftedVarInference import VarInference
+#
+# # np.random.seed(9)
+# vi = VarInference(g, num_mixtures=3, num_quadrature_points=5)
+#
+# vi.run(500, lr=0.1)
+#
+# print(vi.free_energy())
+#
+# for key, rv in sorted(rvs_table.items()):
+#     if rv.value is None:  # only test non-evidence nodes
+#         # p = dict()
+#         # for x in rv.domain.values:
+#         #     p[x] = osi.belief(x, rv)
+#         # print(key, p)
+#         print(key, vi.map(rv))
 
 # EPBP inference
 from EPBPLogVersion import EPBP
@@ -70,16 +70,16 @@ for key, rv in sorted(rvs_table.items()):
         print(key, bp.map(rv))
 
 # GaBP inference
-from GaBP import GaBP
-
-bp = GaBP(g)
-bp.run(20, log_enable=False)
-
-for key, rv in sorted(rvs_table.items()):
-    if rv.value is None:  # only test non-evidence nodes
-        # p = dict()
-        # for x in rv.domain.values:
-        #     p[x] = bp.belief(x, rv)
-        # print(key, p)
-        print(key, bp.map(rv))
+# from GaBP import GaBP
+#
+# bp = GaBP(g)
+# bp.run(20, log_enable=False)
+#
+# for key, rv in sorted(rvs_table.items()):
+#     if rv.value is None:  # only test non-evidence nodes
+#         # p = dict()
+#         # for x in rv.domain.values:
+#         #     p[x] = bp.belief(x, rv)
+#         # print(key, p)
+#         print(key, bp.map(rv))
 

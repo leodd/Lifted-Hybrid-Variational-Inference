@@ -48,6 +48,11 @@ with open('Data/RGM/time_log_20_result', 'r') as file:
 import matplotlib.pyplot as plt
 
 
+# ax = plt.subplot(111)
+# for item in ([ax.title, ax.xaxis.label, ax.yaxis.label] +
+#              ax.get_xticklabels() + ax.get_yticklabels()):
+#     item.set_fontsize(15)
+
 color = {
     'VI': 'r',
     'LVI': 'g',
@@ -57,12 +62,21 @@ for name, t_log in time_log.items():
     x = list()
     y = list()
     for t, fe in t_log:
-        if t > 150: break
+        if t > 125: break
         x.append(t)
         y.append(fe)
     plt.plot(x, y, color=color[name])
 
-plt.legend(['VI', 'Lifted VI', 'C2F VI'])
+# plt.rc('xtick', labelsize=20)
+# plt.rc('ytick', labelsize=20)
+
+# font = {'family': 'normal',
+#         # 'weight': 'bold',
+#         'size': 15}
+#
+# plt.rc('font', **font)
+
+plt.legend(['VI', 'Lifted VI', 'C2F VI'], )
 plt.xlabel('time (second)')
-plt.ylabel('negative free energy')
+plt.ylabel('free energy')
 plt.show()

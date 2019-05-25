@@ -320,7 +320,7 @@ class EPBP:
                     # )
                     z = quad(
                         lambda val: e ** self.belief_rv(val, rv, self.sample),
-                        -Inf, Inf
+                        rv.domain.values[0]-100, rv.domain.values[1]+100
                     )[0]
                     shift = 0
                     self.cache[rv] = (z, shift)
