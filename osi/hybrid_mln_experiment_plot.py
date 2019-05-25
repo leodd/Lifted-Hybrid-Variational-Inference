@@ -290,7 +290,12 @@ for test_num in range(num_tests):
 
 print('plotting example marginal from last run')
 
+import seaborn as sns
 import matplotlib.pyplot as plt
+
+# https://seaborn.pydata.org/tutorial/aesthetics.html
+# sns.set_context("notebook")
+sns.set_context("notebook", font_scale=1.2, rc={"lines.linewidth": 2.0})
 
 plt.figure()
 xs = np.linspace(domain_real.values[0], domain_real.values[1], 100)
