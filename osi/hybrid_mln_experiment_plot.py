@@ -295,26 +295,37 @@ import matplotlib.pyplot as plt
 plt.figure()
 xs = np.linspace(domain_real.values[0], domain_real.values[1], 100)
 tests = list(range(len(Vc)))
+linestyles = ['-', ':', '-.', '--']
 for test_crv_idx in tests[-1:]:
+    l = 0
     if baseline == 'exact':
         test_crv_marg_params = get_crv_marg(*bn, test_crv_idx)
         plt.plot(xs, np.exp(utils.get_scalar_gm_log_prob(xs, w=test_crv_marg_params[0], mu=test_crv_marg_params[1],
                                                          var=test_crv_marg_params[2])),
-                 label=f'true marg pdf {test_crv_idx}')
+                 label=f'Ground Truth', linestyle=linestyles[l])
 
     if baseline == 'gibbs':
-        plt.hist(hgsampler.cont_samples[:, test_crv_idx], normed=True, label='samples')
+        plt.hist(hgsampler.cont_samples[:, test_crv_idx], normed=True, label='samples', linestyle=linestyles[l])
+    l += 1
+
+    plt.plot(xs, np.exp([epbp_marg_logpdf(x) for x in xs]), label=f'EPBP',
+             linestyle=linestyles[l])
+    l += 1
+
+    params = npvi.params['w'], npvi.params['Mu'][test_crv_idx], npvi.params['Var'][test_crv_idx]
+    plt.plot(xs, np.exp(utils.get_scalar_gm_log_prob(xs, w=params[0], mu=params[1], var=params[2])),
+             label=f'NPVI', linestyle=linestyles[l])
+    l += 1
 
     osi_test_crv_marg_params = osi.params['w'], osi.params['Mu'][test_crv_idx], osi.params['Var'][test_crv_idx]
     params = osi.params['w'], osi.params['Mu'][test_crv_idx], osi.params['Var'][test_crv_idx]
-    plt.plot(xs, np.exp(utils.get_scalar_gm_log_prob(xs, w=params[0], mu=params[1],
-                                                     var=params[2])), label=f'OSI marg pdf {test_crv_idx}')
-    params = npvi.params['w'], npvi.params['Mu'][test_crv_idx], npvi.params['Var'][test_crv_idx]
-    plt.plot(xs, np.exp(utils.get_scalar_gm_log_prob(xs, w=params[0], mu=params[1],
-                                                     var=params[2])), label=f'NPVI marg pdf {test_crv_idx}')
-    plt.plot(xs, np.exp([epbp_marg_logpdf(x) for x in xs]), label=f'EPBP for crv{test_crv_idx}')
+    plt.plot(xs, np.exp(utils.get_scalar_gm_log_prob(xs, w=params[0], mu=params[1], var=params[2])),
+             label=f'BVI', linestyle=linestyles[l])
+    l += 1
+
 plt.legend(loc='best')
-plt.title('crv marginals')
+plt.title('Node Marginal Estimated by Various Algorithms')
+
 # plt.show()
 save_name = __file__.split('.py')[0]
 plt.savefig('%s.png' % save_name)
