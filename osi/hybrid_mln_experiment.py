@@ -1,4 +1,7 @@
 import utils
+import pickle
+import os.path
+from pprint import pprint
 
 utils.set_path(('..', '../gibbs'))
 from RelationalGraph import *
@@ -12,7 +15,7 @@ import numpy as np
 import time
 from copy import copy
 
-seed = 6
+seed = 0
 utils.set_seed(seed)
 
 from hybrid_gaussian_mrf import HybridGaussianSampler
@@ -22,8 +25,21 @@ import sampling_utils
 
 from KLDivergence import kl_continuous_logpdf
 
-num_x = 1
-num_y = 2
+import argparse
+
+parser = argparse.ArgumentParser()
+parser.add_argument('valgo', type=str)  # any of OSI, LOSI, NPVI, LNPVI
+parser.add_argument('K', type=int)
+parser.add_argument('-n', '--num_tests', type=int, default=5)
+args = parser.parse_args()
+valgo = args.valgo
+K = args.K
+num_tests = args.num_tests
+print('#### run setup ####')
+pprint(vars(args))
+
+num_x = 2
+num_y = 3
 num_s = 2
 
 X = []
@@ -78,7 +94,7 @@ rel_g.atoms = (atom_A, atom_B, atom_C, atom_D, atom_E)
 rel_g.param_factors = (f1, f2, f3)
 rel_g.init_nb()
 
-num_tests = 1  # num rounds with different queries
+# num_tests = 2  # num rounds with different queries
 record_fields = ['cpu_time',
                  'wall_time',
                  'obj',  # this is BFE/-ELBO for variational methods, -logZ for exact baseline
@@ -87,7 +103,9 @@ record_fields = ['cpu_time',
                  ]
 # algo_names = ['baseline', 'EPBP', 'OSI', 'LOSI']
 # algo_names = ['baseline', 'NPVI', 'OSI', ]
-algo_names = ['baseline', 'EPBP', 'NPVI']  # , 'NPVI']  # ,'LNPVI', 'OSI', 'LOSI']
+# algo_names = ['baseline', 'EPBP', 'NPVI', 'LNPVI', 'OSI', 'LOSI']
+# algo_names = ['baseline', 'EPBP', 'OSI', 'LOSI', 'NPVI', 'LNPVI']
+algo_names = ['baseline', valgo, ]
 # algo_names = ['baseline', 'EPBP']
 # algo_names = ['EPBP']
 # assert algo_names[0] == 'baseline'
@@ -95,7 +113,7 @@ algo_names = ['baseline', 'EPBP', 'NPVI']  # , 'NPVI']  # ,'LNPVI', 'OSI', 'LOSI
 # averaged over)
 records = {algo_name: {record_field: [] for record_field in record_fields} for algo_name in algo_names}
 
-plot = True
+plot = False
 for test_num in range(num_tests):
     test_seed = seed + test_num
     data = {}
@@ -124,7 +142,7 @@ for test_num in range(num_tests):
     rel_g.data = data
     g, rvs_table = rel_g.grounded_graph()
     g_rv_nbs = [copy(rv.nb) for rv in g.rvs_list]  # keep a copy of rv neighbors in the original graph
-    print(rvs_table)
+    # print(rvs_table)
 
     key_list = list()
     for y_ in Y:
@@ -235,10 +253,23 @@ for test_num in range(num_tests):
             utils.set_nbrs_idx_in_factors(converted_factors, cond_g.Vd_idx, cond_g.Vc_idx)  # preprocessing for baseline
 
             num_dstates = np.prod([rv.dstates for rv in cond_g.Vd])
-            print(f'running {algo_name} baseline with {num_dstates} joint discrete configs')
+            print(f'running {baseline} baseline with {num_dstates} joint discrete configs')
 
+            start_time = time.process_time()
+            start_wall_time = time.time()
             if baseline == 'exact':
-                bn_res = convert_to_bn(converted_factors, cond_g.Vd, cond_g.Vc, return_logZ=True)
+                load_existing, dump = True, True
+                save_name = __file__.split('.py')[0]
+                save_name += f'_bn_x{num_x}_y{num_y}_s{num_s}.pkl'
+                if load_existing and os.path.isfile(save_name):
+                    with open(save_name, 'rb') as f:
+                        bn_res = pickle.load(f)
+                else:
+                    bn_res = convert_to_bn(converted_factors, cond_g.Vd, cond_g.Vc, return_logZ=True)
+                    if dump:
+                        with open(save_name, 'wb') as f:
+                            pickle.dump(bn_res, f)
+
                 bn = bn_res[:-1]
                 logZ = bn_res[-1]
                 print('true -logZ', -logZ)
@@ -246,17 +277,17 @@ for test_num in range(num_tests):
                 # print('BN params', bn)
 
                 # num_dstates = np.prod([rv.dstates for rv in cond_g.Vd])
-                if num_dstates > 1000:
-                    print('too many dstates, exact mode finding might take a while, consider parallelizing...')
-
                 for i, rv in enumerate(query_rvs):
-                    m = get_rv_marg_map_from_bn_params(*bn, cond_g.Vd_idx, cond_g.Vc_idx, rv)
-                    mmap[i] = m
                     assert rv.domain_type[0] == 'c', 'only looking at kl for cnode queries for now'
                     crv_idx = cond_g.Vc_idx[rv]
                     crv_marg_params = get_crv_marg(*bn, crv_idx)
                     marg_logpdf = utils.get_scalar_gm_log_prob(None, *crv_marg_params, get_fun=True)
                     margs[i] = marg_logpdf
+
+                    bds = (rv.values[0], rv.values[1])
+                    m = utils.get_scalar_gm_mode(w=crv_marg_params[0], mu=crv_marg_params[1],
+                                                 var=crv_marg_params[2], bds=bds, best_log_pdf=False)
+                    mmap[i] = m
 
             if baseline == 'gibbs':
                 num_burnin = 200
@@ -281,6 +312,9 @@ for test_num in range(num_tests):
                                                                                 K=num_gm_components_for_crv)
                     marg_logpdf = utils.get_scalar_gm_log_prob(None, *crv_marg_params, get_fun=True)
                     margs[i] = marg_logpdf
+
+            cpu_time = time.process_time() - start_time
+            wall_time = time.time() - start_wall_time
             # save baseline
             baseline_mmap = mmap
             baseline_margs = margs
@@ -303,12 +337,12 @@ for test_num in range(num_tests):
             cond = True
             if cond:
                 cond_g.init_nb()  # this will make cond_g rvs' .nb attributes consistent (baseline didn't care so it was OK)
-            K = 5
+            # K = 3
             T = 16
             lr = 0.5
-            its = 1000
-            fix_mix_its = int(its * 0.5)
-            logging_itv = 50
+            its = 1500
+            fix_mix_its = int(its * 0.2)
+            logging_itv = 500
             utils.set_log_potential_funs(g.factors_list, skip_existing=True)  # g factors' lpot_fun should still be None
             # above will also set the lpot_fun in all the (completely unobserved) factors in cond_g
             if algo_name in ('OSI', 'NPVI'):
@@ -317,9 +351,9 @@ for test_num in range(num_tests):
                 else:
                     _g = g
                 if algo_name == 'OSI':
-                    vi = OneShot(g=_g, K=K, T=T, seed=seed)
+                    vi = OneShot(g=_g, K=K, T=T, seed=test_seed)
                 else:
-                    vi = NPVI(g=_g, K=K, T=T, isotropic_cov=False, seed=seed)
+                    vi = NPVI(g=_g, K=K, T=T, isotropic_cov=False, seed=test_seed)
             else:
                 if cond:
                     cg = CompressedGraphSorted(cond_g)
@@ -330,9 +364,9 @@ for test_num in range(num_tests):
                 print('number of rvs in cg', len(cg.rvs))
                 print('number of factors in cg', len(cg.factors))
                 if algo_name == 'LOSI':
-                    vi = LiftedOneShot(g=cg, K=K, T=T, seed=seed)
+                    vi = LiftedOneShot(g=cg, K=K, T=T, seed=test_seed)
                 else:
-                    vi = LiftedNPVI(g=cg, K=K, T=T, seed=seed)
+                    vi = LiftedNPVI(g=cg, K=K, T=T, seed=test_seed)
             if cond:  # clean up; only needed cond_g.init_nb() for defining symbolic objective
                 for i, rv in enumerate(g.rvs_list):
                     rv.nb = g_rv_nbs[i]  # restore; undo possible mutation from cond_g.init_nb()
@@ -343,6 +377,7 @@ for test_num in range(num_tests):
             cpu_time = time.process_time() - start_time
             wall_time = time.time() - start_wall_time
             obj = res['record']['obj'][-1]
+            # print(vi.params['Mu'], vi.params['Var'])
 
             for i, rv in enumerate(query_rvs):
                 if cond:
@@ -400,6 +435,9 @@ if plot:
     plt.savefig('%s.png' % save_name)
 
 print('######################')
+print('##### run setup #####')
+pprint(vars(args))
+
 from collections import OrderedDict
 
 avg_records = OrderedDict()
@@ -410,10 +448,10 @@ for algo_name in algo_names:
         avg_record[record_field] = (np.mean(record[record_field]), np.std(record[record_field]))
     avg_records[algo_name] = avg_record
 
-from pprint import pprint
-
 for key, value in avg_records.items():
     print(key + ':')
     pprint(dict(value))
 # import json
 # output = json.dumps(avg_records, indent=0, sort_keys=True)
+print()
+print()

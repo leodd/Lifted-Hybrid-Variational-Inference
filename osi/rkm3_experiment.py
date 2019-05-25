@@ -50,7 +50,7 @@ data = well_t[rvs_id, :t]
 
 domain = Domain((-4, 4), continuous=True, integral_points=np.linspace(-4, 4, 30))
 
-num_tests = param.shape[1]
+num_tests = 1
 
 from KLDivergence import kl_continuous_logpdf
 
@@ -63,7 +63,8 @@ record_fields = ['cpu_time',
 # algo_names = ['baseline', 'EPBP', 'OSI', 'LOSI']
 # algo_names = ['baseline', 'GaBP', 'NPVI', 'LNPVI', 'OSI', 'LOSI']
 # algo_names = ['baseline', 'GaBP', 'NPVI', 'LNPVI', 'OSI', 'LOSI']
-algo_names = ['baseline', 'EPBP']
+# algo_names = ['baseline', 'EPBP']
+algo_names = ['baseline', 'GaBP', 'EPBP', 'OSI', 'NPVI']
 # algo_names = ['EPBP']
 # assert algo_names[0] == 'baseline'
 # for each algorithm, we keep a record, which is a dict mapping a record_field to a list (which will eventually be
@@ -149,7 +150,7 @@ for test_num in range(num_tests):
             bp = GaBP(g)
             start_time = time.process_time()
             start_wall_time = time.time()
-            bp.run(15, log_enable=False)
+            bp.run(20, log_enable=False)
             cpu_time = time.process_time() - start_time
             wall_time = time.time() - start_wall_time
             for i, rv in enumerate(query_rvs):
@@ -158,10 +159,10 @@ for test_num in range(num_tests):
                 margs[i] = utils.curry_normal_logpdf(*belief_params)
 
         elif algo_name == 'EPBP':
-            bp = EPBP(g, n=20, proposal_approximation='simple')
+            bp = EPBP(g, n=50, proposal_approximation='simple')
             start_time = time.process_time()
             start_wall_time = time.time()
-            bp.run(10, log_enable=False)
+            bp.run(20, log_enable=False)
             cpu_time = time.process_time() - start_time
             wall_time = time.time() - start_wall_time
 
