@@ -15,7 +15,7 @@ import numpy as np
 import time
 from copy import copy
 
-seed = 0
+seed = 21
 utils.set_seed(seed)
 
 from hybrid_gaussian_mrf import HybridGaussianSampler
@@ -437,6 +437,8 @@ if plot:
 print('######################')
 print('##### run setup #####')
 pprint(vars(args))
+run_str = f'{valgo}_K={K}'
+print(run_str)
 
 from collections import OrderedDict
 

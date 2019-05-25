@@ -16,3 +16,6 @@ ignore_const_when_group_eval_LogQuadratic = False
 # init_grid, init_grid_noise = True, 0.1
 init_grid, init_grid_noise = False, -1
 
+init_var_lb = 1  # minimum initial variance allowed for NPVI/OSI
+# init_var_lb = None # disable
+
