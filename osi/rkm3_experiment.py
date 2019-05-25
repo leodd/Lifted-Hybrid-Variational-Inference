@@ -50,7 +50,7 @@ data = well_t[rvs_id, :t]
 
 domain = Domain((-4, 4), continuous=True, integral_points=np.linspace(-4, 4, 30))
 
-num_tests = 1
+num_tests = 5
 
 from KLDivergence import kl_continuous_logpdf
 
