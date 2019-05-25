@@ -39,14 +39,15 @@ kmf = KalmanFilter(domain,
                    np.eye(len(rvs_id)),
                    1,
                    np.eye(len(rvs_id)),
-                   10)
+                   5)
 
 result = []
 # for i in range(t):
 i = t - 1
 g, rvs_table = kmf.grounded_graph(i + 1, data)
-# bp = EPBP(g, n=50, proposal_approximation='simple')
-bp = LVI(g, 1, 3)
+# bp = EPBP(g, n=20, proposal_approximation='simple')
+# bp = C2FVI(g, 1, 3)
+bp = GaBP(g)
 print('number of vr', len(g.rvs))
 num_evidence = 0
 for rv in g.rvs:
@@ -55,8 +56,8 @@ for rv in g.rvs:
 print('number of evidence', num_evidence)
 
 start_time = time.time()
-# bp.run(25, log_enable=False)
-bp.run(200, 0.1)
+bp.run(25, log_enable=False)
+# bp.run(200, 0.1)
 print('time lapse', time.time() - start_time)
 
 for i in range(t):
