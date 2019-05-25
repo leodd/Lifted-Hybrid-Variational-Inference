@@ -24,8 +24,8 @@ import sampling_utils
 
 from KLDivergence import kl_continuous_logpdf
 
-num_x = 1
-num_y = 1
+num_x = 2
+num_y = 3
 num_s = 2
 
 X = []
@@ -89,7 +89,7 @@ record_fields = ['cpu_time',
                  ]
 # algo_names = ['baseline', 'EPBP', 'OSI', 'LOSI']
 # algo_names = ['baseline', 'NPVI', 'OSI', ]
-algo_names = ['baseline', 'EPBP', 'NPVI']  # , 'NPVI']  # ,'LNPVI', 'OSI', 'LOSI']
+algo_names = ['baseline', 'EPBP', 'NPVI', 'LNPVI', 'OSI', 'LOSI']
 # algo_names = ['baseline', 'EPBP']
 # algo_names = ['EPBP']
 # assert algo_names[0] == 'baseline'
@@ -237,7 +237,7 @@ for test_num in range(num_tests):
             utils.set_nbrs_idx_in_factors(converted_factors, cond_g.Vd_idx, cond_g.Vc_idx)  # preprocessing for baseline
 
             num_dstates = np.prod([rv.dstates for rv in cond_g.Vd])
-            print(f'running {algo_name} baseline with {num_dstates} joint discrete configs')
+            print(f'running {baseline} baseline with {num_dstates} joint discrete configs')
 
             start_time = time.process_time()
             start_wall_time = time.time()
@@ -324,11 +324,11 @@ for test_num in range(num_tests):
             cond = True
             if cond:
                 cond_g.init_nb()  # this will make cond_g rvs' .nb attributes consistent (baseline didn't care so it was OK)
-            K = 5
+            K = 3
             T = 16
             lr = 0.5
-            its = 1000
-            fix_mix_its = int(its * 0.5)
+            its = 1500
+            fix_mix_its = int(its * 0.2)
             logging_itv = 50
             utils.set_log_potential_funs(g.factors_list, skip_existing=True)  # g factors' lpot_fun should still be None
             # above will also set the lpot_fun in all the (completely unobserved) factors in cond_g
