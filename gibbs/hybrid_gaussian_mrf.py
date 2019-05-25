@@ -26,13 +26,14 @@ def convert_to_bn(factors, Vd, Vc, return_logZ=False):
     gaussian_means = np.empty(dstates + [Nc], dtype=float)  # [v1, v2, ..., v_Nd, Nc]
     gaussian_covs = np.empty(dstates + [Nc, Nc], dtype=float)  # [v1, v2, ..., v_Nd, Nc, Nc]
 
+    log_quadratic_integral_coef = Nc / 2 * np.log(2 * np.pi)
     for it, disc_config in enumerate(all_disc_config):
         quadratic_factor_params = []  # each obtained from a (reduced) hybrid factor when given disc nb node values
         quadratic_factor_scopes = []
         log_disc_pot_prod = 0  # table/discrete potential's contribution to \prod_c \psi_c (product of all potentials)
         for factor in factors:
             # pot = factor.potential  # .potential is for interfacing with the code outside /osi
-            assert hasattr(factor, 'log_potential_fun')  # actually I'll only work with log_potential_fun for simplicity
+            # assert hasattr(factor, 'log_potential_fun')  # actually I'll only work with log_potential_fun for simplicity
             lpot_fun = factor.log_potential_fun
             if isinstance(lpot_fun, LogQuadratic):
                 quadratic_factor_params.append((lpot_fun.A, lpot_fun.b, lpot_fun.c))
@@ -42,7 +43,7 @@ def convert_to_bn(factors, Vd, Vc, return_logZ=False):
                 if isinstance(lpot_fun, LogTable):
                     log_disc_pot_prod += lpot_fun(disc_vals_in_factor)
                 else:
-                    assert isinstance(lpot_fun, LogHybridQuadratic)
+                    # assert isinstance(lpot_fun, LogHybridQuadratic)
                     # plugging in disc values has the effect of selecting one log quadratic
                     quadratic_factor_params.append(lpot_fun.get_quadratic_params_given_x_d(disc_vals_in_factor))
                     quadratic_factor_scopes.append(factor.cont_nb_idx)
@@ -56,8 +57,8 @@ def convert_to_bn(factors, Vd, Vc, return_logZ=False):
         # use the log partition function formula for Gaussian to figure out \int exp{x^T A x + x^T b} =
         # \int exp{-0.5 x^T J x + x^T J mu} = (int exp{-0.5 (x-mu)^T J (x-mu)} * exp{0.5 mu^T J mu}
         (sign, logdet) = np.linalg.slogdet(Sig)
-        assert sign == 1, 'cov mat must be PD'
-        log_joint_quadratic_integral = Nc / 2 * np.log(2 * np.pi) + 0.5 * logdet + 0.5 * np.dot(mu, b)
+        # assert sign == 1, 'cov mat must be PD'
+        log_joint_quadratic_integral = log_quadratic_integral_coef + 0.5 * logdet + 0.5 * np.dot(mu, b)
         log_joint_quadratic_integral += c  # log integral of all cont & hybrid factors (with disc nodes substituted in)
 
         disc_marginal_table[disc_config] = \
