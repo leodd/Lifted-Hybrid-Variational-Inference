@@ -55,7 +55,8 @@ record_fields = ['cpu_time',
                  'kl_err',  # kl(p(xi)||q(xi)), avg over all nodes i
                  ]
 # algo_names = ['baseline', 'EPBP', 'OSI', 'LOSI']
-algo_names = ['baseline', 'GaBP', 'NPVI', 'LNPVI', 'OSI', 'LOSI']
+# algo_names = ['baseline', 'GaBP', 'NPVI', 'LNPVI', 'OSI', 'LOSI']
+algo_names = ['baseline', 'NPVI', 'LNPVI', 'OSI', 'LOSI']
 # algo_names = ['baseline', 'GaBP', 'NPVI', 'LNPVI', 'OSI', 'LOSI']
 # algo_names = ['baseline', 'EPBP']
 # algo_names = ['EPBP']
