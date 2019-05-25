@@ -94,10 +94,21 @@ for test_num in range(num_tests):
     obs_rvs = [v for v in g.rvs if v.value is not None]
     evidence = {rv: rv.value for rv in obs_rvs}
     cond_g = utils.get_conditional_mrf(g.factors_list, g.rvs, evidence)  # this will also condition log_potential_funs
+    # hack for lifted conditioning
+    cond_g.init_nb()  # WILL USE cond = True throughout; don't care about EPBP afterwards
+    for f in cond_g.factors_list:
+        pot = f.potential
+        if not isinstance(pot, QuadraticPotential):
+            A, b, c = pot.get_quadratic_params()  # we know this is a Gaussian MRF
+            pot = QuadraticPotential(A, b, c)
+            f.potential = pot
+    utils.condense_duplicate_factor_potentials(cond_g.factors_list)
 
     print('cond number of rvs', len(cond_g.rvs))
     print('cond num drvs', len([rv for rv in cond_g.rvs if rv.domain_type[0] == 'd']))
     print('cond num crvs', len([rv for rv in cond_g.rvs if rv.domain_type[0] == 'c']))
+    print('cond num of factors', len(cond_g.factors_list))
+    print('cond num of distinct pots', len((set(f.potential for f in cond_g.factors_list))))
 
     all_margs = {algo_name: [None] * len(query_rvs) for algo_name in algo_names}  # for plotting convenience
 

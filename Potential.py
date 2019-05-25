@@ -100,6 +100,15 @@ class QuadraticPotential(Potential):
         # for convenient handling of all quadratic (including Gaussian like) potentials
         return self.A, self.b, self.c
 
+    # def __eq__(self, other):
+    #     return np.all(self.A == other.A) and np.all(self.b == other.b) and np.all(self.c == other.c)
+    #
+    # def __hash__(self):
+    #     return hash((self.A, self.b, self.c))
+
+    def dim(self):
+        return self.b.size
+
 
 class LogQuadratic:
     """

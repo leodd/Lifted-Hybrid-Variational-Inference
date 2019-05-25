@@ -291,6 +291,59 @@ def condition_factors_on_evidence(factors, evidence):
     return cond_factors
 
 
+def get_unique_quadratic_params(quadratic_params):
+    """
+    Given a list of quadratic params [(A0, b0, c0), (A1, b1, c1), ... ], determine the unique subset of params
+    and get the indices of corresponding params in quadratic_params.
+    :param quadratic_params:
+    :return: unique_subsets_ids, unique_params
+    """
+    N = len(quadratic_params)
+    A0, b0, c0 = quadratic_params[0]
+    # n = b0.size()
+    all_params_flat = np.array([np.hstack((params[0].ravel(), params[1], params[2])) for params in quadratic_params])
+    # will have shape N x (n^2+n+1)
+    unique_params_flat, unique_params_idx = np.unique(all_params_flat, return_inverse=True, axis=0)
+
+    unique_params = []
+    for upf in unique_params_flat:
+        A = upf[:A0.size].reshape(A0.shape)
+        b = upf[A0.size:-1]
+        c = upf[-1]
+        unique_params.append((A, b, c))
+    return unique_params, unique_params_idx
+
+
+def condense_duplicate_factor_potentials(factors):
+    """
+    Given a list of factors, identify those potentials that are actually the same (easy for generic parametric
+    potentials like Quadratic or Table; tricky for MLN b/c opaque formula) and assign them the same potential objects
+    :param factors:
+    :return:
+    """
+    from Potential import QuadraticPotential  # , GaussianPotential, LinearGaussianPotential, X2Potential, XYPotential
+    # all_pots = [f.potential for f in factors]
+    # currently only handle Quadratic
+
+    quad_factors = [f for f in factors if isinstance(f.potential, QuadraticPotential)]
+    assert np.all(np.array([len(f.nb) for f in quad_factors])
+                  == np.array(
+        [f.potential.dim() for f in quad_factors])), 'num nbrs in each potential must match potential.dim'
+    quad_pots = [f.potential for f in quad_factors]
+
+    # quad_factors_with_uniq_dims, uniq_dims = get_unique_subsets(quad_pots, lambda p: p.dim)
+
+    quad_factors_with_uniq_dims, uniq_dims = get_unique_subsets(quad_factors, lambda f: len(f.nb))
+    for fs in quad_factors_with_uniq_dims:  # all fs have the same number of nbr/dimensions
+        fs_params = [f.potential.get_quadratic_params() for f in fs]
+        unique_params, unique_idx = get_unique_quadratic_params(fs_params)
+        unique_pots = [QuadraticPotential(*params) for params in unique_params]
+        unique_lpots = [p.to_log_potential() for p in unique_pots]
+        for i, f in enumerate(fs):
+            f.potential = unique_pots[unique_idx[i]]
+            f.log_potential_fun = unique_lpots[unique_idx[i]]
+
+
 def set_nbrs_idx_in_factors(factors, Vd_idx, Vc_idx):
     # create factor.disc_nb_idx/cont_nb_idx attrs for convenience (mostly used in hybrid mln baseline)
     for factor in factors:
