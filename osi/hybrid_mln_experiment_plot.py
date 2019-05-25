@@ -6,6 +6,7 @@ from MLNPotential import *
 from Potential import QuadraticPotential, TablePotential, HybridQuadraticPotential
 from EPBPLogVersion import EPBP
 from OneShot import OneShot, LiftedOneShot
+from NPVI import NPVI, LiftedNPVI
 from CompressedGraphSorted import CompressedGraphSorted
 import numpy as np
 import time
@@ -207,17 +208,41 @@ for test_num in range(num_tests):
     err_var[name] = np.average(np.average(res ** 2, axis=1)) / num_tests + err_var.get(name, 0)
     print(name, 'diff', np.average(np.average(abs(res), axis=1)))
     print(name, 'var', np.average(np.average(res ** 2, axis=1)) - np.average(np.average(abs(res), axis=1)) ** 2)
-    #
-    # name = 'OSI'
-    # K = 2
-    # T = 10
-    # lr = 0.5
-    # its = 10
+
+    name = 'OSI'
+    K = 5
+    T = 20
+    lr = 0.5
+    its = 1000
+    fix_mix_its = int(its * 0.5)
+    logging_itv = 50
+    res = np.zeros((len(key_list), num_runs))
+    utils.set_log_potential_funs(g.factors_list)
+    osi = NPVI(g=g, K=K, T=T, seed=seed)  # can be moved outside of all loops if the ground MRF doesn't change
+    for j in range(num_runs):
+        # utils.set_seed(test_seed + j)
+        start_time = time.process_time()
+        osi.run(lr=lr, its=its, fix_mix_its=fix_mix_its, logging_itv=logging_itv)
+        time_cost[name] = (time.process_time() - start_time) / num_runs / num_tests + time_cost.get(name, 0)
+        print(name, f'time {time.process_time() - start_time}')
+        for i, key in enumerate(key_list):
+            res[i, j] = osi.map(obs_rvs=[], query_rv=rvs_table[key])
+        print(res[:, j])
+        # print(osi.params)
+        print('Mu =\n', osi.params['Mu'], '\nVar =\n', osi.params['Var'])
+    for i, key in enumerate(key_list):
+        res[i, :] -= ans[key]
+    avg_diff[name] = np.average(np.average(abs(res), axis=1)) / num_tests + avg_diff.get(name, 0)
+    err_var[name] = np.average(np.average(res ** 2, axis=1)) / num_tests + err_var.get(name, 0)
+    print(name, 'diff', np.average(np.average(abs(res), axis=1)))
+    print(name, 'var', np.average(np.average(res ** 2, axis=1)) - np.average(np.average(abs(res), axis=1)) ** 2)
+
+    # name = 'NPVI'
     # fix_mix_its = int(its * 0.5)
     # logging_itv = 50
     # res = np.zeros((len(key_list), num_runs))
     # utils.set_log_potential_funs(g.factors_list)
-    # osi = OneShot(g=g, K=K, T=T, seed=seed)  # can be moved outside of all loops if the ground MRF doesn't change
+    # osi = NPVI(g=g, K=K, T=T, seed=seed)  # can be moved outside of all loops if the ground MRF doesn't change
     # for j in range(num_runs):
     #     # utils.set_seed(test_seed + j)
     #     start_time = time.process_time()
@@ -235,7 +260,8 @@ for test_num in range(num_tests):
     # err_var[name] = np.average(np.average(res ** 2, axis=1)) / num_tests + err_var.get(name, 0)
     # print(name, 'diff', np.average(np.average(abs(res), axis=1)))
     # print(name, 'var', np.average(np.average(res ** 2, axis=1)) - np.average(np.average(abs(res), axis=1)) ** 2)
-    #
+
+
     # name = 'LOSI'
     # cg = CompressedGraphSorted(g)
     # cg.run()
@@ -278,10 +304,10 @@ for test_crv_idx in tests[-1:]:
     if baseline == 'gibbs':
         plt.hist(hgsampler.cont_samples[:, test_crv_idx], normed=True, label='samples')
 
-    # osi_test_crv_marg_params = osi.params['w'], osi.params['Mu'][test_crv_idx], osi.params['Var'][test_crv_idx]
-    # plt.plot(xs, np.exp(utils.get_scalar_gm_log_prob(xs, w=osi_test_crv_marg_params[0], mu=osi_test_crv_marg_params[1],
-    #                                                  var=osi_test_crv_marg_params[2])),
-    #          label=f'OSI marg pdf {test_crv_idx}')
+    osi_test_crv_marg_params = osi.params['w'], osi.params['Mu'][test_crv_idx], osi.params['Var'][test_crv_idx]
+    plt.plot(xs, np.exp(utils.get_scalar_gm_log_prob(xs, w=osi_test_crv_marg_params[0], mu=osi_test_crv_marg_params[1],
+                                                     var=osi_test_crv_marg_params[2])),
+             label=f'OSI marg pdf {test_crv_idx}')
     plt.plot(xs, np.exp([epbp_marg_logpdf(x) for x in xs]), label=f'EPBP for crv{test_crv_idx}')
 plt.legend(loc='best')
 plt.title('crv marginals')
