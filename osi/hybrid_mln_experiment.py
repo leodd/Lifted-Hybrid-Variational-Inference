@@ -23,7 +23,7 @@ import sampling_utils
 from KLDivergence import kl_continuous_logpdf
 
 num_x = 1
-num_y = 2
+num_y = 1
 num_s = 2
 
 X = []
@@ -78,7 +78,7 @@ rel_g.atoms = (atom_A, atom_B, atom_C, atom_D, atom_E)
 rel_g.param_factors = (f1, f2, f3)
 rel_g.init_nb()
 
-num_tests = 1  # num rounds with different queries
+num_tests = 2  # num rounds with different queries
 record_fields = ['cpu_time',
                  'wall_time',
                  'obj',  # this is BFE/-ELBO for variational methods, -logZ for exact baseline
