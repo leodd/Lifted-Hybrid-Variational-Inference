@@ -9,6 +9,7 @@ import numpy as np
 import scipy.io
 import time
 import matplotlib.pyplot as plt
+from KLDivergence import kl_continuous
 
 
 cluster_mat = scipy.io.loadmat('Data/RKF/cluster_NcutDiscrete.mat')['NcutDiscrete']
@@ -46,6 +47,7 @@ time_cost = list()
 
 err = list()
 err2 = list()
+kl = list()
 
 for i in range(num_test):
     kmf = KalmanFilter(domain,
@@ -75,17 +77,26 @@ for i in range(num_test):
 
     temp_err = list()
     temp_err2 = list()
+    temp_kl = list()
 
     for idx, rv in enumerate(rvs_table[t - 1]):
         res = infer.map(rv)
         temp_err.append(abs(res - ans[idx, i]))
         temp_err2.append(abs(res - ans2.map(rv)))
+        temp_kl.append(kl_continuous(
+            lambda x: infer.belief(x, rv),
+            lambda x: ans2.belief(x, rv),
+            -np.inf,
+            np.inf
+        ))
 
     err.extend(temp_err)
     err2.extend(temp_err2)
+    kl.extend(temp_kl)
 
     print(f'avg err {np.average(temp_err)}')
     print(f'avg err2 {np.average(temp_err2)}')
+    print(f'avg kl {np.average(temp_kl)}')
 
 print('########################')
 print(f'avg time {np.average(time_cost)}')
@@ -93,4 +104,6 @@ print(f'avg err {np.average(err)}')
 print(f'err std {np.std(err)}')
 print(f'avg err2 {np.average(err2)}')
 print(f'err std2 {np.std(err2)}')
+print(f'avg kl {np.average(kl)}')
+print(f'err kl std {np.std(kl)}')
 
