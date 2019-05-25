@@ -26,7 +26,7 @@ def convert_to_bn(factors, Vd, Vc, return_logZ=False):
     gaussian_means = np.empty(dstates + [Nc], dtype=float)  # [v1, v2, ..., v_Nd, Nc]
     gaussian_covs = np.empty(dstates + [Nc, Nc], dtype=float)  # [v1, v2, ..., v_Nd, Nc, Nc]
 
-    for disc_config in all_disc_config:
+    for it, disc_config in enumerate(all_disc_config):
         quadratic_factor_params = []  # each obtained from a (reduced) hybrid factor when given disc nb node values
         quadratic_factor_scopes = []
         log_disc_pot_prod = 0  # table/discrete potential's contribution to \prod_c \psi_c (product of all potentials)

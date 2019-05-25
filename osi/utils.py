@@ -85,7 +85,7 @@ def get_scalar_gm_mode(w, mu, var, bds, best_log_pdf=False):
         return -logsumexp(log_w + comp_log_probs)
 
     res = []
-    for m in mu:  # starting optimization from the K component modes and take the best solution
+    for m in set(mu):  # starting optimization from the K component modes and take the best solution
         x0 = m
         r = minimize(neg_gmm_log_prob, x0=x0, bounds=[bds])  # bounds kwarg needs to be a list of (lb, ub)
         res.append(r)

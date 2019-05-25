@@ -250,13 +250,16 @@ for test_num in range(num_tests):
                     print('too many dstates, exact mode finding might take a while, consider parallelizing...')
 
                 for i, rv in enumerate(query_rvs):
-                    m = get_rv_marg_map_from_bn_params(*bn, cond_g.Vd_idx, cond_g.Vc_idx, rv)
-                    mmap[i] = m
                     assert rv.domain_type[0] == 'c', 'only looking at kl for cnode queries for now'
                     crv_idx = cond_g.Vc_idx[rv]
                     crv_marg_params = get_crv_marg(*bn, crv_idx)
                     marg_logpdf = utils.get_scalar_gm_log_prob(None, *crv_marg_params, get_fun=True)
                     margs[i] = marg_logpdf
+
+                    bds = (rv.values[0], rv.values[1])
+                    m = utils.get_scalar_gm_mode(w=crv_marg_params[0], mu=crv_marg_params[1],
+                                                 var=crv_marg_params[2], bds=bds, best_log_pdf=False)
+                    mmap[i] = m
 
             if baseline == 'gibbs':
                 num_burnin = 200
