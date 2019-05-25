@@ -155,8 +155,8 @@ for test_num in range(num_tests):
         # marg_logpdf = utils.curry_epbp_belief(bp, rv, log_belief=True)
         assert rv.domain_type[0] == 'c', 'only looking at kl for cnode queries for now'
         # lb, ub = -np.inf, np.inf
-        lb, ub = rv.domain.values[0], rv.domain.values[1]
-        # marg_kl = max(0, kl_continuous_logpdf(log_p=baseline_margs[i], log_q=margs[i], a=lb, b=ub))
+        lb, ub = -np.inf, np.inf
+        # marg_kl = kl_continuous_logpdf(log_p=baseline_margs[i], log_q=margs[i], a=lb, b=ub)
 
         plt.plot(xs, [bp.belief(x, rv) for x in xs], label=f'{algo_name} for crv{i}')
 

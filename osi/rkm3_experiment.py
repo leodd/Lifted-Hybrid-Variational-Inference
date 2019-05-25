@@ -1,6 +1,6 @@
 import utils
 
-utils.set_path(('..', '../gibbs'))
+utils.set_path(('..',))
 from RelationalGraph import *
 from MLNPotential import *
 from Potential import QuadraticPotential, TablePotential, HybridQuadraticPotential
@@ -16,23 +16,43 @@ from copy import copy
 seed = 0
 utils.set_seed(seed)
 
-# from hybrid_gaussian_mrf import HybridGaussianSampler
-# from hybrid_gaussian_mrf import convert_to_bn, block_gibbs_sample, get_crv_marg, get_drv_marg, \
-#     get_rv_marg_map_from_bn_params
-# import sampling_utils
+# KF stuff
+from KalmanFilter import KalmanFilter
+from Graph import *
+import scipy.io
+
+cluster_mat = scipy.io.loadmat('Data/RKF/cluster_NcutDiscrete.mat')['NcutDiscrete']
+well_t = scipy.io.loadmat('Data/RKF/well_t.mat')['well_t']
+ans = scipy.io.loadmat('Data/RKF/LRKF_cycle.mat')['res']
+param = scipy.io.loadmat('Data/RKF/LRKF_cycle.mat')['param']
+print(well_t.shape)
+
+idx = np.where(cluster_mat[:, 1] == 1)[0]
+cluster_mat[idx[3:], 1] = 0
+idx = np.where(cluster_mat[:, 2] == 1)[0]
+cluster_mat[idx[:49], 2] = 0
+cluster_mat[idx[52:], 2] = 0
+
+well_t = well_t[:, 199:]
+well_t[well_t[:, 0] == 5000, 0] = 0
+well_t[well_t == 5000] = 1
+t = 20
+
+cluster_id = [1, 2]
+
+rvs_id = []
+for i in cluster_id:
+    rvs_id.append(np.where(cluster_mat[:, i] == 1)[0])
+
+rvs_id = np.concatenate(rvs_id, axis=None)
+n_sum = len(rvs_id)
+data = well_t[rvs_id, :t]
+
+domain = Domain((-4, 4), continuous=True, integral_points=np.linspace(-4, 4, 30))
+
+num_tests = param.shape[1]
 
 from KLDivergence import kl_continuous_logpdf
-
-from Demo.Data.RGM.Generator import generate_rel_graph, load_data
-
-rel_g = generate_rel_graph()
-key_list = rel_g.key_list()
-
-num_tests = 5  # number of times evidence will vary; each time all methods are run to perform conditional inference
-evidence_ratio = 0.01
-
-print('number of vr', len(key_list))
-print('number of evidence', int(len(key_list) * evidence_ratio))
 
 record_fields = ['cpu_time',
                  'wall_time',
@@ -41,9 +61,9 @@ record_fields = ['cpu_time',
                  'kl_err',  # kl(p(xi)||q(xi)), avg over all nodes i
                  ]
 # algo_names = ['baseline', 'EPBP', 'OSI', 'LOSI']
-algo_names = ['baseline', 'GaBP', 'NPVI', 'LNPVI']  # , 'OSI', ]
 # algo_names = ['baseline', 'GaBP', 'NPVI', 'LNPVI', 'OSI', 'LOSI']
-# algo_names = ['baseline', 'EPBP']
+# algo_names = ['baseline', 'GaBP', 'NPVI', 'LNPVI', 'OSI', 'LOSI']
+algo_names = ['baseline', 'EPBP']
 # algo_names = ['EPBP']
 # assert algo_names[0] == 'baseline'
 # for each algorithm, we keep a record, which is a dict mapping a record_field to a list (which will eventually be
@@ -51,19 +71,25 @@ algo_names = ['baseline', 'GaBP', 'NPVI', 'LNPVI']  # , 'OSI', ]
 records = {algo_name: {record_field: [] for record_field in record_fields} for algo_name in algo_names}
 
 plot = True
-data_dir = '../Demo/Data/RGM/'
+print(f'########total {num_tests} tests########')
 for test_num in range(num_tests):
     test_seed = seed + test_num
 
     # regenerate/reload evidence
-    data = load_data(data_dir + str(test_num))
-    rel_g.data = data
-    g, rvs_table = rel_g.grounded_graph()
+    kmf = KalmanFilter(domain,
+                       np.eye(n_sum) * param[2, test_num] + 0.01,
+                       param[0, test_num],
+                       np.eye(n_sum),
+                       param[1, test_num])
 
-    g_rv_nbs = [copy(rv.nb) for rv in g.rvs_list]  # keep a copy of rv neighbors in the original graph
+    g, rvs_table = kmf.grounded_graph(t, data)
+    print('num rvs in g', len(g.rvs))
+    print('num factors in g', len(g.factors))
 
     # query nodes
-    query_rvs = [rv for rv in g.rvs if rv.value is None]
+    query_rvs = rvs_table[t - 1]
+
+    g_rv_nbs = [copy(rv.nb) for rv in g.rvs_list]  # keep a copy of rv neighbors in the original graph
 
     print('number of rvs', len(g.rvs))
     print('num drvs', len([rv for rv in g.rvs if rv.domain_type[0] == 'd']))
@@ -152,7 +178,7 @@ for test_num in range(num_tests):
             K = 1
             T = 3
             lr = 0.5
-            its = 500
+            its = 200
             fix_mix_its = int(its * 0.5)
             logging_itv = 50
             utils.set_log_potential_funs(g.factors_list, skip_existing=True)  # g factors' lpot_fun should still be None
@@ -205,8 +231,19 @@ for test_num in range(num_tests):
 
         # same for all algos
         for i, rv in enumerate(query_rvs):
-            lb, ub = -np.inf, np.inf
-            marg_kl = kl_continuous_logpdf(log_p=baseline_margs[i], log_q=margs[i], a=lb, b=ub)
+            if algo_name == 'EPBP':
+                lb, ub = rv.domain.values[0], rv.domain.values[1]
+                from scipy.integrate import quad
+
+                baseline_marg_logpdf = baseline_margs[i]
+                baseline_marg_pdf = lambda x: np.e ** (baseline_marg_logpdf(x))
+                itg_res = quad(baseline_marg_pdf, lb, ub)
+                baseline_marg_log_norm_const = np.log(itg_res[0])
+                truncated_baseline_marg_logpdf = lambda x: baseline_marg_logpdf(x) - baseline_marg_log_norm_const
+                marg_kl = kl_continuous_logpdf(log_p=truncated_baseline_marg_logpdf, log_q=margs[i], a=lb, b=ub)
+            else:
+                lb, ub = -np.inf, np.inf
+                marg_kl = kl_continuous_logpdf(log_p=baseline_margs[i], log_q=margs[i], a=lb, b=ub)
             marg_kls[i] = marg_kl
 
         # same for all algos

@@ -104,15 +104,17 @@ rel_g.atoms = (atom_cites, atom_paperIn, atom_paper_popularity, atom_topic_popul
 rel_g.param_factors = (f1, f2, f3)
 rel_g.init_nb()
 
-num_tests = 1  # number of times evidence will vary; each time all methods are run to perform conditional inference
+num_tests = 5  # number of times evidence will vary; each time all methods are run to perform conditional inference
 record_fields = [
+    'cpu_time',
+    'wall_time',
     'obj',  # this is BFE/-ELBO for variational methods, -logZ for exact baseline
     'mmap_err',  # |argmax p(xi) - argmax q(xi)|, avg over all nodes i
     'kl_err',  # kl(p(xi)||q(xi)), avg over all nodes i
 ]
-algo_names = ['baseline', 'EPBP', 'NPVI', 'OSI']
+# algo_names = ['baseline', 'EPBP', 'NPVI', 'OSI']
 # algo_names = ['baseline', 'NPVI', 'OSI', ]
-# algo_names = ['baseline', 'NPVI', 'LNPVI', 'OSI', 'LOSI']
+algo_names = ['baseline', 'EPBP', 'NPVI', 'LNPVI', 'OSI', 'LOSI']
 # algo_names = ['baseline', 'EPBP']
 # algo_names = ['EPBP']
 # assert algo_names[0] == 'baseline'
@@ -155,8 +157,8 @@ for test_num in range(num_tests):
 
     all_margs = {algo_name: [None] * len(query_rvs) for algo_name in algo_names}  # for plotting convenience
 
-    # baseline = 'exact'
-    baseline = 'gibbs'
+    baseline = 'exact'
+    # baseline = 'gibbs'
     for a, algo_name in enumerate(algo_names):
         print('####')
         print('test_num', test_num)
@@ -164,9 +166,9 @@ for test_num in range(num_tests):
         np.random.seed(test_seed + a)
 
         # temp storage
-        mmap = np.zeros(len(query_rvs))
+        mmap = np.zeros(len(query_rvs)) - 123
         margs = [None] * len(query_rvs)
-        marg_kls = np.zeros(len(query_rvs))
+        marg_kls = np.zeros(len(query_rvs)) - 123
         obj = -1
 
         if algo_name == 'baseline':
@@ -269,10 +271,15 @@ for test_num in range(num_tests):
             baseline_mmap = mmap
             baseline_margs = margs
             marg_kls = np.zeros_like(mmap)
+            cpu_time = wall_time = 0  # don't care
 
         elif algo_name == 'EPBP':
             bp = EPBP(g, n=20, proposal_approximation='simple')
+            start_time = time.process_time()
+            start_wall_time = time.time()
             bp.run(10, log_enable=False)
+            cpu_time = time.process_time() - start_time
+            wall_time = time.time() - start_wall_time
 
             for i, rv in enumerate(query_rvs):
                 mmap[i] = bp.map(rv)
@@ -281,20 +288,20 @@ for test_num in range(num_tests):
                 margs[i] = marg_logpdf
                 assert rv.domain_type[0] == 'c', 'only looking at kl for cnode queries for now'
                 # lb, ub = -np.inf, np.inf
-                lb, ub = rv.domain.values[0], rv.domain.values[1]
-                marg_kl = max(0, kl_continuous_logpdf(log_p=baseline_margs[i], log_q=margs[i], a=lb, b=ub))
+                lb, ub = -np.inf, np.inf
+                marg_kl = kl_continuous_logpdf(log_p=baseline_margs[i], log_q=margs[i], a=lb, b=ub)
                 marg_kls[i] = marg_kl
 
         elif algo_name in ('OSI', 'LOSI', 'NPVI', 'LNPVI'):
             cond = True
             if cond:
                 cond_g.init_nb()  # this will make cond_g rvs' .nb attributes consistent (baseline didn't care so it was OK)
-            K = 3
+            K = 8
             T = 16
             lr = 0.5
             its = 1500
             fix_mix_its = int(its * 0.5)
-            logging_itv = 50
+            logging_itv = 200
             utils.set_log_potential_funs(g.factors_list, skip_existing=True)  # g factors' lpot_fun should still be None
             # above will also set the lpot_fun in all the (completely unobserved) factors in cond_g
             if algo_name in ('OSI', 'NPVI'):
@@ -323,7 +330,11 @@ for test_num in range(num_tests):
                 for i, rv in enumerate(g.rvs_list):
                     rv.nb = g_rv_nbs[i]  # restore; undo possible mutation from cond_g.init_nb()
 
+            start_time = time.process_time()
+            start_wall_time = time.time()
             res = vi.run(lr=lr, its=its, fix_mix_its=fix_mix_its, logging_itv=logging_itv)
+            cpu_time = time.process_time() - start_time
+            wall_time = time.time() - start_wall_time
             obj = res['record']['obj'][-1]
 
             for i, rv in enumerate(query_rvs):
@@ -336,8 +347,8 @@ for test_num in range(num_tests):
                 crv_marg_params = vi.params['w'], rv.belief_params['mu'], rv.belief_params['var']
                 margs[i] = utils.get_scalar_gm_log_prob(None, *crv_marg_params, get_fun=True)
                 # lb, ub = -np.inf, np.inf
-                lb, ub = rv.domain.values[0], rv.domain.values[1]
-                marg_kl = max(0, kl_continuous_logpdf(log_p=baseline_margs[i], log_q=margs[i], a=lb, b=ub))
+                lb, ub = -np.inf, np.inf
+                marg_kl = kl_continuous_logpdf(log_p=baseline_margs[i], log_q=margs[i], a=lb, b=ub)
                 marg_kls[i] = marg_kl
 
         # same for all algos
@@ -345,8 +356,7 @@ for test_num in range(num_tests):
         print('true mmap', baseline_mmap)
         mmap_err = np.mean(np.abs(mmap - baseline_mmap))
         kl_err = np.mean(marg_kls)
-        print('mmap_err', mmap_err, 'kl_err', kl_err)
-        algo_record = dict(obj=obj, mmap_err=mmap_err, kl_err=kl_err)
+        algo_record = dict(cpu_time=cpu_time, wall_time=wall_time, obj=obj, mmap_err=mmap_err, kl_err=kl_err)
         for key, value in algo_record.items():
             records[algo_name][key].append(value)
         all_margs[algo_name] = margs  # for plotting convenience
@@ -377,12 +387,15 @@ plt.savefig('%s.png' % save_name)
 print('######################')
 from collections import OrderedDict
 
+print('all records', records)
+
 avg_records = OrderedDict()
 for algo_name in algo_names:
     record = records[algo_name]
     avg_record = OrderedDict()
     for record_field in record_fields:
-        avg_record[record_field] = (np.mean(record[record_field]), np.std(record[record_field]))
+        # avg_record[record_field] = (np.mean(record[record_field]), np.std(record[record_field]))
+        avg_record[record_field] = (np.min(record[record_field]), np.max(record[record_field]))
     avg_records[algo_name] = avg_record
 
 from pprint import pprint
