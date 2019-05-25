@@ -1,6 +1,7 @@
 import utils
 import pickle
 import os.path
+from pprint import pprint
 
 utils.set_path(('..', '../gibbs'))
 from RelationalGraph import *
@@ -14,7 +15,7 @@ import numpy as np
 import time
 from copy import copy
 
-seed = 20
+seed = 0
 utils.set_seed(seed)
 
 from hybrid_gaussian_mrf import HybridGaussianSampler
@@ -23,6 +24,19 @@ from hybrid_gaussian_mrf import convert_to_bn, block_gibbs_sample, get_crv_marg,
 import sampling_utils
 
 from KLDivergence import kl_continuous_logpdf
+
+import argparse
+
+parser = argparse.ArgumentParser()
+parser.add_argument('valgo', type=str)  # any of OSI, LOSI, NPVI, LNPVI
+parser.add_argument('K', type=int)
+parser.add_argument('-n', '--num_tests', type=int, default=5)
+args = parser.parse_args()
+valgo = args.valgo
+K = args.K
+num_tests = args.num_tests
+print('#### run setup ####')
+pprint(vars(args))
 
 num_x = 2
 num_y = 3
@@ -80,7 +94,7 @@ rel_g.atoms = (atom_A, atom_B, atom_C, atom_D, atom_E)
 rel_g.param_factors = (f1, f2, f3)
 rel_g.init_nb()
 
-num_tests = 2  # num rounds with different queries
+# num_tests = 2  # num rounds with different queries
 record_fields = ['cpu_time',
                  'wall_time',
                  'obj',  # this is BFE/-ELBO for variational methods, -logZ for exact baseline
@@ -90,7 +104,8 @@ record_fields = ['cpu_time',
 # algo_names = ['baseline', 'EPBP', 'OSI', 'LOSI']
 # algo_names = ['baseline', 'NPVI', 'OSI', ]
 # algo_names = ['baseline', 'EPBP', 'NPVI', 'LNPVI', 'OSI', 'LOSI']
-algo_names = ['baseline', 'EPBP', 'OSI', 'LOSI', 'NPVI', 'LNPVI']
+# algo_names = ['baseline', 'EPBP', 'OSI', 'LOSI', 'NPVI', 'LNPVI']
+algo_names = ['baseline', valgo, ]
 # algo_names = ['baseline', 'EPBP']
 # algo_names = ['EPBP']
 # assert algo_names[0] == 'baseline'
@@ -98,7 +113,7 @@ algo_names = ['baseline', 'EPBP', 'OSI', 'LOSI', 'NPVI', 'LNPVI']
 # averaged over)
 records = {algo_name: {record_field: [] for record_field in record_fields} for algo_name in algo_names}
 
-plot = True
+plot = False
 for test_num in range(num_tests):
     test_seed = seed + test_num
     data = {}
@@ -127,7 +142,7 @@ for test_num in range(num_tests):
     rel_g.data = data
     g, rvs_table = rel_g.grounded_graph()
     g_rv_nbs = [copy(rv.nb) for rv in g.rvs_list]  # keep a copy of rv neighbors in the original graph
-    print(rvs_table)
+    # print(rvs_table)
 
     key_list = list()
     for y_ in Y:
@@ -262,9 +277,6 @@ for test_num in range(num_tests):
                 # print('BN params', bn)
 
                 # num_dstates = np.prod([rv.dstates for rv in cond_g.Vd])
-                if num_dstates > 1000:
-                    print('too many dstates, exact mode finding might take a while, consider parallelizing...')
-
                 for i, rv in enumerate(query_rvs):
                     assert rv.domain_type[0] == 'c', 'only looking at kl for cnode queries for now'
                     crv_idx = cond_g.Vc_idx[rv]
@@ -325,12 +337,12 @@ for test_num in range(num_tests):
             cond = True
             if cond:
                 cond_g.init_nb()  # this will make cond_g rvs' .nb attributes consistent (baseline didn't care so it was OK)
-            K = 3
+            # K = 3
             T = 16
             lr = 0.5
             its = 1500
             fix_mix_its = int(its * 0.2)
-            logging_itv = 50
+            logging_itv = 500
             utils.set_log_potential_funs(g.factors_list, skip_existing=True)  # g factors' lpot_fun should still be None
             # above will also set the lpot_fun in all the (completely unobserved) factors in cond_g
             if algo_name in ('OSI', 'NPVI'):
@@ -423,6 +435,9 @@ if plot:
     plt.savefig('%s.png' % save_name)
 
 print('######################')
+print('##### run setup #####')
+pprint(vars(args))
+
 from collections import OrderedDict
 
 avg_records = OrderedDict()
@@ -433,10 +448,10 @@ for algo_name in algo_names:
         avg_record[record_field] = (np.mean(record[record_field]), np.std(record[record_field]))
     avg_records[algo_name] = avg_record
 
-from pprint import pprint
-
 for key, value in avg_records.items():
     print(key + ':')
     pprint(dict(value))
 # import json
 # output = json.dumps(avg_records, indent=0, sort_keys=True)
+print()
+print()
