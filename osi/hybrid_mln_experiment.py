@@ -95,6 +95,7 @@ algo_names = ['baseline', 'EPBP', 'NPVI']  # , 'NPVI']  # ,'LNPVI', 'OSI', 'LOSI
 # averaged over)
 records = {algo_name: {record_field: [] for record_field in record_fields} for algo_name in algo_names}
 
+plot = True
 for test_num in range(num_tests):
     test_seed = seed + test_num
     data = {}
@@ -143,7 +144,7 @@ for test_num in range(num_tests):
     evidence = {rv: rv.value for rv in obs_rvs}
     # cond_g = utils.get_conditional_mrf(g.factors_list, g.rvs,
     #                                    evidence)  # this will also condition log_potential_funs
-    cond_g = g
+    cond_g = g  # this model has no evidence!
     print('cond number of rvs', len(cond_g.rvs))
     print('cond num drvs', len([rv for rv in cond_g.rvs if rv.domain_type[0] == 'd']))
     print('cond num crvs', len([rv for rv in cond_g.rvs if rv.domain_type[0] == 'c']))
@@ -152,16 +153,18 @@ for test_num in range(num_tests):
 
     baseline = 'exact'
     # baseline = 'gibbs'
-    for algo_name in algo_names:
+    for a, algo_name in enumerate(algo_names):
         print('####')
         print('test_num', test_num)
         print('running', algo_name)
+        np.random.seed(test_seed + a)
 
         # temp storage
-        mmap = np.zeros(len(query_rvs))
+        mmap = np.zeros(len(query_rvs)) - 123
         margs = [None] * len(query_rvs)
-        marg_kls = np.zeros(len(query_rvs))
+        marg_kls = np.zeros(len(query_rvs)) - 123
         obj = -1
+        cpu_time = wall_time = -1  # don't care
 
         if algo_name == 'baseline':
             # preprocessing
@@ -281,8 +284,6 @@ for test_num in range(num_tests):
             # save baseline
             baseline_mmap = mmap
             baseline_margs = margs
-            marg_kls = np.zeros_like(mmap)
-            cpu_time = wall_time = 0  # don't care
 
         elif algo_name == 'EPBP':
             bp = EPBP(g, n=20, proposal_approximation='simple')
@@ -297,17 +298,12 @@ for test_num in range(num_tests):
                 # marg_logpdf = lambda x: bp.belief(x, rv, log_belief=True)  # probly slightly faster if not plotting
                 marg_logpdf = utils.curry_epbp_belief(bp, rv, log_belief=True)
                 margs[i] = marg_logpdf
-                assert rv.domain_type[0] == 'c', 'only looking at kl for cnode queries for now'
-                # lb, ub = -np.inf, np.inf
-                lb, ub = -np.inf, np.inf
-                marg_kl = kl_continuous_logpdf(log_p=baseline_margs[i], log_q=margs[i], a=lb, b=ub)
-                marg_kls[i] = marg_kl
 
         elif algo_name in ('OSI', 'LOSI', 'NPVI', 'LNPVI'):
             cond = True
             if cond:
                 cond_g.init_nb()  # this will make cond_g rvs' .nb attributes consistent (baseline didn't care so it was OK)
-            K = 3
+            K = 5
             T = 16
             lr = 0.5
             its = 1000
@@ -357,45 +353,51 @@ for test_num in range(num_tests):
                 assert rv.domain_type[0] == 'c', 'only looking at kl for cnode queries for now'
                 crv_marg_params = vi.params['w'], rv.belief_params['mu'], rv.belief_params['var']
                 margs[i] = utils.get_scalar_gm_log_prob(None, *crv_marg_params, get_fun=True)
-                # lb, ub = -np.inf, np.inf
-                lb, ub = -np.inf, np.inf
-                marg_kl = kl_continuous_logpdf(log_p=baseline_margs[i], log_q=margs[i], a=lb, b=ub)
-                marg_kls[i] = marg_kl
+
+        else:
+            raise NotImplementedError
 
         # same for all algos
-        print('pred mmap', mmap)
-        print('true mmap', baseline_mmap)
+        for i, rv in enumerate(query_rvs):
+            lb, ub = -np.inf, np.inf
+            marg_kl = kl_continuous_logpdf(log_p=baseline_margs[i], log_q=margs[i], a=lb, b=ub)
+            marg_kls[i] = marg_kl
+
+        # same for all algos
+        # print('pred mmap', mmap)
+        # print('true mmap', baseline_mmap)
         mmap_err = np.mean(np.abs(mmap - baseline_mmap))
         kl_err = np.mean(marg_kls)
+        print('mmap_err', mmap_err, 'kl_err', kl_err)
         algo_record = dict(cpu_time=cpu_time, wall_time=wall_time, obj=obj, mmap_err=mmap_err, kl_err=kl_err)
         for key, value in algo_record.items():
             records[algo_name][key].append(value)
         all_margs[algo_name] = margs  # for plotting convenience
 
-print('plotting example marginal from last run')
+if plot:
+    print('plotting example marginal from last run')
+    import matplotlib.pyplot as plt
 
-import matplotlib.pyplot as plt
+    plt.figure()
+    xs = np.linspace(domain_real.values[0], domain_real.values[1], 100)
 
-plt.figure()
-xs = np.linspace(domain_real.values[0], domain_real.values[1], 100)
+    crv_idxs_to_plot = list(range(len([rv for rv in query_rvs if rv.domain_type[0] == 'c'])))
+    # num_to_plot = 1
+    num_to_plot = len(crv_idxs_to_plot)
+    crv_idxs_to_plot = crv_idxs_to_plot[:num_to_plot]
+    # crv_idxs_to_plot = [crv_idxs_to_plot[-1]]
+    for test_crv_idx in crv_idxs_to_plot:
+        # for test_crv_idx in range(len(query_rvs)):
+        for algo_name in algo_names:
+            marg_logpdf = all_margs[algo_name][test_crv_idx]
+            # plt.plot(xs, np.exp(marg_logpdf(xs)), label=f'{algo_name} for {test_crv_idx}')
+            plt.plot(xs, np.exp([marg_logpdf(x) for x in xs]), label=f'{algo_name} for crv{test_crv_idx}')
 
-crv_idxs_to_plot = list(range(len([rv for rv in query_rvs if rv.domain_type[0] == 'c'])))
-# num_to_plot = 1
-num_to_plot = len(crv_idxs_to_plot)
-crv_idxs_to_plot = crv_idxs_to_plot[:num_to_plot]
-# crv_idxs_to_plot = [crv_idxs_to_plot[-1]]
-for test_crv_idx in crv_idxs_to_plot:
-    # for test_crv_idx in range(len(query_rvs)):
-    for algo_name in algo_names:
-        marg_logpdf = all_margs[algo_name][test_crv_idx]
-        # plt.plot(xs, np.exp(marg_logpdf(xs)), label=f'{algo_name} for {test_crv_idx}')
-        plt.plot(xs, np.exp([marg_logpdf(x) for x in xs]), label=f'{algo_name} for crv{test_crv_idx}')
-
-plt.legend(loc='best')
-plt.title('crv marginals')
-# plt.show()
-save_name = __file__.split('.py')[0]
-plt.savefig('%s.png' % save_name)
+    plt.legend(loc='best')
+    plt.title('crv marginals')
+    # plt.show()
+    save_name = __file__.split('.py')[0]
+    plt.savefig('%s.png' % save_name)
 
 print('######################')
 from collections import OrderedDict
