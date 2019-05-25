@@ -89,7 +89,8 @@ record_fields = ['cpu_time',
                  ]
 # algo_names = ['baseline', 'EPBP', 'OSI', 'LOSI']
 # algo_names = ['baseline', 'NPVI', 'OSI', ]
-algo_names = ['baseline', 'EPBP', 'NPVI', 'LNPVI', 'OSI', 'LOSI']
+# algo_names = ['baseline', 'EPBP', 'NPVI', 'LNPVI', 'OSI', 'LOSI']
+algo_names = ['baseline', 'EPBP', 'OSI', 'LOSI', 'NPVI', 'LNPVI']
 # algo_names = ['baseline', 'EPBP']
 # algo_names = ['EPBP']
 # assert algo_names[0] == 'baseline'
