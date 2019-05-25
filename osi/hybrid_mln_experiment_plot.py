@@ -324,11 +324,11 @@ for test_crv_idx in tests[-1:]:
     l += 1
 
 plt.legend(loc='best')
-plt.title('Node Marginal Estimated by Various Algorithms')
+# plt.title('Node Marginal Estimated by Various Algorithms')
 
 # plt.show()
 save_name = __file__.split('.py')[0]
-plt.savefig('%s.png' % save_name)
+plt.savefig('%s.png' % save_name, bbox_inches='tight')
 
 print('######################')
 for name, v in time_cost.items():
