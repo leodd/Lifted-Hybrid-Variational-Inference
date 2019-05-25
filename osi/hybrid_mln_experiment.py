@@ -1,4 +1,6 @@
 import utils
+import pickle
+import os.path
 
 utils.set_path(('..', '../gibbs'))
 from RelationalGraph import *
@@ -237,8 +239,21 @@ for test_num in range(num_tests):
             num_dstates = np.prod([rv.dstates for rv in cond_g.Vd])
             print(f'running {algo_name} baseline with {num_dstates} joint discrete configs')
 
+            start_time = time.process_time()
+            start_wall_time = time.time()
             if baseline == 'exact':
-                bn_res = convert_to_bn(converted_factors, cond_g.Vd, cond_g.Vc, return_logZ=True)
+                load_existing, dump = True, True
+                save_name = __file__.split('.py')[0]
+                save_name += f'_bn_x{num_x}_y{num_y}_s{num_s}.pkl'
+                if load_existing and os.path.isfile(save_name):
+                    with open(save_name, 'rb') as f:
+                        bn_res = pickle.load(f)
+                else:
+                    bn_res = convert_to_bn(converted_factors, cond_g.Vd, cond_g.Vc, return_logZ=True)
+                    if dump:
+                        with open(save_name, 'wb') as f:
+                            pickle.dump(bn_res, f)
+
                 bn = bn_res[:-1]
                 logZ = bn_res[-1]
                 print('true -logZ', -logZ)
@@ -284,6 +299,9 @@ for test_num in range(num_tests):
                                                                                 K=num_gm_components_for_crv)
                     marg_logpdf = utils.get_scalar_gm_log_prob(None, *crv_marg_params, get_fun=True)
                     margs[i] = marg_logpdf
+
+            cpu_time = time.process_time() - start_time
+            wall_time = time.time() - start_wall_time
             # save baseline
             baseline_mmap = mmap
             baseline_margs = margs
