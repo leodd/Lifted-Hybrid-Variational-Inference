@@ -50,8 +50,9 @@ atom_C = Atom(domain_bool, logical_variables=(lv_x, lv_y), name='C')
 atom_D = Atom(domain_bool, logical_variables=(lv_x, lv_s), name='D')
 atom_E = Atom(domain_bool, logical_variables=(lv_y, lv_s), name='E')
 
+w_d = 0.1
 f1 = ParamF(  # disc
-    MLNPotential(lambda x: imp_op(x[0] * x[1], x[2]), w=0.0001), nb=(atom_D, atom_E, atom_C)
+    MLNPotential(lambda x: imp_op(x[0] * x[1], x[2]), w=w_d), nb=(atom_D, atom_E, atom_C)
 )
 
 w_h = 0.2  # smaller (like 0.06) gives skew instead
