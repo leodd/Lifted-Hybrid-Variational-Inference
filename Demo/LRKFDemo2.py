@@ -80,8 +80,8 @@ for i in range(num_test):
         temp_kl.append(kl_continuous(
             lambda x: infer.belief(x, rv),
             lambda x: ans2.belief(x, rv),
-            rv.domain.values[0]+100,
-            rv.domain.values[1]+100
+            rv.domain.values[0]+10,
+            rv.domain.values[1]+10
         ))
 
         # val = list()
