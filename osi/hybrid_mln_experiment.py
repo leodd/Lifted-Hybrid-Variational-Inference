@@ -14,7 +14,7 @@ import numpy as np
 import time
 from copy import copy
 
-seed = 6
+seed = 20
 utils.set_seed(seed)
 
 from hybrid_gaussian_mrf import HybridGaussianSampler
@@ -339,9 +339,9 @@ for test_num in range(num_tests):
                 else:
                     _g = g
                 if algo_name == 'OSI':
-                    vi = OneShot(g=_g, K=K, T=T, seed=seed)
+                    vi = OneShot(g=_g, K=K, T=T, seed=test_seed)
                 else:
-                    vi = NPVI(g=_g, K=K, T=T, isotropic_cov=False, seed=seed)
+                    vi = NPVI(g=_g, K=K, T=T, isotropic_cov=False, seed=test_seed)
             else:
                 if cond:
                     cg = CompressedGraphSorted(cond_g)
@@ -352,9 +352,9 @@ for test_num in range(num_tests):
                 print('number of rvs in cg', len(cg.rvs))
                 print('number of factors in cg', len(cg.factors))
                 if algo_name == 'LOSI':
-                    vi = LiftedOneShot(g=cg, K=K, T=T, seed=seed)
+                    vi = LiftedOneShot(g=cg, K=K, T=T, seed=test_seed)
                 else:
-                    vi = LiftedNPVI(g=cg, K=K, T=T, seed=seed)
+                    vi = LiftedNPVI(g=cg, K=K, T=T, seed=test_seed)
             if cond:  # clean up; only needed cond_g.init_nb() for defining symbolic objective
                 for i, rv in enumerate(g.rvs_list):
                     rv.nb = g_rv_nbs[i]  # restore; undo possible mutation from cond_g.init_nb()
@@ -365,6 +365,7 @@ for test_num in range(num_tests):
             cpu_time = time.process_time() - start_time
             wall_time = time.time() - start_wall_time
             obj = res['record']['obj'][-1]
+            # print(vi.params['Mu'], vi.params['Var'])
 
             for i, rv in enumerate(query_rvs):
                 if cond:
