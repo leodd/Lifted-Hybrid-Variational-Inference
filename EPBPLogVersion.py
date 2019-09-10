@@ -307,7 +307,7 @@ class EPBP:
             prev = current
         return res * 0.5, shift
 
-    def belief(self, x, rv, log_belief=False):
+    def belief(self, x, rv, log_belief=False, inf_integral=False):
         if rv.value is None:
             if rv.domain.continuous:
                 if rv in self.cache:
@@ -318,9 +318,13 @@ class EPBP:
                     #     rv.domain.values[0], rv.domain.values[1],
                     #     20
                     # )
+                    if inf_integral:
+                        lb, ub = -Inf, Inf
+                    else:
+                        lb, ub = rv.domain.values[0]-20, rv.domain.values[1]+20
                     z = quad(
                         lambda val: e ** self.belief_rv(val, rv, self.sample),
-                        rv.domain.values[0]-20, rv.domain.values[1]+20
+                        lb, ub
                     )[0]
                     shift = 0
                     self.cache[rv] = (z, shift)
