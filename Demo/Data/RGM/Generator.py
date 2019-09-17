@@ -35,7 +35,6 @@ def generate_rel_graph():
     rel_g = RelationalGraph()
     rel_g.atoms = (atom_recession, atom_revenue, atom_loss, atom_market)
     rel_g.param_factors = (f1, f2, f3)
-    rel_g.init_nb()
 
     return rel_g
 

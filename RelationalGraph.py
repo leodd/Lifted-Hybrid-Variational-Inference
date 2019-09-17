@@ -44,13 +44,6 @@ class RelationalGraph:
         self.param_factors = set()
         self.data = dict()  # format: key=(RelationalAtom, LV1_instance, LV2_instance, ... ) value=True or 0.01 etc.
 
-    def init_nb(self):
-        for atom in self.atoms:
-            atom.nb = []
-        for f in self.param_factors:
-            for atom in f.nb:
-                atom.nb.append(f)
-
     @staticmethod
     def lvs_iter(lvs):
         table = []
