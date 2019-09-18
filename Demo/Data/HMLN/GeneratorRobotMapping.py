@@ -57,11 +57,11 @@ f7 = ParamF(
     nb=['SegType(s,$D)', 'Depth(s)']
 )
 f8 = ParamF(
-    MLNPotential(lambda x: x[0] * eq_op(x[1], 0.1), w=3.228),
+    MLNPotential(lambda x: x[0] * eq_op(x[1], 0.341), w=3.754),
     nb=['SegType(s,$D)', 'Length(s)']
 )
 f9 = ParamF(
-    MLNPotential(lambda x: x[0] * eq_op(x[1], 0.02), w=2.668),
+    MLNPotential(lambda x: x[0] * eq_op(x[1], 0.001), w=2.532),
     nb=['SegType(s,$D)', 'Depth(s)']
 )
 
