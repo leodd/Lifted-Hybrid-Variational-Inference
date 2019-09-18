@@ -40,6 +40,7 @@ class RelationalGraph:
             self.atoms_dict[atom.name] = atom
 
         self.rvs_dict = dict()
+        self.grounding = None
 
     def atom_substitution(self, atom_expression, substitution):
         # atom_expression e.g. 'PartOf(s,l)' or ('PartOf', 's', 'l')
@@ -64,16 +65,29 @@ class RelationalGraph:
 
         return key, rv
 
-    @staticmethod
-    def extract_lvs():
+    def extract_lvs(self, atom_expression, lvs=None):
+        if type(lvs) is not dict:
+            lvs = dict()
+
+        expression_parts = re.findall(r'\$?\w+', atom_expression)
+        atom = self.atoms_dict[expression_parts[0]]
+
+        for i in range(len(atom.lvs)):
+            s = expression_parts[i]
+            if s[0] != '$':
+                lvs[s] = atom.lvs[i].instances
+
+        return lvs
 
     @staticmethod
     def lvs_iter(lvs):
+        tokens = []
         table = []
-        for lv in lvs:
-            table.append(lv.instances)
+        for token, instances in lvs.items():
+            tokens.append(token)
+            table.append(instances)
         for combination in product(*table):
-            yield dict(zip(lvs, combination))
+            yield dict(zip(tokens, combination))
 
     def add_evidence(self, data):
         # data format: key=(RelationalAtom, LV1_instance, LV2_instance, ... ) value=True or 0.01 etc.
@@ -87,27 +101,27 @@ class RelationalGraph:
             # collect lvs of neighboring atom
             lvs = dict()
             for atom_expression in param_f.nb:
-                expression_parts = re.findall(r'\$?\w+', atom_expression)
-                for
-                lvs[atom_expression] =
+                self.extract_lvs(atom_expression, lvs)
 
-            # enumerate all groundings and create a factor for each grounding
+            atoms_tuple_expression = list()
+            for atom_expression in param_f.nb:
+                atoms_tuple_expression.append(re.findall(r'\$?\w+', atom_expression))
+
             for substitution in self.lvs_iter(lvs):
                 if param_f.constrain is None or param_f.constrain(substitution):
-                    # collect neighboring rv instances
-                    nb = []
-                    for atom in param_f.nb:
-                        nb.append(grounded_rvs_table[atom.key(substitution)])
-                    grounded_factors.add(F(potential=param_f.potential, nb=nb))
+                    nb = list()
+                    for atom_tuple_expression in atoms_tuple_expression:
+                        nb.append(self.atom_substitution(atoms_tuple_expression, substitution))
+                    factors.add(F(potential=param_f.potential, nb=nb))
 
-        grounded_graph = Graph()
-        grounded_graph.rvs = set(grounded_rvs_table.values())
-        grounded_graph.factors = grounded_factors
-        grounded_graph.init_nb()
+        grounding = Graph()
+        grounding.rvs = set(self.rvs_dict.values())
+        grounding.factors = factors
+        grounding.init_nb()
 
-        grounded_graph.rvs = set(grounded_rvs_table.values())
+        self.grounding = grounding
 
-        return grounded_graph, grounded_rvs_table
+        return self.grounding, self.rvs_dict
 
 
 from OrderedSet import OrderedSet
