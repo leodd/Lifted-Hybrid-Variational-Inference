@@ -8,7 +8,7 @@ Seg = []
 Type = ['W', 'D', 'O']
 Line = []
 
-for i in range(1, 38):
+for i in range(1, 10):
     Seg.append(f'A1_{i}')
 
 for i in range(1, 3):
@@ -67,9 +67,9 @@ f9 = ParamF(
 
 
 def generate_rel_graph():
-    rel_g = RelationalGraph()
-    rel_g.atoms = (atom_PartOf, atom_SegType, atom_Aligned, atom_Length, atom_Depth)
-    rel_g.param_factors = (f1, f2, f3, f4, f5, f6, f7, f8, f9)
+    atoms = (atom_PartOf, atom_SegType, atom_Aligned, atom_Length, atom_Depth)
+    param_factors = (f1, f2, f3, f4, f5, f6, f7, f8, f9)
+    rel_g = RelationalGraph(atoms, param_factors)
 
     return rel_g
 

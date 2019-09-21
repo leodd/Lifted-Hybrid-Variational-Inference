@@ -60,6 +60,8 @@ class RelationalGraph:
             else:
                 key.append(substitution[s])
 
+        key = tuple(key)
+
         rv = self.rvs_dict.get(key, RV(atom.domain))
         self.rvs_dict[key] = rv
 
@@ -93,7 +95,7 @@ class RelationalGraph:
         # data format: key=(RelationalAtom, LV1_instance, LV2_instance, ... ) value=True or 0.01 etc.
         pass
 
-    def grounded_graph(self):
+    def ground_graph(self):
         factors = set()
 
         # go through all parametric factors
@@ -111,7 +113,7 @@ class RelationalGraph:
                 if param_f.constrain is None or param_f.constrain(substitution):
                     nb = list()
                     for atom_tuple_expression in atoms_tuple_expression:
-                        nb.append(self.atom_substitution(atoms_tuple_expression, substitution))
+                        nb.append(self.atom_substitution(atom_tuple_expression, substitution))
                     factors.add(F(potential=param_f.potential, nb=nb))
 
         grounding = Graph()
