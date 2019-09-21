@@ -28,13 +28,13 @@ def generate_rel_graph():
     atom_loss = Atom(d, logical_variables=(lv_category, lv_bank), name='loss')
     atom_revenue = Atom(d, logical_variables=(lv_bank,), name='revenue')
 
-    f1 = ParamF(p1, nb=(atom_recession, atom_market))
-    f2 = ParamF(p2, nb=(atom_market, atom_loss))
-    f3 = ParamF(p3, nb=(atom_loss, atom_revenue))
+    f1 = ParamF(p1, nb=('recession($all)', 'market(c)'))
+    f2 = ParamF(p2, nb=('market(c)', 'loss(c,b)'))
+    f3 = ParamF(p3, nb=('loss(c,b)', 'revenue(b)'))
 
-    rel_g = RelationalGraph()
-    rel_g.atoms = (atom_recession, atom_revenue, atom_loss, atom_market)
-    rel_g.param_factors = (f1, f2, f3)
+    atoms = (atom_recession, atom_revenue, atom_loss, atom_market)
+    param_factors = (f1, f2, f3)
+    rel_g = RelationalGraph(atoms, param_factors)
 
     return rel_g
 

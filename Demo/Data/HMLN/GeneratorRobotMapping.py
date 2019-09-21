@@ -8,7 +8,7 @@ Seg = []
 Type = ['W', 'D', 'O']
 Line = []
 
-for i in range(1, 10):
+for i in range(1, 3):
     Seg.append(f'A1_{i}')
 
 for i in range(1, 3):
@@ -34,7 +34,8 @@ f1 = ParamF(
 )
 f2 = ParamF(
     MLNPotential(lambda x: 1 if neg_op(x[0]) + neg_op(x[1]) + x[2] + neg_op(x[3]) + neg_op(x[4]) else 0, w=1.591),
-    nb=['SegType(s1,$W)', 'SegType(s2,$W)', 'PartOf(s1,l)', 'PartOf(s2,l)', 'Aligned(s2,s1)']
+    nb=['SegType(s1,$W)', 'SegType(s2,$W)', 'PartOf(s1,l)', 'PartOf(s2,l)', 'Aligned(s2,s1)'],
+    # constrain=lambda s: s['s1'] != s['s2']
 )
 f3 = ParamF(
     MLNPotential(lambda x: x[0], w=0.81),

@@ -75,7 +75,7 @@ class RelationalGraph:
         atom = self.atoms_dict[expression_parts[0]]
 
         for i in range(len(atom.lvs)):
-            s = expression_parts[i]
+            s = expression_parts[i + 1]
             if s[0] != '$':
                 lvs[s] = atom.lvs[i].instances
 
@@ -93,7 +93,13 @@ class RelationalGraph:
 
     def add_evidence(self, data):
         # data format: key=(RelationalAtom, LV1_instance, LV2_instance, ... ) value=True or 0.01 etc.
-        pass
+        for key, rv in self.rvs_dict.items():
+            if key in data:
+                rv.value = data[key]
+            else:
+                rv.value = None
+
+        return self.grounding, self.rvs_dict
 
     def ground_graph(self):
         factors = set()
@@ -113,7 +119,7 @@ class RelationalGraph:
                 if param_f.constrain is None or param_f.constrain(substitution):
                     nb = list()
                     for atom_tuple_expression in atoms_tuple_expression:
-                        nb.append(self.atom_substitution(atom_tuple_expression, substitution))
+                        nb.append(self.atom_substitution(atom_tuple_expression, substitution)[1])
                     factors.add(F(potential=param_f.potential, nb=nb))
 
         grounding = Graph()

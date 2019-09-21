@@ -7,7 +7,7 @@ import time
 
 
 class VarInference:
-    var_threshold = 0.001
+    var_threshold = 0.1
 
     def __init__(self, g, num_mixtures=5, num_quadrature_points=3):
         self.g = g

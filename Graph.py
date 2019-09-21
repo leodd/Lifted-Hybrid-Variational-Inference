@@ -147,7 +147,7 @@ class Graph:
         """
         for rv in self.rvs:
             rv.nb = []
-        for f in sorted(self.factors):
+        for f in self.factors_list:
             for rv in f.nb:
                 rv.nb.append(f)
         for rv in self.rvs:
