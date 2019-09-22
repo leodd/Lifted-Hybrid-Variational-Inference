@@ -9,7 +9,7 @@ import numpy as np
 import scipy.io
 import time
 import matplotlib.pyplot as plt
-from KLDivergence import kl_continuous
+from utils import kl_continuous
 
 
 cluster_mat = scipy.io.loadmat('Data/RKF/cluster_NcutDiscrete.mat')['NcutDiscrete']

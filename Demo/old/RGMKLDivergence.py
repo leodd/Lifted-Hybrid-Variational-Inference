@@ -8,7 +8,7 @@ from GaBP import GaBP
 import numpy as np
 import time
 from Demo.Data.RGM.Generator import generate_rel_graph, load_data
-from KLDivergence import kl_continuous
+from utils import kl_continuous
 import osi.utils as utils
 from scipy.integrate import quad
 

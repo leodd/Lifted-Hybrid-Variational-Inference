@@ -8,7 +8,7 @@ Seg = []
 Type = ['W', 'D', 'O']
 Line = []
 
-for i in range(1, 3):
+for i in range(1, 38):
     Seg.append(f'A1_{i}')
 
 for i in range(1, 3):
@@ -29,7 +29,7 @@ atom_Length = Atom(domain_length, logical_variables=(lv_seg,), name='Length')
 atom_Depth = Atom(domain_depth, logical_variables=(lv_seg,), name='Depth')
 
 f1 = ParamF(
-    MLNPotential(lambda x: 1 if x[0] + x[1] + x[2] > 0 else 0, w=np.Inf),
+    MLNPotential(lambda x: 1 if x[0] + x[1] + x[2] > 0 else 0, w=100),
     nb=['SegType(s,$W)', 'SegType(s,$D)', 'SegType(s,$O)']
 )
 f2 = ParamF(

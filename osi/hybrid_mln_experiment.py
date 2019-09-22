@@ -23,7 +23,7 @@ from hybrid_gaussian_mrf import convert_to_bn, block_gibbs_sample, get_crv_marg,
     get_rv_marg_map_from_bn_params
 import sampling_utils
 
-from KLDivergence import kl_continuous_logpdf
+from utils import kl_continuous_logpdf
 
 import argparse
 

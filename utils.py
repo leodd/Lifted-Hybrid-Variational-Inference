@@ -3,6 +3,10 @@ from math import log, exp
 from scipy.integrate import quad
 
 
+def log_likelihood():
+    pass
+
+
 def KL(q, p, domain):
     if domain.continuous:
         integral_points = domain.integral_points

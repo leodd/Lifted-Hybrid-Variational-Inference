@@ -6,7 +6,7 @@ from C2FVarInference import VarInference as C2FVI
 import numpy as np
 import time
 from Demo.Data.HMLN.Generator import generate_rel_graph, load_data
-from KLDivergence import kl_continuous
+from utils import kl_continuous
 from scipy.integrate import quad
 
 

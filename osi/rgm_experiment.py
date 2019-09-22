@@ -21,7 +21,7 @@ utils.set_seed(seed)
 #     get_rv_marg_map_from_bn_params
 # import sampling_utils
 
-from KLDivergence import kl_continuous_logpdf
+from utils import kl_continuous_logpdf
 
 from Demo.Data.RGM.Generator import generate_rel_graph, load_data
 

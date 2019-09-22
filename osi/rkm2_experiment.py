@@ -46,7 +46,7 @@ domain = Domain((-4, 4), continuous=True, integral_points=np.linspace(-4, 4, 30)
 
 num_tests = param.shape[1]
 
-from KLDivergence import kl_continuous_logpdf
+from utils import kl_continuous_logpdf
 
 record_fields = ['cpu_time',
                  'wall_time',
