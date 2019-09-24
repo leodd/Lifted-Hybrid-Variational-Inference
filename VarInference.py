@@ -363,3 +363,79 @@ class VarInference:
             return res
         else:
             return rv.value
+
+    def rvs_map(self, rvs):
+        res = dict()
+
+        # compute initial assignment
+        for rv in rvs:
+            if rv.domain.continuous:
+                candidate_values = self.eta[rv][:, 0]
+            else:
+                candidate_values = rv.domain.values
+
+            b = dict()
+            for v in candidate_values:
+                b[v] = self.belief(v, rv)
+            res[rv] = max(b.keys(), key=(lambda x: b[x]))
+
+        b = np.copy(self.w)
+        for rv in rvs:
+            if rv.value is not None:
+                if res[rv] != rv.value:
+                    return 0
+            elif rv.domain.continuous:
+                eta = self.eta[rv]
+                for k in range(self.K):
+                    b[k] *= self.norm_pdf(res[rv], eta[k])
+            else:
+                eta = self.eta[rv]
+                d = rv.domain.values.index(res[rv])
+                for k in range(self.K):
+                    b[k] *= eta[k, d]
+
+        # coordinate ascent
+        for i in range(10):
+            for rv in rvs:
+                if rv.domain.continuous:
+                    prev_x = res[rv]
+                    eta = self.eta[rv]
+                    for k in range(self.K):
+                        b[k] /= self.norm_pdf(prev_x, eta[k])
+
+                    def f(x):
+                        b_res = 0
+                        for k in range(self.K):
+                            b_res += b[k] * self.norm_pdf(x, eta[k])
+                        return -b_res
+
+                    new_x = minimize(f, x0=np.array([prev_x]), options={'disp': False})['x']
+
+                    for k in range(self.K):
+                        b[k] *= self.norm_pdf(new_x, eta[k])
+
+                    res[rv] = new_x
+                else:
+                    prev_x = res[rv]
+                    prev_d = rv.domain.values.index(prev_x)
+                    eta = self.eta[rv]
+                    for k in range(self.K):
+                        b[k] /= eta[k, prev_d]
+
+                    def f(x):
+                        b_res = 0
+                        for k in range(self.K):
+                            b_res += b[k] * eta[k, x]
+                        return b_res
+
+                    p = dict()
+                    for v in range(len(rv.domain.values)):
+                        p[v] = f(v)
+                    new_d = max(p.keys(), key=(lambda x: p[x]))
+
+                    for k in range(self.K):
+                        b[k] *= eta[k, new_d]
+
+                    res[rv] = rv.domain.values[new_d]
+
+        return res

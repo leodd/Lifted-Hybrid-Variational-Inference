@@ -8,9 +8,9 @@ import json
 def generate_rel_graph():
     instance_category = []
     instance_bank = []
-    for i in range(100):
+    for i in range(10):
         instance_category.append(f'c{i}')
-    for i in range(5):
+    for i in range(2):
         instance_bank.append(f'b{i}')
 
     d = Domain((-50, 50), continuous=True, integral_points=linspace(-50, 50, 100))
