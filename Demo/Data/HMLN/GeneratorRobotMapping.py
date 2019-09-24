@@ -8,11 +8,11 @@ Seg = []
 Type = ['W', 'D', 'O']
 Line = []
 
-for i in range(1, 38):
+for i in range(1, 37):
     Seg.append(f'A1_{i}')
 
 for i in range(1, 3):
-    Seg.append(f'LA{i}')
+    Line.append(f'LA{i}')
 
 domain_bool = Domain((0, 1))
 domain_length = Domain((0, 1), continuous=True, integral_points=linspace(0, 1, 20))
@@ -28,14 +28,20 @@ atom_Aligned = Atom(domain_bool, logical_variables=(lv_seg, lv_seg), name='Align
 atom_Length = Atom(domain_length, logical_variables=(lv_seg,), name='Length')
 atom_Depth = Atom(domain_depth, logical_variables=(lv_seg,), name='Depth')
 
+
+f0 = ParamF(
+    MLNHardPotential(lambda x: or_op(neg_op(x[0]), neg_op(x[1]))),
+    nb=['SegType(s,t1)', 'SegType(s,t2)'],
+    constrain=lambda s: s['t1'] != s['t2']
+)
 f1 = ParamF(
-    MLNPotential(lambda x: 1 if x[0] + x[1] + x[2] > 0 else 0, w=100),
+    MLNHardPotential(lambda x: 1 if x[0] + x[1] + x[2] > 0 else 0),
     nb=['SegType(s,$W)', 'SegType(s,$D)', 'SegType(s,$O)']
 )
 f2 = ParamF(
     MLNPotential(lambda x: 1 if neg_op(x[0]) + neg_op(x[1]) + x[2] + neg_op(x[3]) + neg_op(x[4]) else 0, w=1.591),
     nb=['SegType(s1,$W)', 'SegType(s2,$W)', 'PartOf(s1,l)', 'PartOf(s2,l)', 'Aligned(s2,s1)'],
-    # constrain=lambda s: s['s1'] != s['s2']
+    constrain=lambda s: s['s1'] != s['s2']
 )
 f3 = ParamF(
     MLNPotential(lambda x: x[0], w=0.81),
@@ -69,7 +75,7 @@ f9 = ParamF(
 
 def generate_rel_graph():
     atoms = (atom_PartOf, atom_SegType, atom_Aligned, atom_Length, atom_Depth)
-    param_factors = (f1, f2, f3, f4, f5, f6, f7, f8, f9)
+    param_factors = (f0, f1, f2, f3, f4, f5, f6, f7, f8, f9)
     rel_g = RelationalGraph(atoms, param_factors)
 
     return rel_g

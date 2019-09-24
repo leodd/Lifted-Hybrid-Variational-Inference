@@ -193,25 +193,6 @@ class VarInference:
 
         return energy
 
-    def rvs_belief(self, x, rvs):
-        b = np.copy(self.w)
-
-        for i, rv in enumerate(rvs):
-            if rv.value is not None:
-                if x[i] != rv.value:
-                    return 0
-            elif rv.domain.continuous:
-                eta = self.eta[rv]
-                for k in range(self.K):
-                    b[k] *= self.norm_pdf(x[i], eta[k])
-            else:
-                eta = self.eta[rv]
-                d = rv.domain.values.index(x[i])
-                for k in range(self.K):
-                    b[k] *= eta[k, d]
-
-        return np.sum(b)
-
     def init_param(self):
         self.w_tau = np.zeros(self.K)
         self.eta, self.eta_tau = dict(), dict()
@@ -341,6 +322,25 @@ class VarInference:
     def belief(self, x, rv):
         return self.rvs_belief((x,), (rv,))
 
+    def rvs_belief(self, x, rvs):
+        b = np.copy(self.w)
+
+        for i, rv in enumerate(rvs):
+            if rv.value is not None:
+                if x[i] != rv.value:
+                    return 0
+            elif rv.domain.continuous:
+                eta = self.eta[rv]
+                for k in range(self.K):
+                    b[k] *= self.norm_pdf(x[i], eta[k])
+            else:
+                eta = self.eta[rv]
+                d = rv.domain.values.index(x[i])
+                for k in range(self.K):
+                    b[k] *= eta[k, d]
+
+        return np.sum(b)
+
     def map(self, rv):
         if rv.value is None:
             if rv.domain.continuous:
@@ -369,21 +369,23 @@ class VarInference:
 
         # compute initial assignment
         for rv in rvs:
-            if rv.domain.continuous:
-                candidate_values = self.eta[rv][:, 0]
+            if rv.value is not None:
+                res[rv] = rv.value
             else:
-                candidate_values = rv.domain.values
+                if rv.domain.continuous:
+                    candidate_values = self.eta[rv][:, 0]
+                else:
+                    candidate_values = rv.domain.values
 
-            b = dict()
-            for v in candidate_values:
-                b[v] = self.belief(v, rv)
-            res[rv] = max(b.keys(), key=(lambda x: b[x]))
+                b = dict()
+                for v in candidate_values:
+                    b[v] = self.belief(v, rv)
+                res[rv] = max(b.keys(), key=(lambda x: b[x]))
 
         b = np.copy(self.w)
         for rv in rvs:
             if rv.value is not None:
-                if res[rv] != rv.value:
-                    return 0
+                continue
             elif rv.domain.continuous:
                 eta = self.eta[rv]
                 for k in range(self.K):
@@ -397,7 +399,9 @@ class VarInference:
         # coordinate ascent
         for i in range(10):
             for rv in rvs:
-                if rv.domain.continuous:
+                if rv.value is not None:
+                    continue
+                elif rv.domain.continuous:
                     prev_x = res[rv]
                     eta = self.eta[rv]
                     for k in range(self.K):

@@ -40,6 +40,15 @@ class MLNPotential(Potential):
         return MLNLogPotential(self.formula, self.w)
 
 
+class MLNHardPotential(Potential):
+    def __init__(self, formula):
+        Potential.__init__(self, symmetric=False)
+        self.formula = formula
+
+    def get(self, parameters):
+        return 1 if self.formula(parameters) > 0 else 0
+
+
 class MLNLogPotential:
     def __init__(self, formula, w=1):
         self.formula = formula

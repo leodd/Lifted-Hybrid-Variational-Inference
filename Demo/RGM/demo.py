@@ -9,16 +9,16 @@ rel_g = generate_rel_graph()
 rel_g.ground_graph()
 
 data = {
-    ('recession', 'all'): 50
+    ('recession', 'all'): 25
 }
 
 g, rvs_dict = rel_g.add_evidence(data)
 
-infer = VI(g, num_mixtures=1, num_quadrature_points=3)
-infer.run(50, lr=0.2)
+infer = LVI(g, num_mixtures=1, num_quadrature_points=3)
+infer.run(200, lr=0.2)
 
 # infer = GaBP(g)
 # infer.run(20)
 
 for key, rv in rvs_dict.items():
-    print(key, infer.rvs_map([rv]))
+    print(key, infer.map(rv))
