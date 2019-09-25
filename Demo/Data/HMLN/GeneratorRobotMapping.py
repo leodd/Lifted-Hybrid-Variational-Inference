@@ -1,7 +1,7 @@
 from RelationalGraph import *
 from MLNPotential import *
 import numpy as np
-import json
+import re
 
 
 Seg = []
@@ -81,47 +81,29 @@ def generate_rel_graph():
     return rel_g
 
 
-# def generate_data(f):
-#     data = dict()
-#
-#     X_ = np.random.choice(num_paper, int(num_paper * 0.2), replace=False)
-#     for x_ in X_:
-#         data[str(('popularity', f'paper{x_}'))] = np.clip(np.random.normal(0, 3), -10, 10)
-#
-#     X_ = np.random.choice(num_topic, int(num_topic * 0.5), replace=False)
-#     for x_ in X_:
-#         data[str(('popularity', f'topic{x_}'))] = np.clip(np.random.normal(0, 3), -10, 10)
-#
-#     X_ = np.random.choice(num_paper, int(num_paper * 0.2), replace=False)
-#     for x_ in X_:
-#         Y_ = np.random.choice(num_topic, np.random.randint(3), replace=False)
-#         for y_ in Y_:
-#             data[str(('paperIn', f'paper{x_}', f'topic{y_}'))] = int(np.random.choice([0, 1]))
-#
-#     X_ = np.random.choice(num_paper, int(num_paper * 1), replace=False)
-#     for x_ in X_:
-#         Y_ = np.random.choice(num_paper, int(num_paper * 1), replace=False)
-#         for y_ in Y_:
-#             data[str(('cites', f'paper{x_}', f'paper{y_}'))] = int(np.random.choice([0, 0, 0, 1]))
-#
-#     with open(f, 'w+') as file:
-#         file.write(json.dumps(data))
-
-
 def load_data(f):
     with open(f, 'r') as file:
-        s = file.read()
-        temp = json.loads(s)
-
-    data = dict()
-    for k, v in temp.items():
-        data[eval(k)] = v
+        data = dict()
+        comment_flag = False
+        for line in file:
+            if re.search(r'/\*', line):
+                comment_flag = True
+            elif re.search(r'\*/', line):
+                comment_flag = False
+            elif not comment_flag:
+                parts = re.findall(r'[\w.]+', line)
+                if len(parts) == 0:
+                    continue
+                if re.search(r'\s\d', line):
+                    key = tuple(parts[:-1])
+                    value = float(parts[-1])
+                else:
+                    key = tuple(parts)
+                    value = 1
+                data[key] = value
 
     return data
 
 
-# if __name__ == "__main__":
-#     rel_g = generate_rel_graph()
-#     for i in range(5):
-#         f = str(i)
-#         generate_data(f)
+if __name__ == "__main__":
+    print(load_data('robot-map'))
