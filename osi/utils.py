@@ -667,3 +667,101 @@ def curry_normal_logpdf(mu, var):
         return norm.logpdf(x, loc=mu, scale=sig)
 
     return f
+
+
+# moved from /KLDivergence (triggered by commit 38ba95034)
+def kl_discrete(p, q):
+    """
+    Compute KL(p||q)
+    p, q are probability table (tensors) of the same shape
+    :param p:
+    :param q:
+    :return:
+    """
+
+    return np.sum(p * (np.log(p) - np.log(q)))  # naive implementation
+
+
+# def kl_continuous_no_add_const(p, q, a, b, *args, **kwargs):
+#     """
+#     Compute KL(p||q), 1D
+#     :param p:
+#     :param q:
+#     :param a:
+#     :param b:
+#     :param kwargs:
+#     :return:
+#     """
+#
+#     def integrand(x):
+#         px = p(x)
+#         qx = q(x)
+#         return np.log(px ** px) - np.log(qx ** px)
+#
+#     res = integrate.quad(integrand, a, b, *args, **kwargs)
+#     if 'full_result' in kwargs and kwargs['full_result']:
+#         return res
+#     else:
+#         return res[0]
+#
+#
+# def kl_continuous(p, q, a, b, *args, **kwargs):
+#     """
+#     Compute KL(p||q), 1D
+#     :param p:
+#     :param q:
+#     :param a:
+#     :param b:
+#     :param kwargs:
+#     :return:
+#     """
+#
+#     def integrand(x):
+#         px = p(x) + 1e-100
+#         qx = q(x) + 1e-100
+#         return px * (np.log(px) - np.log(qx))
+#
+#     res = integrate.quad(integrand, a, b, *args, **kwargs)
+#     if 'full_result' in kwargs and kwargs['full_result']:
+#         return res
+#     else:
+#         return res[0]
+
+
+def kl_continuous_logpdf(log_p, log_q, a, b, *args, **kwargs):
+    """
+    Compute KL(p||q), 1D
+    :param p:
+    :param q:
+    :param a:
+    :param b:
+    :param kwargs:
+    :return:
+    """
+    from scipy.integrate import quad
+    def integrand(x):
+        logpx = log_p(x)
+        logqx = log_q(x)
+        px = np.exp(logpx)
+        return px * (logpx - logqx)
+
+    res = quad(integrand, a, b, *args, **kwargs)
+    if 'full_result' in kwargs and kwargs['full_result']:
+        return res
+    else:
+        return res[0]
+
+
+def kl_normal(mu1, mu2, sig1, sig2):
+    """
+    Compute KL(p||q), 1D
+    p ~ N(mu1, sig1^2), q ~ N(mu2, sig2^2)
+    $KL(p, q) = \log \frac{\sigma_2}{\sigma_1} + \frac{\sigma_1^2 + (\mu_1 - \mu_2)^2}{2 \sigma_2^2} - \frac{1}{2}$
+    :param mu1:
+    :param mu2:
+    :param sig1:
+    :param sig2:
+    :return:
+    """
+    res = np.log(sig2) - np.log(sig1) + (sig1 ** 2 + (mu1 - mu2) ** 2) / (2 * sig2 ** 2) - 0.5
+    return res
