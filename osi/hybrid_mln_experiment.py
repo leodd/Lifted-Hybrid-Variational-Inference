@@ -171,11 +171,11 @@ for test_num in range(num_tests):
 
     baseline = 'exact'
     # baseline = 'gibbs'
-    for a, algo_name in enumerate(algo_names):
+    for algo_num, algo_name in enumerate(algo_names):
         print('####')
         print('test_num', test_num)
         print('running', algo_name)
-        np.random.seed(test_seed + a)
+        np.random.seed(test_seed + algo_num)
 
         # temp storage
         mmap = np.zeros(len(query_rvs)) - 123
