@@ -1,3 +1,4 @@
+from utils import log_likelihood
 from Demo.Data.HMLN.GeneratorRobotMapping import generate_rel_graph, load_data
 from VarInference import VarInference as VI
 from LiftedVarInference import VarInference as LVI
@@ -19,6 +20,8 @@ for key, rv in rvs_dict.items():
         data[key] = 0  # closed world assumption
 
 g, rvs_dict = rel_g.add_evidence(data)
+print(len(rvs_dict) - len(data))
+print(len(g.factors))
 
 infer = VI(g, num_mixtures=3, num_quadrature_points=3)
 infer.run(200, lr=0.2)
@@ -27,5 +30,9 @@ infer.run(200, lr=0.2)
 # for key, rv in rvs_dict.items():
 #     print(key, map_res[rv])
 
+map_res = dict()
 for key, rv in rvs_dict.items():
-    print(key, infer.map(rv))
+    map_res[rv] = infer.map(rv)
+    print(key, map_res[rv])
+
+print(log_likelihood(g, map_res))

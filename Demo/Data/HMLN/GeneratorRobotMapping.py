@@ -28,7 +28,6 @@ atom_Aligned = Atom(domain_bool, logical_variables=(lv_seg, lv_seg), name='Align
 atom_Length = Atom(domain_length, logical_variables=(lv_seg,), name='Length')
 atom_Depth = Atom(domain_depth, logical_variables=(lv_seg,), name='Depth')
 
-
 f0 = ParamF(
     MLNHardPotential(lambda x: or_op(neg_op(x[0]), neg_op(x[1]))),
     nb=['SegType(s,t1)', 'SegType(s,t2)'],
