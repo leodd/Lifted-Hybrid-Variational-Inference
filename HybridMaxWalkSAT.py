@@ -23,8 +23,15 @@ class HybridMaxWalkSAT:
         return assignment
 
     def score(self, assignment):
-        score = 0
-        for
+        score = 1
+        for f in self.g.factors:
+            parameters = [assignment[rv] for rv in f.nb]
+            value = f.potential.get(parameters)
+            if value == 0:
+                return -np.Inf
+            score += log(value)
+
+    def list_unsatisfied_factor
 
     def run(self, max_tries, max_flips):
         self.best_assignment = None
@@ -32,3 +39,10 @@ class HybridMaxWalkSAT:
 
         for i_try in range(max_tries):
             assignment = self.random_assignment()
+            score = self.score(assignment)
+            for i_flip in range(max_flips):
+                if score > self.best_score:
+                    self.best_assignment = assignment.copy()
+                    self.best_score = score
+
+                c =
