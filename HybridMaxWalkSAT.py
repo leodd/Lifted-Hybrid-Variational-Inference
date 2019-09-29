@@ -31,7 +31,13 @@ class HybridMaxWalkSAT:
                 return -np.Inf
             score += log(value)
 
-    def list_unsatisfied_factor
+    def list_unsatisfied_factor(self, assignment):
+        res = list()
+        for f in self.g.factors:
+
+            parameters = [assignment[rv] for rv in f.nb]
+            value = f.potential.get(parameters)
+
 
     def run(self, max_tries, max_flips):
         self.best_assignment = None
