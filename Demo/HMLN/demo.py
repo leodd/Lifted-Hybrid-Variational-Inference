@@ -4,6 +4,7 @@ from VarInference import VarInference as VI
 from LiftedVarInference import VarInference as LVI
 from C2FVarInference import VarInference as C2FVI
 from EPBPLogVersion import EPBP
+from HybridMaxWalkSAT import HybridMaxWalkSAT as HMWS
 
 
 rel_g = generate_rel_graph()
@@ -19,12 +20,17 @@ for key, rv in rvs_dict.items():
     if key not in data and key not in query and not rv.domain.continuous:
         data[key] = 0  # closed world assumption
 
+# data = dict()
+
 g, rvs_dict = rel_g.add_evidence(data)
 print(len(rvs_dict) - len(data))
 print(len(g.factors))
 
-infer = VI(g, num_mixtures=3, num_quadrature_points=3)
-infer.run(200, lr=0.2)
+infer = HMWS(g)
+infer.run(max_tries=2, max_flips=10000, epsilon=0.9, noise_std=1)
+
+# infer = LVI(g, num_mixtures=2, num_quadrature_points=3)
+# infer.run(100, lr=0.5)
 
 # map_res = infer.rvs_map(rvs_dict.values())
 # for key, rv in rvs_dict.items():

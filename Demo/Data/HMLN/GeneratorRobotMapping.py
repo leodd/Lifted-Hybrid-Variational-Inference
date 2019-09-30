@@ -8,7 +8,7 @@ Seg = []
 Type = ['W', 'D', 'O']
 Line = []
 
-for i in range(1, 5):
+for i in range(1, 10):
     Seg.append(f'A1_{i}')
 
 for i in range(1, 3):
