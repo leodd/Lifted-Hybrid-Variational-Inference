@@ -84,7 +84,8 @@ class HybridMaxWalkSAT:
 
     @staticmethod
     def random_factor(unsatisfied_factors, numeric_factors):
-        if np.random.rand() < 0.7:
+        p = len(unsatisfied_factors) / (len(unsatisfied_factors) + len(numeric_factors))
+        if np.random.rand() < p:
             return np.random.choice(list(unsatisfied_factors))
         else:
             return np.random.choice(list(numeric_factors))

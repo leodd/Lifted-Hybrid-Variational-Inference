@@ -29,8 +29,8 @@ print(len(g.factors))
 infer = HMWS(g)
 infer.run(max_tries=2, max_flips=10000, epsilon=0.9, noise_std=1)
 
-# infer = LVI(g, num_mixtures=2, num_quadrature_points=3)
-# infer.run(100, lr=0.5)
+# infer = C2FVI(g, num_mixtures=2, num_quadrature_points=3)
+# infer.run(100, lr=0.7)
 
 # map_res = infer.rvs_map(rvs_dict.values())
 # for key, rv in rvs_dict.items():
