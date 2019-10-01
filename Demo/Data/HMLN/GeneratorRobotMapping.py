@@ -8,7 +8,7 @@ Seg = []
 Type = ['W', 'D', 'O']
 Line = []
 
-for i in range(1, 5):
+for i in range(1, 38):
     Seg.append(f'A1_{i}')
 
 for i in range(1, 3):
@@ -28,14 +28,13 @@ atom_Aligned = Atom(domain_bool, logical_variables=(lv_seg, lv_seg), name='Align
 atom_Length = Atom(domain_length, logical_variables=(lv_seg,), name='Length')
 atom_Depth = Atom(domain_depth, logical_variables=(lv_seg,), name='Depth')
 
-
 f0 = ParamF(
-    MLNHardPotential(lambda x: or_op(neg_op(x[0]), neg_op(x[1]))),
+    MLNPotential(lambda x: or_op(neg_op(x[0]), neg_op(x[1])), w=3),
     nb=['SegType(s,t1)', 'SegType(s,t2)'],
     constrain=lambda s: s['t1'] != s['t2']
 )
 f1 = ParamF(
-    MLNHardPotential(lambda x: 1 if x[0] + x[1] + x[2] > 0 else 0),
+    MLNPotential(lambda x: 1 if x[0] + x[1] + x[2] > 0 else 0, w=3),
     nb=['SegType(s,$W)', 'SegType(s,$D)', 'SegType(s,$O)']
 )
 f2 = ParamF(

@@ -3,8 +3,16 @@ from math import log, exp
 from scipy.integrate import quad
 
 
-def log_likelihood():
-    pass
+def log_likelihood(g, assignment):
+    res = 0
+    for f in g.factors:
+        parameters = [assignment[rv] for rv in f.nb]
+        value = f.potential.get(parameters)
+        if value == 0:
+            return -np.Inf
+        res += log(value)
+
+    return -res
 
 
 def KL(q, p, domain):
