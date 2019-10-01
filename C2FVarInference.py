@@ -439,7 +439,7 @@ class VarInference:
                     lambda val: -self.belief(val, rv),
                     x0=np.array([x0]),
                     options={'disp': False}
-                )['x']
+                )['x'][0]
             else:
                 p = dict()
                 for x in rv.domain.values:
