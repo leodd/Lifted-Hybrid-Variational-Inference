@@ -38,36 +38,30 @@ num_tests = args.num_tests
 print('#### run setup ####')
 pprint(vars(args))
 
-num_x = 2
-num_y = 3
-num_s = 2
+num_A = 2  # number of instances in 'A' category
+num_B = 3  # number of instances in 'B' category
+num_Box = 2  # number of instances in 'box' category
 
-X = []
-for x in range(num_x):
-    X.append(f'x{x}')
-Y = []
-for y in range(num_y):
-    Y.append(f'y{y}')
-S = []
-for s in range(num_s):
-    S.append(f's{s}')
+instances_A = [f'A{_}' for _ in range(num_A)]
+instances_B = [f'B{_}' for _ in range(num_B)]
+instances_Box = [f'Box{_}' for _ in range(num_Box)]
 
 domain_bool = Domain((0, 1))
 domain_real = Domain((-15, 15), continuous=True, integral_points=linspace(-15, 15, 20))
 
-lv_x = LV(X)
-lv_y = LV(Y)
-lv_s = LV(S)
+lv_A = LV(instances_A)
+lv_B = LV(instances_B)
+lv_Box = LV(instances_Box)
 
-atom_A = Atom(domain_real, logical_variables=(lv_y,), name='A')
-atom_B = Atom(domain_real, logical_variables=(lv_x,), name='B')
-atom_C = Atom(domain_bool, logical_variables=(lv_x, lv_y), name='C')
-atom_D = Atom(domain_bool, logical_variables=(lv_x, lv_s), name='D')
-atom_E = Atom(domain_bool, logical_variables=(lv_y, lv_s), name='E')
+atom_posB = Atom(domain_real, logical_variables=(lv_B,), name='posB')
+atom_posA = Atom(domain_real, logical_variables=(lv_A,), name='posA')
+atom_attractedTo = Atom(domain_bool, logical_variables=(lv_A, lv_B), name='attractedTo')
+atom_AInBox = Atom(domain_bool, logical_variables=(lv_A, lv_Box), name='AInBox')
+atom_BInBox = Atom(domain_bool, logical_variables=(lv_B, lv_Box), name='BInBox')
 
 w_d = 0.1
 f1 = ParamF(  # disc
-    MLNPotential(lambda x: imp_op(x[0] * x[1], x[2]), w=w_d), nb=(atom_D, atom_E, atom_C)
+    MLNPotential(lambda x: imp_op(x[0] * x[1], x[2]), w=w_d), nb=('AInBox(A,Box)', 'BInBox(B,Box)', 'attractedTo(A,B)')
 )
 
 w_h = 0.2  # smaller (like 0.06) gives skew instead
@@ -75,7 +69,8 @@ a = 2.
 b = -7.
 f2 = ParamF(  # hybrid
     # MLNPotential(lambda x: x[0] * eq_op(x[1], x[2]), w=w_h), nb=(atom_C, atom_A, atom_B)  # unimodal
-    MLNPotential(lambda x: (1 - x[0]) * eq_op(x[1], a) + x[0] * eq_op(x[2], b), w=w_h), nb=(atom_C, atom_A, atom_B)
+    MLNPotential(lambda x: (1 - x[0]) * eq_op(x[1], a) + x[0] * eq_op(x[2], b), w=w_h),
+    nb=('attractedTo(A,B)', 'posB(B)', 'posA(A)')
 )
 equiv_hybrid_pot = HybridQuadraticPotential(
     A=-w_h * np.array([np.array([[1., 0], [0, 0]]), np.array([[0., 0.], [0., 1.]])]),
@@ -86,13 +81,11 @@ equiv_hybrid_pot = HybridQuadraticPotential(
 prior_strength = 0.04
 f3 = ParamF(  # cont
     QuadraticPotential(A=-prior_strength * (np.eye(2)), b=np.array([0., 0.]), c=0.),
-    nb=[atom_A, atom_B]
+    nb=['posB(B)', 'posA(A)']
 )
 
-rel_g = RelationalGraphSorted()
-rel_g.atoms = (atom_A, atom_B, atom_C, atom_D, atom_E)
-rel_g.param_factors = (f1, f2, f3)
-rel_g.init_nb()
+rel_g = RelationalGraph((atom_posB, atom_posA, atom_attractedTo, atom_AInBox, atom_BInBox), (f1, f2, f3))
+g, rvs_dict = rel_g.ground_graph()
 
 # num_tests = 2  # num rounds with different queries
 record_fields = ['cpu_time',
@@ -139,18 +132,9 @@ for test_num in range(num_tests):
 
     # manually add evidence
 
-    rel_g.data = data
-    g, rvs_table = rel_g.grounded_graph()
+    g, rvs_table = rel_g.add_evidence(data)
     g_rv_nbs = [copy(rv.nb) for rv in g.rvs_list]  # keep a copy of rv neighbors in the original graph
     # print(rvs_table)
-
-    key_list = list()
-    for y_ in Y:
-        key_list.append(('A', y_))
-    for x_ in X:
-        if ('B', x_) not in data:
-            key_list.append(('B', x_))
-    query_rvs = [rvs_table[key] for key in key_list]
 
     print('number of rvs', len(g.rvs))
     print('num drvs', len([rv for rv in g.rvs if rv.domain_type[0] == 'd']))
@@ -167,6 +151,7 @@ for test_num in range(num_tests):
     print('cond num drvs', len([rv for rv in cond_g.rvs if rv.domain_type[0] == 'd']))
     print('cond num crvs', len([rv for rv in cond_g.rvs if rv.domain_type[0] == 'c']))
 
+    query_rvs = [rv for rv in g.rvs_list if rv.domain_type[0] == 'c']  # only interested in marginals of cont rvs
     all_margs = {algo_name: [None] * len(query_rvs) for algo_name in algo_names}  # for plotting convenience
 
     baseline = 'exact'
@@ -260,7 +245,7 @@ for test_num in range(num_tests):
             if baseline == 'exact':
                 load_existing, dump = True, True
                 save_name = __file__.split('.py')[0]
-                save_name += f'_bn_x{num_x}_y{num_y}_s{num_s}.pkl'
+                save_name += f'_bn_A{num_A}_B{num_B}_Box{num_Box}.pkl'
                 if load_existing and os.path.isfile(save_name):
                     with open(save_name, 'rb') as f:
                         bn_res = pickle.load(f)
@@ -340,7 +325,7 @@ for test_num in range(num_tests):
             # K = 3
             T = 16
             lr = 0.5
-            its = 1500
+            its = 1000
             fix_mix_its = int(its * 0.2)
             logging_itv = 500
             utils.set_log_potential_funs(g.factors_list, skip_existing=True)  # g factors' lpot_fun should still be None
