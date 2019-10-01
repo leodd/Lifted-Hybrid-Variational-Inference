@@ -746,6 +746,127 @@ def marginal_map(X, obs_rvs, query_rv, w):
     return out
 
 
+def joint_map(rvs, Vd, Vc, Vd_idx, Vc_idx, params):
+    w = params['w']
+    Mu = params.get('Mu')
+    Var = params.get('Var')
+    Pi = params.get('Pi')
+
+    Nc = len(Vc)
+    Mu_bds = np.empty([2, Nc], dtype='float')
+    for n, rv in enumerate(Vc):
+        Mu_bds[:, n] = rv.values[0], rv.values[1]  # lb, ub
+
+    map_val = joint_map_from_belief_params(w, Pi, Mu, Var, Mu_bds)
+    xd, xc = map_val['xd'], map_val['xc']
+    joint_val = np.empty(len(rvs))
+    for i, rv in enumerate(rvs):
+        if rv.domain_type[0] == 'd':
+            joint_val[i] = xd[Vd_idx[rv]]
+        else:
+            joint_val[i] = xc[Vc_idx[rv]]
+    return joint_val
+
+
+def joint_map_from_belief_params(w, Pi=None, Mu=None, Var=None, bds=None, coord_its=100, **kwargs):
+    # ASSUMING all shared dstates
+    # assuming cont beliefs are Gaussian
+    from utils import get_multivar_gm_mode
+    K = len(w)
+    lw = np.log(w)
+
+    xd_map = xc_map = None
+
+    # First find the K component modes
+    # Only need to do so for discrete variables (cont vars are easy b/c assumed Gaussian)
+    # ASSUMING all shared dstates, so Pi has shape [Nd, K, common_dstates]
+    if Pi is not None:
+        Nd = len(Pi)
+        lPi = np.log(Pi)
+        init_xds = np.argmax(Pi, axis=-1).transpose()  # K x Nd
+        best_xds = np.empty_like(init_xds)
+
+    if Mu is not None:  # Nc x K
+        Nc = len(Mu)
+        init_xcs = np.transpose(Mu)  # K x Nc
+        best_xcs = np.empty_like(init_xcs)
+
+    # eval_crvs_comp_log_prob(np.transpose(C), Mu=Mu, Var=Var, backend=np)
+    best_objs = np.empty(K)  # to compare results across all the different initializations
+    for k in range(K):  # start ascent from each of the K component modes
+
+        if Pi is not None:
+            xd = init_xds[k]
+
+            xd_comp_log_prob = eval_drvs_comp_prob(np.reshape(xd, [Nd, 1]), lPi).reshape([K, Nd])
+            xd_comp_log_prob = np.sum(xd_comp_log_prob, axis=1)  # dim K
+
+            # xd_comp_prob = eval_drvs_comp_prob(np.reshape(xd, [Nd, 1]), Pi).reshape([K, Nd])
+            # xd_comp_prob = np.prod(xd_comp_prob, axis=1)  # dim K
+
+        if Mu is not None:
+            xc = init_xcs[k]
+
+        objs = []
+        best_obj = -np.inf
+        for it in range(coord_its):
+            # perform coordinate ascent on the joint log pdf
+
+            if Mu is not None:  # maximize w.r.t. cont vars
+                if Pi is not None:
+                    tmp_lw = lw + xd_comp_log_prob
+                else:
+                    tmp_lw = lw
+                xc, obj = get_multivar_gm_mode(tmp_lw, Mu, Var, bds, init_xs=[xc], diagonal_cov=True, best_log_pdf=True,
+                                               **kwargs)
+                # note that we only start gradient ascent from the previous configuration [xc]
+            if Pi is not None:  # maximize w.r.t. disc vars
+                if Mu is not None:
+                    xc_comp_log_prob = eval_crvs_comp_log_prob(xc, Mu, Var, backend=np)  # K x Nc
+                    xc_comp_log_prob = np.sum(xc_comp_log_prob, axis=1)  # dim K
+                else:
+                    xc_comp_log_prob = 0
+                tmp_lw = lw + xc_comp_log_prob  # length K
+
+                # xd_comp_log_prob = eval_drvs_comp_prob(np.reshape(xd, [Nd, 1]), lPi).reshape([K, Nd])
+                # xd_comp_log_prob = np.sum(xd_comp_log_prob, axis=1) # dim K
+
+                obj = utils.logsumexp(tmp_lw + xd_comp_log_prob)
+                for n in range(Nd):  # go through all Nd discrete coordinates
+                    xd_comp_log_prob -= lPi[n, :, xd[n]]
+                    lPi_n = np.transpose(lPi[n])  # S x K
+                    tmp_xd_comp_log_prob = xd_comp_log_prob + lPi_n  # S x K
+                    objs_under_all_xn_configs = utils.logsumexp(tmp_lw + tmp_xd_comp_log_prob, axis=-1)  # dim S
+                    best_xn_config = np.argmax(objs_under_all_xn_configs)  # in {0, ..., S-1}
+                    obj = objs_under_all_xn_configs[best_xn_config]
+                    xd[n] = best_xn_config
+                    xd_comp_log_prob += lPi[n, :, xd[n]]
+
+            objs.append(obj)
+            if obj > best_obj:
+                if Pi is not None:
+                    best_xd = xd
+                if Mu is not None:
+                    best_xc = xc
+                best_obj = obj
+
+        # done with coordinate its from the kth initialization
+        if Pi is not None:
+            best_xds[k] = best_xd
+        if Mu is not None:
+            best_xcs[k] = best_xc
+        best_objs[k] = best_obj
+
+    best_idx = np.argmax(best_objs)  # across K initializations
+    best_xc = best_xd = None
+    if Pi is not None:
+        best_xd = best_xds[best_idx]
+    if Mu is not None:
+        best_xc = best_xcs[best_idx]
+
+    return {'xd': best_xd, 'xc': best_xc}
+
+
 def get_gm_entropy_lb(w, Mu, Sigs, sharing_counts=None):
     """
     Get symbolic tensor representing Jensen's inequality lower-bound for the mixture entropy term (using the formulae

@@ -98,6 +98,76 @@ def get_scalar_gm_mode(w, mu, var, bds, best_log_pdf=False):
         return x_opt, -best_res.fun
 
 
+def get_multivar_gm_mode(log_w, Mu, Var, bds, init_xs=None, diagonal_cov=True, best_log_pdf=False, grad_lr=0.01, grad_its=500, tol=1e-7):
+    """
+    Find approximate mode of multivariate Gaussian mixture, by running gradient ascent from each component mode
+    and picking the best.
+    NOTE: here Mu and Var should have K elements in the outermost dimension, so that Mu[k], Var[k] give the mean, var of
+    the kth mixture component
+    :param log_w: np.log(w)
+    :param Mu: N x K
+    :param Var: N x K
+    :param bds: 2 x N
+    :param init_xs: M x N, ndarray of M initial points to start gradient ascent from; default to the K component modes
+    :param best_log_pdf:
+    :return:
+    """
+    assert diagonal_cov, 'Currently assume diagonal covariance matrices!!!'
+    Mu = Mu.transpose()  # now K x N
+    Var = Var.transpose()    # now K x N
+    Var_inv = 1 / Var  # ASSUMING DIAGONAL COVARS
+    K, N = Mu.shape
+    comp_consts = -0.5 * N * np.log(2 * np.pi) + 0.5 * np.sum(np.log(Var_inv), axis=1)  # for all K components
+
+    gamma = 0.05  # Polyak averaging coef for gradient ascent
+    if init_xs is None:
+        init_xs = Mu  # K x N, K comp modes
+    best_objs = []
+    best_xs = np.empty_like(init_xs)
+
+    for i, x in enumerate(init_xs):  # x is ith initial config
+        # perform projected gradient ascent on the gmm log pdf
+        objs = []
+        best_obj = prev_obj = -np.inf
+        step = grad_lr
+        for it in range(grad_its):
+            comp_logpdfs = comp_consts - 0.5 * np.sum((x - Mu) ** 2 * Var_inv, axis=1)  # p_k(x) for all K components
+            obj = logsumexp(log_w + comp_logpdfs)  # p(x)
+            # grad_weights = softmax(log_w + comp_logpdfs)  # w_k * p_k(x) / p(x), "resp"
+            grad_weights = np.exp(log_w + comp_logpdfs - obj)  # more efficient than above
+            objs.append(obj)
+            if obj > best_obj:
+                best_x = x
+                best_obj = obj
+            if obj <= prev_obj:  # no improvement; reduce lr and try again
+                x = best_x
+                step *= 0.5
+            d_log_pks = (Mu - x) * Var_inv  # K x N, d log p_k(x) / dx, for all K components simultaneously
+            dx = grad_weights @ d_log_pks  # K times KxN gives N-vec
+            x = gamma * x + (1 - gamma) * np.clip(x + dx * step, a_min=bds[0], a_max=bds[1])
+            if np.linalg.norm(dx) < tol or np.abs((obj - prev_obj) / prev_obj) < tol:
+                break
+            prev_obj = obj
+
+        best_objs.append(best_obj)
+        best_xs[i] = best_x
+    best_idx = np.argmax(best_objs)
+    best_x = best_xs[best_idx]
+    best_obj = best_objs[best_idx]
+
+    if not best_log_pdf:
+        return best_x
+    else:
+        return best_x, best_obj
+
+
+def eval_joint_assignment_energy(factors, rvs2vals):
+    res = 0
+    for factor in factors:
+        factor_val = [rvs2vals[rv] for rv in factor.nb]
+        res += factor.log_potential_fun(factor_val)
+    return res
+
 def weighted_feature_fun(feature_fun, weight):
     # return lambda vs: weight * feature_fun(vs)
     def wf(args):

@@ -17,7 +17,8 @@ from copy import copy
 
 seed = 21
 utils.set_seed(seed)
-
+from mixture_beliefs import joint_map
+from utils import eval_joint_assignment_energy
 from hybrid_gaussian_mrf import HybridGaussianSampler
 from hybrid_gaussian_mrf import convert_to_bn, block_gibbs_sample, get_crv_marg, get_drv_marg, \
     get_rv_marg_map_from_bn_params
@@ -93,6 +94,7 @@ record_fields = ['cpu_time',
                  'obj',  # this is BFE/-ELBO for variational methods, -logZ for exact baseline
                  'mmap_err',  # |argmax p(xi) - argmax q(xi)|, avg over all nodes i
                  'kl_err',  # kl(p(xi)||q(xi)), avg over all nodes i
+                 'map_energy'
                  ]
 # algo_names = ['baseline', 'EPBP', 'OSI', 'LOSI']
 # algo_names = ['baseline', 'NPVI', 'OSI', ]
@@ -166,6 +168,7 @@ for test_num in range(num_tests):
         mmap = np.zeros(len(query_rvs)) - 123
         margs = [None] * len(query_rvs)
         marg_kls = np.zeros(len(query_rvs)) - 123
+        map_energy = -123
         obj = -1
         cpu_time = wall_time = -1  # don't care
 
@@ -261,6 +264,20 @@ for test_num in range(num_tests):
                 obj = -logZ
                 # print('BN params', bn)
 
+                # find joint map using brute-force
+                dstates = [rv.dstates for rv in cond_g.Vd]  # [v1, v2, ..., v_Nd]
+                all_disc_config = list(product(*[range(d) for d in dstates]))  # all joint configs, \prod_i v_i by Nd
+                energies = np.empty(len(all_disc_config))
+                utils.set_log_potential_funs(cond_g.factors_list,
+                                             skip_existing=True)  # g factors' lpot_fun should still be None
+                for i, disc_config in enumerate(all_disc_config):
+                    xd = disc_config
+                    map_config_dict = {rv: xd[n] for n, rv in enumerate(cond_g.Vd)}
+                    xc = bn[1][disc_config]  # mean vec (also mode) of the Gaussian p(xc|xd)
+                    map_config_dict.update({rv: xc[n] for n, rv in enumerate(cond_g.Vc)})
+                    energies[i] = eval_joint_assignment_energy(cond_g.factors_list, map_config_dict)
+                map_energy = np.max(energies)
+
                 # num_dstates = np.prod([rv.dstates for rv in cond_g.Vd])
                 for i, rv in enumerate(query_rvs):
                     assert rv.domain_type[0] == 'c', 'only looking at kl for cnode queries for now'
@@ -285,6 +302,8 @@ for test_num in range(num_tests):
                 # np.save('cont_samples', hgsampler.cont_samples)
                 # np.save('disc_samples', hgsampler.disc_samples)
                 # TODO: estimate obj = -logZ from samples
+
+                # TODO: find joint map using brute-force (by checking energies of all joint samples)
 
                 for i, rv in enumerate(query_rvs):
                     m = hgsampler.map(rv, num_gm_components_for_crv=num_gm_components_for_crv)
@@ -364,6 +383,11 @@ for test_num in range(num_tests):
             obj = res['record']['obj'][-1]
             # print(vi.params['Mu'], vi.params['Var'])
 
+            # joint MAP
+            map_config = joint_map(cond_g.rvs_list, cond_g.Vd, cond_g.Vc, cond_g.Vd_idx, cond_g.Vc_idx, vi.params)
+            map_energy = eval_joint_assignment_energy(cond_g.factors_list,
+                                                      {rv: map_config[i] for (i, rv) in enumerate(cond_g.rvs_list)})
+
             for i, rv in enumerate(query_rvs):
                 if cond:
                     m = vi.map(obs_rvs=[], query_rv=rv)
@@ -388,8 +412,9 @@ for test_num in range(num_tests):
         # print('true mmap', baseline_mmap)
         mmap_err = np.mean(np.abs(mmap - baseline_mmap))
         kl_err = np.mean(marg_kls)
-        print('mmap_err', mmap_err, 'kl_err', kl_err)
-        algo_record = dict(cpu_time=cpu_time, wall_time=wall_time, obj=obj, mmap_err=mmap_err, kl_err=kl_err)
+        print('mmap_err', mmap_err, 'kl_err', kl_err, 'map_energy', map_energy)
+        algo_record = dict(cpu_time=cpu_time, wall_time=wall_time, obj=obj, mmap_err=mmap_err, kl_err=kl_err,
+                           map_energy=map_energy)
         for key, value in algo_record.items():
             records[algo_name][key].append(value)
         all_margs[algo_name] = margs  # for plotting convenience
