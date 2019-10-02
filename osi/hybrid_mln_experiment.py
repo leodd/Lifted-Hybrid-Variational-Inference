@@ -185,13 +185,8 @@ for test_num in range(num_tests):
                 if factor.domain_type == 'h':
                     assert isinstance(factor.potential, MLNPotential), 'currently can only handle MLN'
                     nb = factor.nb
-                    # num_dnb = len([v for v in nb if v.domain_type[0] == 'd'])
-                    # num_cnb = len([v for v in nb if v.domain_type[0] == 'c'])
-                    dnb = [v for v in nb if v.domain_type[0] == 'd']
-                    cnb = [v for v in nb if v.domain_type[0] == 'c']
-                    num_dnb = len(dnb)
-                    num_cnb = len(cnb)
-                    factor.nb = dnb + cnb   # make sure LogHybridQuadratic always has nbs like [xd, xc] for __call__
+                    num_dnb = len([v for v in nb if v.domain_type[0] == 'd'])
+                    num_cnb = len([v for v in nb if v.domain_type[0] == 'c'])
                     assert num_dnb == 1 and nb[0].dstates == 2, 'must have 1st nb boolean for the hack to work'
                     if num_cnb == 2:  # of the form MLNPotential(lambda x: x[0] * eq_op(x[1], x[2]), w=w_h)
                         factor.potential = equiv_hybrid_pot
@@ -273,15 +268,14 @@ for test_num in range(num_tests):
                 dstates = [rv.dstates for rv in cond_g.Vd]  # [v1, v2, ..., v_Nd]
                 all_disc_config = list(product(*[range(d) for d in dstates]))  # all joint configs, \prod_i v_i by Nd
                 energies = np.empty(len(all_disc_config))
-                # utils.set_log_potential_funs(cond_g.factors_list,
-                #                              skip_existing=True)  # g factors' lpot_fun should still be None
+                utils.set_log_potential_funs(cond_g.factors_list,
+                                             skip_existing=True)  # g factors' lpot_fun should still be None
                 for i, disc_config in enumerate(all_disc_config):
                     xd = disc_config
                     map_config_dict = {rv: xd[n] for n, rv in enumerate(cond_g.Vd)}
                     xc = bn[1][disc_config]  # mean vec (also mode) of the Gaussian p(xc|xd)
                     map_config_dict.update({rv: xc[n] for n, rv in enumerate(cond_g.Vc)})
-                    # energies[i] = eval_joint_assignment_energy(cond_g.factors_list, map_config_dict)
-                    energies[i] = eval_joint_assignment_energy(converted_factors, map_config_dict)
+                    energies[i] = eval_joint_assignment_energy(cond_g.factors_list, map_config_dict)
                 map_energy = np.max(energies)
 
                 # num_dstates = np.prod([rv.dstates for rv in cond_g.Vd])
