@@ -29,11 +29,11 @@ from utils import kl_continuous_logpdf
 import argparse
 
 parser = argparse.ArgumentParser()
-parser.add_argument('valgo', type=str)  # any of OSI, LOSI, NPVI, LNPVI
+parser.add_argument('algo', type=str)  # any of OSI, LOSI, NPVI, LNPVI
 parser.add_argument('K', type=int)
 parser.add_argument('-n', '--num_tests', type=int, default=5)
 args = parser.parse_args()
-valgo = args.valgo
+algo = args.algo
 K = args.K
 num_tests = args.num_tests
 print('#### run setup ####')
@@ -100,7 +100,7 @@ record_fields = ['cpu_time',
 # algo_names = ['baseline', 'NPVI', 'OSI', ]
 # algo_names = ['baseline', 'EPBP', 'NPVI', 'LNPVI', 'OSI', 'LOSI']
 # algo_names = ['baseline', 'EPBP', 'OSI', 'LOSI', 'NPVI', 'LNPVI']
-algo_names = ['baseline', valgo, ]
+algo_names = ['baseline', algo, ]
 # algo_names = ['baseline', 'EPBP']
 # algo_names = ['EPBP']
 # assert algo_names[0] == 'baseline'
@@ -447,7 +447,7 @@ if plot:
 print('######################')
 print('##### run setup #####')
 pprint(vars(args))
-run_str = f'{valgo}_K={K}'
+run_str = f'{algo}_K={K}'
 print(run_str)
 
 from collections import OrderedDict
