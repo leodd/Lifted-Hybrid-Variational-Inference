@@ -3,7 +3,6 @@ from MLNPotential import *
 import numpy as np
 import re
 
-
 Seg = []
 Type = ['W', 'D', 'O']
 Line = []
@@ -34,11 +33,13 @@ f0 = ParamF(
     constrain=lambda s: s['t1'] != s['t2']
 )
 f1 = ParamF(
-    MLNPotential(lambda x: 1 if x[0] + x[1] + x[2] > 0 else 0, w=3),
+    # MLNPotential(lambda x: 1 if x[0] + x[1] + x[2] > 0 else 0, w=3),
+    MLNPotential(lambda x: 1 - (x[0] == 0) * (x[1] == 0) * (x[2] == 0), w=3),
     nb=['SegType(s,$W)', 'SegType(s,$D)', 'SegType(s,$O)']
 )
 f2 = ParamF(
-    MLNPotential(lambda x: 1 if neg_op(x[0]) + neg_op(x[1]) + x[2] + neg_op(x[3]) + neg_op(x[4]) else 0, w=1.591),
+    # MLNPotential(lambda x: 1 if neg_op(x[0]) + neg_op(x[1]) + x[2] + neg_op(x[3]) + neg_op(x[4]) else 0, w=1.591),
+    MLNPotential(lambda x: 1 - (x[0] == 1) * (x[1] == 1) * (x[2] == 0) * (x[3] == 1) * (1 - x[4]), w=1.591),
     nb=['SegType(s1,$W)', 'SegType(s2,$W)', 'PartOf(s1,l)', 'PartOf(s2,l)', 'Aligned(s2,s1)'],
     constrain=lambda s: s['s1'] != s['s2']
 )
