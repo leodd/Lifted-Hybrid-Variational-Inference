@@ -746,7 +746,7 @@ def marginal_map(X, obs_rvs, query_rv, w):
     return out
 
 
-def joint_map(rvs, Vd, Vc, Vd_idx, Vc_idx, params):
+def joint_map(rvs, Vd, Vc, Vd_idx, Vc_idx, params, **kwargs):
     w = params['w']
     Mu = params.get('Mu')
     Var = params.get('Var')
@@ -757,7 +757,7 @@ def joint_map(rvs, Vd, Vc, Vd_idx, Vc_idx, params):
     for n, rv in enumerate(Vc):
         Mu_bds[:, n] = rv.values[0], rv.values[1]  # lb, ub
 
-    map_val = joint_map_from_belief_params(w, Pi, Mu, Var, Mu_bds)
+    map_val = joint_map_from_belief_params(w, Pi, Mu, Var, Mu_bds, **kwargs)
     xd, xc = map_val['xd'], map_val['xc']
     joint_val = np.empty(len(rvs))
     for i, rv in enumerate(rvs):
