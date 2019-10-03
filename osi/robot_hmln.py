@@ -110,7 +110,7 @@ for test_num in range(num_tests):
             # K = 1
             T = 3
             lr = 0.5
-            its = 500
+            its = 1000
             fix_mix_its = int(its * 0.5)
             logging_itv = 100
 
