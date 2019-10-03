@@ -29,7 +29,7 @@ class LogTable:
         self.table = table
 
     def __call__(self, args):
-        return self.table[args]
+        return self.table[tuple(args)]  # use tuple arg to ensure indexing into a single value
 
 
 class GaussianPotential(Potential):
@@ -236,6 +236,8 @@ class LogHybridQuadratic:
         self.A = A
         self.b = b
         self.c = c
+        self.Nd = len(c.shape)
+        self.Nc = b.shape[-1]
 
     def get_quadratic_params_given_x_d(self, x_d):
         """
@@ -260,6 +262,12 @@ class LogHybridQuadratic:
         res += np.sum(self.b * x_c, axis=-1)  # [v1, v2, ..., v_Nd, Nc] -> [v1, v2, ..., v_Nd]
         res += self.c
         return res
+
+    def __call__(self, args, **kwargs):  # Currently no TF support, only scalar evaluation!!
+        xd = args[:self.Nd]
+        xc = args[self.Nd:]
+        quadratic_params_given_x_d = self.get_quadratic_params_given_x_d(xd)
+        return LogQuadratic(*quadratic_params_given_x_d)(xc, **kwargs)
 
 
 class HybridQuadraticPotential(Potential):
