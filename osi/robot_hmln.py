@@ -110,7 +110,7 @@ for test_num in range(num_tests):
             # K = 1
             T = 3
             lr = 0.5
-            its = 500
+            its = 1000
             fix_mix_its = int(its * 0.5)
             logging_itv = 100
 
@@ -128,7 +128,8 @@ for test_num in range(num_tests):
                 obj = res['record']['obj'][-1]
 
                 # joint MAP
-                map_config = joint_map(cond_g.rvs_list, cond_g.Vd, cond_g.Vc, cond_g.Vd_idx, cond_g.Vc_idx, vi.params)
+                map_config = joint_map(cond_g.rvs_list, cond_g.Vd, cond_g.Vc, cond_g.Vd_idx, cond_g.Vc_idx, vi.params,
+                                       coord_its=200)
                 map_energy = eval_joint_assignment_energy(cond_g.factors_list,
                                                           {rv: map_config[i] for (i, rv) in enumerate(cond_g.rvs_list)})
 
