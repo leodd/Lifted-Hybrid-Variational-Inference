@@ -67,6 +67,17 @@ class HybridMaxWalkSAT:
         return numeric_factors, discrete_factors
 
     @staticmethod
+    def prune_factors_without_latent_variables(factors):
+        res = set()
+        for f in factors:
+            for rv in f.nb:
+                if rv.value is None:
+                    res.add(f)
+                    break
+
+        return res
+
+    @staticmethod
     def unsatisfied_factors(assignment, discrete_factors):
         res_hard = list()
         res_soft = list()
@@ -196,6 +207,8 @@ class HybridMaxWalkSAT:
 
     def run(self, max_tries=100, max_flips=1000, epsilon=0.9, noise_std=1):
         numeric_factors, discrete_factors = self.discrete_and_numeric_factors()
+        numeric_factors = self.prune_factors_without_latent_variables(numeric_factors)
+        discrete_factors = self.prune_factors_without_latent_variables(discrete_factors)
 
         self.best_assignment = None
         self.best_score = -np.Inf

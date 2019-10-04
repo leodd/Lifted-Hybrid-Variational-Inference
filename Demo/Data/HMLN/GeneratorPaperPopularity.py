@@ -4,7 +4,7 @@ import numpy as np
 import json
 
 
-num_paper = 20
+num_paper = 200
 num_topic = 10
 
 Paper = []
