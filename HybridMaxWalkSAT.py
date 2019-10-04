@@ -230,7 +230,7 @@ class HybridMaxWalkSAT:
                     c = self.random_factor(unsatisfied_soft, numeric_factors)
 
                 if np.random.rand() < epsilon:
-                    rv = np.random.choice(c.nb)
+                    rv = np.random.choice(list(filter(lambda rv_: rv_.value is None, c.nb)))
 
                     if rv.value is not None:
                         continue

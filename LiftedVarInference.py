@@ -5,6 +5,7 @@ from scipy.optimize import minimize
 from math import sqrt, pi, e, log
 from itertools import product
 import time
+from utils import log_likelihood
 
 
 class VarInference:
@@ -262,7 +263,7 @@ class VarInference:
 
         if self.is_log:
             self.time_log = list()
-            self.start_time = time.process_time()
+            self.total_time = 0
 
         # Bethe iteration
         self.ADAM_update(iteration)
@@ -307,9 +308,14 @@ class VarInference:
 
             if self.is_log:
                 current_time = time.process_time()
-                fe = self.free_energy()
-                print(fe)
-                self.time_log.append([current_time - self.start_time, fe])
+                self.total_time += current_time - start_time
+                # fe = self.free_energy()
+                map_res = dict()
+                for rv in self.g.g.rvs:
+                    map_res[rv] = self.map(rv)
+                fe = log_likelihood(self.g.g, map_res)
+                print(fe, self.total_time)
+                self.time_log.append([self.total_time, fe])
 
     def GD_update(self, iteration, lr):
         for itr in range(iteration):

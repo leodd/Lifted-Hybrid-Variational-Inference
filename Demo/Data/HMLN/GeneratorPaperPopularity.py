@@ -4,7 +4,7 @@ import numpy as np
 import json
 
 
-num_paper = 200
+num_paper = 300
 num_topic = 10
 
 Paper = []
@@ -51,25 +51,25 @@ def generate_rel_graph():
 def generate_data(f):
     data = dict()
 
-    X_ = np.random.choice(num_paper, int(num_paper * 0.2), replace=False)
+    X_ = np.random.choice(num_paper, int(num_paper * 0.7), replace=False)
     for x_ in X_:
-        data[str(('PaperPopularity', f'p{x_}'))] = np.clip(np.random.normal(5, 3), 0, 10)
+        data[str(('PaperPopularity', f'p{x_}'))] = np.random.uniform(0, 10)
 
     X_ = np.random.choice(num_topic, int(num_topic * 1.0), replace=False)
     for x_ in X_:
-        data[str(('TopicPopularity', f't{x_}'))] = np.clip(np.random.normal(5, 3), 0, 10)
+        data[str(('TopicPopularity', f't{x_}'))] = np.random.uniform(0, 10)
 
     X_ = np.random.choice(num_paper, int(num_paper * 0.7), replace=False)
     for x_ in X_:
         Y_ = np.random.choice(num_topic, np.random.randint(num_topic), replace=False)
         for y_ in Y_:
-            data[str(('PaperIn', f'p{x_}', f't{y_}'))] = 1
+            data[str(('PaperIn', f'p{x_}', f't{y_}'))] = int(np.random.choice([0, 1]))
 
     X_ = np.random.choice(num_paper, int(num_topic * 0.5), replace=False)
     for x_ in X_:
         Y_ = np.random.choice(num_paper, int(num_topic * 1), replace=False)
         for y_ in Y_:
-            data[str(('SameSession', f't{x_}', f't{y_}'))] = 1
+            data[str(('SameSession', f't{x_}', f't{y_}'))] = int(np.random.choice([0, 1]))
 
     with open(f, 'w+') as file:
         file.write(json.dumps(data))
