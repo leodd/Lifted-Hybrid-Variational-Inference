@@ -384,6 +384,14 @@ for test_num in range(num_tests):
             # print(vi.params['Mu'], vi.params['Var'])
 
             # joint MAP
+            if algo_name in ('LOSI', 'LNPVI'):
+                # set the params of variational mixtures in the original (uncompressed) graph; this is needed because
+                # the resulting params of LiftedOneShot/NPVI are for the super variables
+                if cond_g.Nc > 0:
+                    vi.params['Mu'] = np.stack([rv.belief_params['mu'] for rv in cond_g.Vc])
+                    vi.params['Var'] = np.stack([rv.belief_params['var'] for rv in cond_g.Vc])
+                if cond_g.Nd > 0:
+                    vi.params['Pi'] = np.stack([rv.belief_params['pi'] for rv in cond_g.Vd])
             map_config = joint_map(cond_g.rvs_list, cond_g.Vd, cond_g.Vc, cond_g.Vd_idx, cond_g.Vc_idx, vi.params)
             map_energy = eval_joint_assignment_energy(cond_g.factors_list,
                                                       {rv: map_config[i] for (i, rv) in enumerate(cond_g.rvs_list)})
