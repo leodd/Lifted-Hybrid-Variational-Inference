@@ -29,7 +29,7 @@ print(len(g.factors))
 
 time_log = dict()
 
-with open('Demo/Data/HMLN/time_log_result', 'r') as file:
+with open('Demo/Data/HMLN/paper-popularity-time-log', 'r') as file:
     s = file.read()
     time_log = json.loads(s)
 
@@ -48,9 +48,9 @@ with open('Demo/Data/HMLN/time_log_result', 'r') as file:
 # infer = C2FVI(g, num_mixtures=2, num_quadrature_points=3)
 # infer.run(200, lr=0.2)
 # time_log['C2FVI'] = infer.time_log
-#
-#
-# with open('Demo/Data/HMLN/time_log_result', 'w+') as file:
+
+
+# with open('Demo/Data/HMLN/paper-popularity-time-log', 'w+') as file:
 #     file.write(json.dumps(time_log))
 
 
@@ -68,13 +68,19 @@ color = {
     'LVI': 'g',
     'C2FVI': 'b',
 }
+
+max_t = 70
+
 for name, t_log in time_log.items():
     x = list()
     y = list()
-    for t, fe in t_log:
-        if t > 125: break
+    for t, ll in t_log:
+        if t > max_t:
+            x.append(max_t)
+            y.append(ll)
+            break
         x.append(t)
-        y.append(fe)
+        y.append(ll)
     plt.plot(x, y, color=color[name])
 
 # plt.rc('xtick', labelsize=20)
@@ -88,5 +94,5 @@ for name, t_log in time_log.items():
 
 plt.legend(['HMWS', 'VI', 'Lifted VI', 'C2F VI'], )
 plt.xlabel('time (second)')
-plt.ylabel('free energy')
+plt.ylabel('negative log potential')
 plt.show()
