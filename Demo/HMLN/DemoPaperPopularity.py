@@ -26,11 +26,11 @@ g, rvs_dict = rel_g.add_evidence(data)
 print(len(rvs_dict))
 print(len(g.factors))
 
-# infer = HMWS(g)
-# infer.run(max_tries=1, max_flips=100000, epsilon=0.8, noise_std=0.5)
+infer = HMWS(g)
+infer.run(max_tries=1, max_flips=10000, epsilon=0.0, noise_std=0.5)
 
-infer = C2FVI(g, num_mixtures=2, num_quadrature_points=3)
-infer.run(100, lr=0.5)
+# infer = C2FVI(g, num_mixtures=2, num_quadrature_points=3)
+# infer.run(200, lr=0.3)
 
 # map_res = infer.rvs_map(rvs_dict.values())
 # for key, rv in rvs_dict.items():

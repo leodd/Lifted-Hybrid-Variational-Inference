@@ -270,6 +270,8 @@ class VarInference:
 
     def ADAM_update(self, iteration):
         for itr in range(iteration):
+            start_time = time.process_time()
+
             self.t += 1
             # compute gradient
             g = self.gradient_w_tau()

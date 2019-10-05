@@ -247,6 +247,8 @@ class VarInference:
 
     def ADAM_update(self, iteration):
         for itr in range(iteration):
+            start_time = time.process_time()
+
             self.t += 1
             # compute gradient
             g = self.gradient_w_tau()
@@ -288,9 +290,9 @@ class VarInference:
                 self.total_time += current_time - start_time
                 # fe = self.free_energy()
                 map_res = dict()
-                for rv in self.g.g.rvs:
+                for rv in self.g.rvs:
                     map_res[rv] = self.map(rv)
-                fe = log_likelihood(self.g.g, map_res)
+                fe = log_likelihood(self.g, map_res)
                 print(fe, self.total_time)
                 self.time_log.append([self.total_time, fe])
 

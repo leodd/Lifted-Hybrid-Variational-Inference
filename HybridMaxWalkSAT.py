@@ -5,6 +5,7 @@ from math import sqrt, pi, e, log
 from itertools import product
 from MLNPotential import MLNPotential, MLNHardPotential
 import time
+from utils import log_likelihood
 
 
 class HybridMaxWalkSAT:
@@ -205,7 +206,11 @@ class HybridMaxWalkSAT:
 
         return best_assignment
 
-    def run(self, max_tries=100, max_flips=1000, epsilon=0.9, noise_std=1):
+    def run(self, max_tries=100, max_flips=1000, epsilon=0.9, noise_std=1, is_log=True):
+        if is_log:
+            self.time_log = list()
+            total_time = 0
+
         numeric_factors, discrete_factors = self.discrete_and_numeric_factors()
         numeric_factors = self.prune_factors_without_latent_variables(numeric_factors)
         discrete_factors = self.prune_factors_without_latent_variables(discrete_factors)
@@ -217,11 +222,13 @@ class HybridMaxWalkSAT:
             assignment = self.random_assignment()
 
             for i_flip in range(max_flips):
+                start_time = time.process_time()
+
                 score = self.score(assignment)
                 if score > self.best_score:
                     self.best_assignment = assignment.copy()
                     self.best_score = score
-                    print(self.best_score, i_try, i_flip)
+                    # print(self.best_score, i_try, i_flip)
 
                 unsatisfied_hard, unsatisfied_soft = self.unsatisfied_factors(assignment, discrete_factors)
                 if len(unsatisfied_hard) > 0:
@@ -264,6 +271,17 @@ class HybridMaxWalkSAT:
                         assignment[rv] = rv_assignment_dict[rv]
                     else:
                         assignment = self.argmax_numeric_term_wrt_score(c, assignment)
+
+                if is_log:
+                    current_time = time.process_time()
+                    total_time += current_time - start_time
+                    if self.score(assignment) > self.best_score:
+                        map_res = dict()
+                        for rv in self.g.rvs:
+                            map_res[rv] = assignment[rv]
+                        ll = log_likelihood(self.g, map_res)
+                        print(ll, total_time)
+                        self.time_log.append([total_time, ll])
 
     def map(self, rv):
         return self.best_assignment[rv]
