@@ -13,7 +13,7 @@ class VarInference:
     k_mean_k = 2
     k_mean_its = 10
     update_obs_its = 10
-    output_its = 20
+    output_its = 0
     min_obs_var = 0
     gaussian_obs = True
 

@@ -34,19 +34,19 @@ with open('Demo/Data/HMLN/paper-popularity-time-log', 'r') as file:
     time_log = json.loads(s)
 
 # infer = HMWS(g)
-# infer.run(max_tries=1, max_flips=10000, epsilon=0.7, noise_std=0.5)
+# infer.run(max_tries=1, max_flips=10000, epsilon=0.7, noise_std=0.3)
 # time_log['HMWS'] = infer.time_log
 #
 # infer = VI(g, num_mixtures=2, num_quadrature_points=3)
-# infer.run(200, lr=0.2)
+# infer.run(100, lr=0.2)
 # time_log['VI'] = infer.time_log
 #
 # infer = LVI(g, num_mixtures=2, num_quadrature_points=3)
-# infer.run(200, lr=0.2)
+# infer.run(100, lr=0.2)
 # time_log['LVI'] = infer.time_log
 #
 # infer = C2FVI(g, num_mixtures=2, num_quadrature_points=3)
-# infer.run(200, lr=0.2)
+# infer.run(100, lr=0.2)
 # time_log['C2FVI'] = infer.time_log
 
 
@@ -69,18 +69,18 @@ color = {
     'C2FVI': 'b',
 }
 
-max_t = 70
+max_t = 80
 
 for name, t_log in time_log.items():
     x = list()
     y = list()
     for t, ll in t_log:
         if t > max_t:
-            x.append(max_t)
-            y.append(ll)
             break
         x.append(t)
         y.append(ll)
+    x.append(max_t)
+    y.append(y[-1])
     plt.plot(x, y, color=color[name])
 
 # plt.rc('xtick', labelsize=20)
@@ -92,7 +92,7 @@ for name, t_log in time_log.items():
 #
 # plt.rc('font', **font)
 
-plt.legend(['HMWS', 'VI', 'Lifted VI', 'C2F VI'], )
+plt.legend(['HMWS', 'BVI', 'Lifted BVI', 'C2F BVI'], )
 plt.xlabel('time (second)')
 plt.ylabel('negative log potential')
 plt.show()

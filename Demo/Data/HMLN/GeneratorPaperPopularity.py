@@ -30,7 +30,7 @@ f0 = ParamF(
     nb=['PaperPopularity(p)']
 )
 f1 = ParamF(
-    MLNPotential(lambda x: imp_op(x[0] * x[1], x[2]), w=0.5),
+    MLNPotential(lambda x: x[0] * eq_op(x[1], x[2]), w=0.5),
     nb=['SameSession(t1,t2)', 'TopicPopularity(t1)', 'TopicPopularity(t2)'],
     constrain=lambda sub: sub['t1'] != sub['t2']
 )
@@ -55,7 +55,7 @@ def generate_data(f):
     for x_ in X_:
         data[str(('PaperPopularity', f'p{x_}'))] = np.random.uniform(0, 10)
 
-    X_ = np.random.choice(num_topic, int(num_topic * 1.0), replace=False)
+    X_ = np.random.choice(num_topic, int(num_topic * 0.7), replace=False)
     for x_ in X_:
         data[str(('TopicPopularity', f't{x_}'))] = np.random.uniform(0, 10)
 
@@ -65,9 +65,9 @@ def generate_data(f):
         for y_ in Y_:
             data[str(('PaperIn', f'p{x_}', f't{y_}'))] = int(np.random.choice([0, 1]))
 
-    X_ = np.random.choice(num_paper, int(num_topic * 0.5), replace=False)
+    X_ = np.random.choice(num_paper, int(num_topic), replace=False)
     for x_ in X_:
-        Y_ = np.random.choice(num_paper, int(num_topic * 1), replace=False)
+        Y_ = np.random.choice(num_paper, int(num_topic), replace=False)
         for y_ in Y_:
             data[str(('SameSession', f't{x_}', f't{y_}'))] = int(np.random.choice([0, 1]))
 
