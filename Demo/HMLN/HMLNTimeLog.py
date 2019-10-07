@@ -1,5 +1,5 @@
 from utils import log_likelihood
-from Demo.Data.HMLN.GeneratorRobotMapping import generate_rel_graph, load_data
+from Demo.Data.HMLN.GeneratorRobotMapping import generate_rel_graph, load_raw_data
 # from Demo.Data.HMLN.GeneratorPaperPopularity import generate_rel_graph, load_data
 from VarInference import VarInference as VI
 from LiftedVarInference import VarInference as LVI
@@ -14,10 +14,10 @@ _, rvs_dict = rel_g.ground_graph()
 
 query = dict()
 for key, rv in rvs_dict.items():
-    if key[0] == 'PartOf' or key[0] == 'SegType':
+    if key[0] == 'SegType' or key[0] == 'PartOf' or key[0] == 'Length' or key[0] == 'Depth':
         query[key] = rv
 
-data = load_data('Demo/Data/HMLN/robot-map')
+data = load_raw_data('Demo/Data/HMLN/robot-map')
 for key, rv in rvs_dict.items():
     if key not in data and key not in query and not rv.domain.continuous:
         data[key] = 0  # closed world assumption
@@ -41,7 +41,7 @@ with open('Demo/Data/HMLN/robot-mapping-time-log', 'r') as file:
 # infer = VI(g, num_mixtures=2, num_quadrature_points=3)
 # infer.run(100, lr=0.2)
 # time_log['VI'] = infer.time_log
-#
+
 # infer = LVI(g, num_mixtures=2, num_quadrature_points=3)
 # infer.run(100, lr=0.2)
 # time_log['LVI'] = infer.time_log
@@ -51,8 +51,8 @@ with open('Demo/Data/HMLN/robot-mapping-time-log', 'r') as file:
 # time_log['C2FVI'] = infer.time_log
 
 
-# with open('Demo/Data/HMLN/robot-mapping-time-log', 'w+') as file:
-#     file.write(json.dumps(time_log))
+with open('Demo/Data/HMLN/robot-mapping-time-log', 'w+') as file:
+    file.write(json.dumps(time_log))
 
 
 import matplotlib.pyplot as plt
@@ -70,7 +70,7 @@ color = {
     'C2FVI': 'b',
 }
 
-max_t = 200
+max_t = 500
 
 for name, t_log in time_log.items():
     x = list()

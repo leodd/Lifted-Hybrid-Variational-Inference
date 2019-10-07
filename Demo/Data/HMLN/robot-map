@@ -1,3 +1,4 @@
+
 PartOf(A1_2,LA1)
 PartOf(A1_8,LA1)
 PartOf(A1_10,LA1)
@@ -17,7 +18,7 @@ PartOf(A1_24,LA2)
 PartOf(A1_28,LA2)
 PartOf(A1_30,LA2)
 PartOf(A1_36,LA2)
-/*
+
 SegType(A1_1,Door)
 SegType(A1_2,Wall)
 SegType(A1_3,Wall)
@@ -27,6 +28,7 @@ SegType(A1_6,Wall)
 SegType(A1_7,Door)
 SegType(A1_8,Wall)
 SegType(A1_9,Door)
+/*
 SegType(A1_10,Wall)
 SegType(A1_11,Wall)
 SegType(A1_12,Door)
@@ -98,15 +100,13 @@ Length(A1_35) 0.1041288624733797
 Length(A1_36) 0.8941187225419229
 Length(A1_37) 0.21517569565357503
 
-
+/*
 Depth(A1_1) 0.02
 Depth(A1_2) 0.001
-/*
 Depth(A1_3) 0.001
 Depth(A1_4) 0.02
 Depth(A1_5) 0.45553
 Depth(A1_6) 0.001
-*/
 Depth(A1_7) 0.02
 Depth(A1_8) 0.001
 Depth(A1_9) 0.02
@@ -121,6 +121,7 @@ Depth(A1_17) 0.02
 Depth(A1_18) 0.001
 Depth(A1_19) 0.001
 Depth(A1_20) 0.02
+*/
 Depth(A1_21) 0.33292
 Depth(A1_22) 0.001
 Depth(A1_23) 0.02
@@ -134,12 +135,10 @@ Depth(A1_30) 0.001
 Depth(A1_31) 0.02
 Depth(A1_32) 0.001
 Depth(A1_33) 0.02
-/*
 Depth(A1_34) 0.001
 Depth(A1_35) 0.02
 Depth(A1_36) 0.001
 Depth(A1_37) 0.001
-*/
 
 Aligned(A1_1,A1_2)
 Aligned(A1_1,A1_4)

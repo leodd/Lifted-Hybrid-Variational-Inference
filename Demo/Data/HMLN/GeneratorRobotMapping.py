@@ -2,6 +2,7 @@ from RelationalGraph import *
 from MLNPotential import *
 import numpy as np
 import re
+import json
 
 Seg = []
 Type = ['W', 'D', 'O']
@@ -44,7 +45,7 @@ f2 = ParamF(
     constrain=lambda s: s['s1'] != s['s2']
 )
 f3 = ParamF(
-    MLNPotential(lambda x: x[0], w=0.81),
+    MLNPotential(lambda x: x[0], w=0.3),
     nb=['SegType(s,$W)']
 )
 f4 = ParamF(
@@ -65,11 +66,11 @@ f7 = ParamF(
 )
 f8 = ParamF(
     MLNPotential(lambda x: x[0] * eq_op(x[1], 0.341), w=3.754),
-    nb=['SegType(s,$D)', 'Length(s)']
+    nb=['SegType(s,$W)', 'Length(s)']
 )
 f9 = ParamF(
     MLNPotential(lambda x: x[0] * eq_op(x[1], 0.001), w=2.532),
-    nb=['SegType(s,$D)', 'Depth(s)']
+    nb=['SegType(s,$W)', 'Depth(s)']
 )
 
 
@@ -81,7 +82,7 @@ def generate_rel_graph():
     return rel_g
 
 
-def load_data(f):
+def load_raw_data(f):
     with open(f, 'r') as file:
         data = dict()
         comment_flag = False
@@ -105,5 +106,36 @@ def load_data(f):
     return data
 
 
+def generate_data(f):
+    rel_g = generate_rel_graph()
+    g, rvs_dict = rel_g.ground_graph()
+
+    data = load_raw_data('robot-map')
+    for key, rv in rvs_dict.items():
+        if key not in data and not rv.domain.continuous:
+            data[key] = 0  # closed world assumption
+
+    old_data = data
+    data = dict()
+    random_keys = np.random.choice(list(old_data.keys()), int(len(old_data) * 1.0), replace=False)
+    for key in random_keys:
+        data[str(key)] = old_data[key]
+
+    with open(f, 'w+') as file:
+        file.write(json.dumps(data))
+
+
+def load_data(f):
+    with open(f, 'r') as file:
+        s = file.read()
+        temp = json.loads(s)
+
+    data = dict()
+    for k, v in temp.items():
+        data[eval(k)] = v
+
+    return data
+
+
 if __name__ == "__main__":
-    print(load_data('robot-map'))
+    generate_data('robot-map0')
