@@ -280,7 +280,7 @@ class HybridMaxWalkSAT:
                         for rv in self.g.rvs:
                             map_res[rv] = assignment[rv]
                         ll = log_likelihood(self.g, map_res)
-                        print(ll, total_time)
+                        print(ll, total_time, i_flip)
                         self.time_log.append([total_time, ll])
 
     def map(self, rv):

@@ -1,5 +1,6 @@
 from utils import log_likelihood
-from Demo.Data.HMLN.GeneratorPaperPopularity import generate_rel_graph, load_data
+from Demo.Data.HMLN.GeneratorRobotMapping import generate_rel_graph, load_data
+# from Demo.Data.HMLN.GeneratorPaperPopularity import generate_rel_graph, load_data
 from VarInference import VarInference as VI
 from LiftedVarInference import VarInference as LVI
 from C2FVarInference import VarInference as C2FVI
@@ -13,13 +14,13 @@ _, rvs_dict = rel_g.ground_graph()
 
 query = dict()
 for key, rv in rvs_dict.items():
-    if key[0] == 'PaperPopularity' or key[0] == 'TopicPopularity':
+    if key[0] == 'PartOf' or key[0] == 'SegType':
         query[key] = rv
 
-data = load_data('Demo/Data/HMLN/0')
-# for key, rv in rvs_dict.items():
-#     if key not in data and key not in query and not rv.domain.continuous:
-#         data[key] = 0  # closed world assumption
+data = load_data('Demo/Data/HMLN/robot-map')
+for key, rv in rvs_dict.items():
+    if key not in data and key not in query and not rv.domain.continuous:
+        data[key] = 0  # closed world assumption
 
 # data = dict()
 
@@ -29,14 +30,14 @@ print(len(g.factors))
 
 time_log = dict()
 
-with open('Demo/Data/HMLN/paper-popularity-time-log', 'r') as file:
+with open('Demo/Data/HMLN/robot-mapping-time-log', 'r') as file:
     s = file.read()
     time_log = json.loads(s)
 
 # infer = HMWS(g)
 # infer.run(max_tries=1, max_flips=10000, epsilon=0.7, noise_std=0.3)
 # time_log['HMWS'] = infer.time_log
-#
+
 # infer = VI(g, num_mixtures=2, num_quadrature_points=3)
 # infer.run(100, lr=0.2)
 # time_log['VI'] = infer.time_log
@@ -44,13 +45,13 @@ with open('Demo/Data/HMLN/paper-popularity-time-log', 'r') as file:
 # infer = LVI(g, num_mixtures=2, num_quadrature_points=3)
 # infer.run(100, lr=0.2)
 # time_log['LVI'] = infer.time_log
-#
+
 # infer = C2FVI(g, num_mixtures=2, num_quadrature_points=3)
 # infer.run(100, lr=0.2)
 # time_log['C2FVI'] = infer.time_log
 
 
-# with open('Demo/Data/HMLN/paper-popularity-time-log', 'w+') as file:
+# with open('Demo/Data/HMLN/robot-mapping-time-log', 'w+') as file:
 #     file.write(json.dumps(time_log))
 
 
@@ -69,7 +70,7 @@ color = {
     'C2FVI': 'b',
 }
 
-max_t = 80
+max_t = 200
 
 for name, t_log in time_log.items():
     x = list()
