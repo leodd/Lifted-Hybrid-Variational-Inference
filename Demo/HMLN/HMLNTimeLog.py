@@ -51,8 +51,8 @@ with open('Demo/Data/HMLN/robot-mapping-time-log', 'r') as file:
 # time_log['C2FVI'] = infer.time_log
 
 
-with open('Demo/Data/HMLN/robot-mapping-time-log', 'w+') as file:
-    file.write(json.dumps(time_log))
+# with open('Demo/Data/HMLN/robot-mapping-time-log', 'w+') as file:
+#     file.write(json.dumps(time_log))
 
 
 import matplotlib.pyplot as plt
@@ -70,6 +70,13 @@ color = {
     'C2FVI': 'b',
 }
 
+dash = {
+    'HMWS': [6, 0],
+    'VI': [6, 1],
+    'LVI': [3, 3],
+    'C2FVI': [1, 1],
+}
+
 max_t = 500
 
 for name, t_log in time_log.items():
@@ -82,7 +89,7 @@ for name, t_log in time_log.items():
         y.append(ll)
     x.append(max_t)
     y.append(y[-1])
-    plt.plot(x, y, color=color[name])
+    plt.plot(x, y, color=color[name], dashes=dash[name])
 
 # plt.rc('xtick', labelsize=20)
 # plt.rc('ytick', labelsize=20)
@@ -95,5 +102,5 @@ for name, t_log in time_log.items():
 
 plt.legend(['HMWS', 'BVI', 'Lifted BVI', 'C2F BVI'], )
 plt.xlabel('time (second)')
-plt.ylabel('negative log potential')
+plt.ylabel('negative log probability')
 plt.show()

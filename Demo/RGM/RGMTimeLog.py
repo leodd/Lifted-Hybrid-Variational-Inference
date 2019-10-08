@@ -4,12 +4,6 @@ import numpy as np
 import time
 from Demo.Data.RGM.Generator import generate_rel_graph, load_data
 import json
-
-
-rel_g = generate_rel_graph()
-key_list = rel_g.key_list()
-
-
 from EPBPLogVersion import EPBP
 from VarInference import VarInference as VI
 from LiftedVarInference import VarInference as LVI
@@ -17,13 +11,15 @@ from C2FVarInference import VarInference as C2FVI
 from GaBP import GaBP
 
 
-data = load_data('Data/RGM/time_log_5percent')
-rel_g.data = data
-g, rvs_table = rel_g.grounded_graph()
+rel_g = generate_rel_graph()
+
+data = load_data('Demo/Data/RGM/time_log_20percent')
+rel_g.ground_graph()
+g, rvs_table = rel_g.add_evidence(data)
 
 time_log = dict()
 
-with open('Data/RGM/time_log_20_result', 'r') as file:
+with open('Demo/Data/RGM/time_log_20_result', 'r') as file:
     s = file.read()
     time_log = json.loads(s)
 
@@ -58,6 +54,13 @@ color = {
     'LVI': 'g',
     'C2FVI': 'b'
 }
+
+dash = {
+    'VI': [6, 0],
+    'LVI': [6, 2],
+    'C2FVI': [1, 1]
+}
+
 for name, t_log in time_log.items():
     x = list()
     y = list()
@@ -65,7 +68,7 @@ for name, t_log in time_log.items():
         if t > 125: break
         x.append(t)
         y.append(fe)
-    plt.plot(x, y, color=color[name])
+    plt.plot(x, y, color=color[name], dashes=dash[name])
 
 # plt.rc('xtick', labelsize=20)
 # plt.rc('ytick', labelsize=20)
@@ -76,7 +79,7 @@ for name, t_log in time_log.items():
 #
 # plt.rc('font', **font)
 
-plt.legend(['VI', 'Lifted VI', 'C2F VI'], )
+plt.legend(['BVI', 'Lifted BVI', 'C2F BVI'], )
 plt.xlabel('time (second)')
 plt.ylabel('free energy')
 plt.show()
