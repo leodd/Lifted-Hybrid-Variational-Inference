@@ -41,7 +41,8 @@ def generate_rel_graph():
 
 def generate_data(f, rel_g, evidence_ratio):
     data = dict()
-    key_list = rel_g.key_list()
+    _, rvs_dict = rel_g.ground_graph()
+    key_list = list(rvs_dict.keys())
 
     idx_evidence = np.random.choice(len(key_list), int(len(key_list) * evidence_ratio), replace=False)
     for i in idx_evidence:
@@ -66,8 +67,9 @@ def load_data(f):
 
 if __name__ == "__main__":
     rel_g = generate_rel_graph()
-    # generate_data('time_log_5percent', rel_g, 0.05)
+    generate_data('time_log_20percent', rel_g, 0.2)
     for i in range(5):
-        evidence_ratio = np.random.uniform(0.05, 0.2)
+        # evidence_ratio = np.random.uniform(0.05, 0.2)
+        evidence_ratio = 0.2
         f = str(i)
         generate_data(f, rel_g, evidence_ratio)

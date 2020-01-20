@@ -235,8 +235,9 @@ class VarInference:
         for rv, table in self.eta_tau.items():
             self.eta[rv] = self.softmax(table, 1)
 
-    def run(self, iteration=100, lr=0.1, is_log=True):
+    def run(self, iteration=100, lr=0.1, is_log=True, log_fe=True):
         self.is_log = is_log
+        self.log_fe = log_fe
 
         # initiate parameters
         self.init_param()
@@ -311,11 +312,13 @@ class VarInference:
             if self.is_log:
                 current_time = time.process_time()
                 self.total_time += current_time - start_time
-                # fe = self.free_energy()
-                map_res = dict()
-                for rv in self.g.g.rvs:
-                    map_res[rv] = self.map(rv)
-                fe = log_likelihood(self.g.g, map_res)
+                if self.log_fe:
+                    fe = self.free_energy()
+                else:
+                    map_res = dict()
+                    for rv in self.g.g.rvs:
+                        map_res[rv] = self.map(rv)
+                    fe = log_likelihood(self.g.g, map_res)
                 print(fe, self.total_time)
                 self.time_log.append([self.total_time, fe])
 
