@@ -53,9 +53,9 @@ with open('Demo/Data/HMLN/paper-popularity-time-log', 'r') as file:
 # infer.run(100, lr=0.2)
 # time_log['LVI'] = infer.time_log
 
-infer = C2FVI(g, num_mixtures=2, num_quadrature_points=3)
-infer.run(100, lr=0.2)
-time_log['C2FVI'] = infer.time_log
+# infer = C2FVI(g, num_mixtures=2, num_quadrature_points=3)
+# infer.run(100, lr=0.2)
+# time_log['C2FVI'] = infer.time_log
 
 
 with open('Demo/Data/HMLN/paper-popularity-time-log', 'w+') as file:
