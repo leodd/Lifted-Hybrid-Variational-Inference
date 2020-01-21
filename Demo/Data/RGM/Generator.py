@@ -68,8 +68,8 @@ def load_data(f):
 if __name__ == "__main__":
     rel_g = generate_rel_graph()
     generate_data('time_log_20percent', rel_g, 0.2)
-    for i in range(5):
-        # evidence_ratio = np.random.uniform(0.05, 0.2)
-        evidence_ratio = 0.2
-        f = str(i)
-        generate_data(f, rel_g, evidence_ratio)
+    # for i in range(5):
+    #     # evidence_ratio = np.random.uniform(0.05, 0.2)
+    #     evidence_ratio = 0.2
+    #     f = str(i)
+    #     generate_data(f, rel_g, evidence_ratio)

@@ -45,15 +45,15 @@ with open('Demo/Data/HMLN/paper-popularity-time-log', 'r') as file:
 # infer.run(max_tries=1, max_flips=10000, epsilon=0.7, noise_std=0.3)
 # time_log['HMWS'] = infer.time_log
 
-# infer = VI(g, num_mixtures=2, num_quadrature_points=3)
+# infer = VI(g, num_mixtures=2, num_quadrature_points=3, log_fe=False)
 # infer.run(100, lr=0.2)
 # time_log['VI'] = infer.time_log
 
-# infer = LVI(g, num_mixtures=2, num_quadrature_points=3)
+# infer = LVI(g, num_mixtures=2, num_quadrature_points=3, log_fe=False)
 # infer.run(100, lr=0.2)
 # time_log['LVI'] = infer.time_log
 
-# infer = C2FVI(g, num_mixtures=2, num_quadrature_points=3)
+# infer = C2FVI(g, num_mixtures=2, num_quadrature_points=3, log_fe=False)
 # infer.run(100, lr=0.2)
 # time_log['C2FVI'] = infer.time_log
 
