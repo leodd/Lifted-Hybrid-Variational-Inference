@@ -45,21 +45,21 @@ with open('Demo/Data/HMLN/paper-popularity-time-log', 'r') as file:
 # infer.run(max_tries=1, max_flips=10000, epsilon=0.7, noise_std=0.3)
 # time_log['HMWS'] = infer.time_log
 
-# infer = VI(g, num_mixtures=2, num_quadrature_points=3, log_fe=False)
-# infer.run(100, lr=0.2)
+# infer = VI(g, num_mixtures=2, num_quadrature_points=3)
+# infer.run(100, lr=0.2, log_fe=False)
 # time_log['VI'] = infer.time_log
 
-# infer = LVI(g, num_mixtures=2, num_quadrature_points=3, log_fe=False)
-# infer.run(100, lr=0.2)
+# infer = LVI(g, num_mixtures=2, num_quadrature_points=3)
+# infer.run(100, lr=0.2, log_fe=False)
 # time_log['LVI'] = infer.time_log
 
-# infer = C2FVI(g, num_mixtures=2, num_quadrature_points=3, log_fe=False)
-# infer.run(100, lr=0.2)
+# infer = C2FVI(g, num_mixtures=2, num_quadrature_points=3)
+# infer.run(100, lr=0.2, log_fe=False)
 # time_log['C2FVI'] = infer.time_log
 
 
-with open('Demo/Data/HMLN/paper-popularity-time-log', 'w+') as file:
-    file.write(json.dumps(time_log))
+# with open('Demo/Data/HMLN/paper-popularity-time-log', 'w+') as file:
+#     file.write(json.dumps(time_log))
 
 
 import matplotlib.pyplot as plt

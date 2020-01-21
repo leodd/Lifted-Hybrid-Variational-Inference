@@ -4,6 +4,7 @@ from VarInference import VarInference as VI
 from LiftedVarInference import VarInference as LVI
 from C2FVarInference import VarInference as C2FVI
 from EPBPLogVersion import EPBP
+from HybridLBPLogVersion import HybridLBP
 from HybridMaxWalkSAT import HybridMaxWalkSAT as HMWS
 
 
@@ -25,6 +26,9 @@ data = load_data('Demo/Data/HMLN/0')
 g, rvs_dict = rel_g.add_evidence(data)
 print(len(rvs_dict))
 print(len(g.factors))
+
+# infer = HybridLBP(g, n=10, proposal_approximation='simple')
+# infer.run(10, c2f=-1, log_enable=False)
 
 # infer = HMWS(g)
 # infer.run(max_tries=1, max_flips=10000, epsilon=0.0, noise_std=0.5)

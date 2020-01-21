@@ -5,6 +5,7 @@ from LiftedVarInference import VarInference as LVI
 from C2FVarInference import VarInference as C2FVI
 from GaBP import GaBP
 from HybridMaxWalkSAT import HybridMaxWalkSAT as HMWS
+from HybridLBPLogVersion import HybridLBP
 
 
 rel_g = generate_rel_graph()
@@ -16,8 +17,11 @@ data = {
 
 g, rvs_dict = rel_g.add_evidence(data)
 
-infer = HMWS(g)
-infer.run(max_tries=1, max_flips=10000, epsilon=0.0, noise_std=0.5)
+infer = HybridLBP(g, n=10, proposal_approximation='simple')
+infer.run(10, c2f=0, log_enable=False)
+
+# infer = HMWS(g)
+# infer.run(max_tries=1, max_flips=10000, epsilon=0.0, noise_std=0.5)
 
 # infer = LVI(g, num_mixtures=1, num_quadrature_points=3)
 # infer.run(200, lr=0.2)

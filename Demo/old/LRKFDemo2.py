@@ -12,10 +12,10 @@ import matplotlib.pyplot as plt
 from utils import kl_continuous
 
 
-cluster_mat = scipy.io.loadmat('Data/RKF/cluster_NcutDiscrete.mat')['NcutDiscrete']
-well_t = scipy.io.loadmat('Data/RKF/well_t.mat')['well_t']
-ans = scipy.io.loadmat('Data/RKF/LRKF_tree.mat')['res']
-param = scipy.io.loadmat('Data/RKF/LRKF_tree.mat')['param']
+cluster_mat = scipy.io.loadmat('Demo/Data/RKF/cluster_NcutDiscrete.mat')['NcutDiscrete']
+well_t = scipy.io.loadmat('Demo/Data/RKF/well_t.mat')['well_t']
+ans = scipy.io.loadmat('Demo/Data/RKF/LRKF_tree.mat')['res']
+param = scipy.io.loadmat('Demo/Data/RKF/LRKF_tree.mat')['param']
 print(well_t.shape)
 
 well_t = well_t[:, 199:]
