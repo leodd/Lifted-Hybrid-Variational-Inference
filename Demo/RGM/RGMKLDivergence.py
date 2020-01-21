@@ -5,6 +5,7 @@ from VarInference import VarInference as VI
 from LiftedVarInference import VarInference as LVI
 from C2FVarInference import VarInference as C2FVI
 from GaBP import GaBP
+from HybridLBPLogVersion import HybridLBP
 import numpy as np
 import time
 from Demo.Data.RGM.Generator import generate_rel_graph, load_data
@@ -28,8 +29,8 @@ map_err = list()
 
 for i in range(num_test):
     data = load_data('Demo/Data/RGM/' + str(i))
-    rel_g.data = data
-    g, rvs_table = rel_g.grounded_graph()
+    rel_g.ground_graph()
+    g, rvs_dict = rel_g.add_evidence(data)
     print('number of vr', len(g.rvs))
     print('number of evidence', sum([0 if rv.value is None else 1 for rv in g.rvs]))
 
@@ -44,11 +45,14 @@ for i in range(num_test):
     mu, sig = utils.get_gaussian_mean_params_from_quadratic_params(A=quadratic_params[0], b=quadratic_params[1],
                                                               mu_only=False)
 
-    infer = LVI(g, num_mixtures=1, num_quadrature_points=3)
-    infer.run(100, lr=0.2)
+    # infer = LVI(g, num_mixtures=1, num_quadrature_points=3)
+    # infer.run(100, lr=0.2)
 
-    # infer = EPBP(g, n=20, proposal_approximation='simple')
-    # infer.run(15)
+    infer = EPBP(g, n=20, proposal_approximation='simple')
+    infer.run(5)
+
+    # infer = HybridLBP(g, n=20, proposal_approximation='simple')
+    # infer.run(15, c2f=0, log_enable=False)
 
     kl_temp = list()
     map_err_temp = list()

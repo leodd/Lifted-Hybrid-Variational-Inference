@@ -340,28 +340,33 @@ class HybridLBP:
             prev = current
         return res * 0.5, shift
 
-    def belief(self, x, rv):
+    def belief(self, x, rv, inf_integral=False):
         if rv.value is None:
-            signature = (tuple(sorted(map(self.get_cluster, rv.nb))), 1)
+            # signature = (tuple(sorted(map(self.get_cluster, rv.nb))), 1)
+            signature = rv.cluster
 
             if rv.domain.continuous:
                 if signature in self.query_cache:
                     z, shift = self.query_cache[signature]
                 else:
-                    # z = quad(
-                    #     lambda val: e ** self.belief_rv_query(val, rv, self.sample),
-                    #     rv.domain.values[0], rv.domain.values[1]
-                    # )[0]
-                    z, shift = self.log_area(
-                        lambda val: self.belief_rv_query(val, rv, self.sample),
-                        rv.domain.values[0], rv.domain.values[1],
-                        20
-                    )
+                    if inf_integral:
+                        lb, ub = -Inf, Inf
+                    else:
+                        lb, ub = rv.domain.values[0]-20, rv.domain.values[1]+20
+                    z = quad(
+                        lambda val: e ** self.belief_rv_query(val, rv, self.sample),
+                        lb, ub
+                    )[0]
+                    shift = 0
+                    # z, shift = self.log_area(
+                    #     lambda val: self.belief_rv_query(val, rv, self.sample),
+                    #     rv.domain.values[0], rv.domain.values[1],
+                    #     20
+                    # )
                     self.query_cache[signature] = z, shift
 
-                b = e ** (self.belief_rv_query(x, rv, self.sample) - shift)
+                return e ** (self.belief_rv_query(x, rv, self.sample) - shift -log(z))
 
-                return b / z
             else:
                 if signature in self.query_cache:
                     b = self.query_cache[signature]
@@ -399,7 +404,8 @@ class HybridLBP:
 
     def map(self, rv):
         if rv.value is None:
-            signature = tuple(sorted(map(self.get_cluster, rv.nb)))
+            # signature = tuple(sorted(map(self.get_cluster, rv.nb)))
+            signature = rv.cluster
 
             if rv.domain.continuous:
                 if signature in self.query_cache:
