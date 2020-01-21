@@ -404,31 +404,20 @@ class HybridLBP:
 
     def map(self, rv):
         if rv.value is None:
-            # signature = tuple(sorted(map(self.get_cluster, rv.nb)))
-            signature = rv.cluster
 
             if rv.domain.continuous:
-                if signature in self.query_cache:
-                    res = self.query_cache[signature]
-                else:
-                    res = fminbound(
-                        lambda val: -self.belief_rv_query(val, rv, self.sample),
-                        rv.domain.values[0], rv.domain.values[1],
-                        disp=False
-                    )
-                    self.query_cache[signature] = res
+                res = fminbound(
+                    lambda val: -self.belief_rv_query(val, rv, self.sample),
+                    rv.domain.values[0], rv.domain.values[1],
+                    disp=False
+                )
 
-                # print(f'{self.q[rv.cluster]}')
                 return res
             else:
-                if signature in self.query_cache:
-                    max_x = self.query_cache[signature]
-                else:
-                    p = dict()
-                    for x in rv.domain.values:
-                        p[x] = self.belief_rv_query(x, rv, self.sample)
-                    max_x = max(p.keys(), key=(lambda k: p[k]))
-                    self.query_cache[signature] = max_x
+                p = dict()
+                for x in rv.domain.values:
+                    p[x] = self.belief_rv_query(x, rv, self.sample)
+                max_x = max(p.keys(), key=(lambda k: p[k]))
 
                 return max_x
         else:

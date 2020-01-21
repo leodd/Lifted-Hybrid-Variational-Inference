@@ -1,4 +1,4 @@
-import tensorflow as tf
+# import tensorflow as tf
 import numpy as np
 
 
@@ -8,7 +8,7 @@ def set_path(paths=('..',)):  # to facilitate importing within module
 
 
 def set_seed(seed=0):
-    tf.set_random_seed(seed)
+    # tf.set_random_seed(seed)
     np.random.seed(seed)
 
 
@@ -618,41 +618,41 @@ def expand_dims_for_grid(arrs, first_ndims_to_keep=0):
             enumerate(arrs)]
 
 
-def expand_dims_for_fun_grid(arrs):
-    """
-    Preprocessing helper for eval_fun_grid. arrs should be the list of arguments to a function R^n -> R.
-    See eval_fun_grid for comments.
-    :param arrs:
-    :return:
-    """
-    arrs_shapes_except_last = [a.shape[:-1] for a in arrs]
-    arrs_shapes_except_last = [tuple(s.as_list()) if isinstance(s, tf.TensorShape) else s
-                               for s in arrs_shapes_except_last]  # convert tf tensor shapes (np shapes already tuples)
-    assert len(set(arrs_shapes_except_last)) == 1, 'Shapes of input tensors can only differ in the last dimension!'
-    common_first_ndims = len(arrs_shapes_except_last[0])  # form grid based on the last dimension
-    expanded_arrs = expand_dims_for_grid(arrs, common_first_ndims)
-    return expanded_arrs
+# def expand_dims_for_fun_grid(arrs):
+#     """
+#     Preprocessing helper for eval_fun_grid. arrs should be the list of arguments to a function R^n -> R.
+#     See eval_fun_grid for comments.
+#     :param arrs:
+#     :return:
+#     """
+#     arrs_shapes_except_last = [a.shape[:-1] for a in arrs]
+#     arrs_shapes_except_last = [tuple(s.as_list()) if isinstance(s, tf.TensorShape) else s
+#                                for s in arrs_shapes_except_last]  # convert tf tensor shapes (np shapes already tuples)
+#     assert len(set(arrs_shapes_except_last)) == 1, 'Shapes of input tensors can only differ in the last dimension!'
+#     common_first_ndims = len(arrs_shapes_except_last[0])  # form grid based on the last dimension
+#     expanded_arrs = expand_dims_for_grid(arrs, common_first_ndims)
+#     return expanded_arrs
 
 
-def eval_fun_grid(fun, arrs, sep_args=False):
-    """
-    Evaluate a function R^n -> R on the tensor (outer) product of vectors [v1, v2, ..., vn];
-    Extended to tensors (thought of as containers of vectors) for efficient simultaneous evaluations, e.g., if arrs have
-    shapes [K x V1, K x V2, ..., K x Vn], the result will be of shape K x V1 x V2 x ... x Vn, and should be equivalent
-    to concatenating the results of evaluating on K ndgrids each of shape V1 x V2 ... x Vn (such that the kth grid is
-    formed by taking the kth rows of all the arrs).
-    :param fun: scalar fun that takes an iterable of n args
-    :param arrs: iterable (tuple/list) of tf/np arrays, length n
-    :param sep_args: whether fun takes iterable (instead of *args) as arguments, i.e., f(xyz) vs f(x,y,z)
-    :return:
-    """
-    expanded_arrs = expand_dims_for_fun_grid(arrs)
-
-    if sep_args:
-        res = fun(*expanded_arrs)
-    else:
-        res = fun(expanded_arrs)  # should evaluate on the Cartesian product (ndgrid) of axes by broadcasting
-    return res
+# def eval_fun_grid(fun, arrs, sep_args=False):
+#     """
+#     Evaluate a function R^n -> R on the tensor (outer) product of vectors [v1, v2, ..., vn];
+#     Extended to tensors (thought of as containers of vectors) for efficient simultaneous evaluations, e.g., if arrs have
+#     shapes [K x V1, K x V2, ..., K x Vn], the result will be of shape K x V1 x V2 x ... x Vn, and should be equivalent
+#     to concatenating the results of evaluating on K ndgrids each of shape V1 x V2 ... x Vn (such that the kth grid is
+#     formed by taking the kth rows of all the arrs).
+#     :param fun: scalar fun that takes an iterable of n args
+#     :param arrs: iterable (tuple/list) of tf/np arrays, length n
+#     :param sep_args: whether fun takes iterable (instead of *args) as arguments, i.e., f(xyz) vs f(x,y,z)
+#     :return:
+#     """
+#     expanded_arrs = expand_dims_for_fun_grid(arrs)
+#
+#     if sep_args:
+#         res = fun(*expanded_arrs)
+#     else:
+#         res = fun(expanded_arrs)  # should evaluate on the Cartesian product (ndgrid) of axes by broadcasting
+#     return res
 
 
 def broadcast_arrs_to_common_shape(arrs, backend):

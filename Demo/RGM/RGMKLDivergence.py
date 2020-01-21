@@ -21,6 +21,7 @@ def norm_pdf(x, mu, var):
 
 
 rel_g = generate_rel_graph()
+rel_g.ground_graph()
 
 num_test = 5
 
@@ -29,7 +30,6 @@ map_err = list()
 
 for i in range(num_test):
     data = load_data('Demo/Data/RGM/' + str(i))
-    rel_g.ground_graph()
     g, rvs_dict = rel_g.add_evidence(data)
     print('number of vr', len(g.rvs))
     print('number of evidence', sum([0 if rv.value is None else 1 for rv in g.rvs]))
@@ -49,7 +49,7 @@ for i in range(num_test):
     # infer.run(100, lr=0.2)
 
     infer = EPBP(g, n=20, proposal_approximation='simple')
-    infer.run(5)
+    infer.run(15)
 
     # infer = HybridLBP(g, n=20, proposal_approximation='simple')
     # infer.run(15, c2f=0, log_enable=False)
@@ -57,7 +57,7 @@ for i in range(num_test):
     kl_temp = list()
     map_err_temp = list()
 
-    for rv in g.rvs:
+    for idx, rv in enumerate(g.rvs):
         if rv.value is None:
             # print(quad(lambda x: infer.belief(x, rv), rv.domain.values[0], rv.domain.values[1]))
 
@@ -73,6 +73,8 @@ for i in range(num_test):
             map_err_temp.append(
                 abs(infer.map(rv) - mu[rv_idx])
             )
+
+            print(idx)
 
     kl.extend(kl_temp)
     map_err.extend(map_err_temp)
