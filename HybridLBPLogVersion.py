@@ -353,19 +353,19 @@ class HybridLBP:
                         lb, ub = -Inf, Inf
                     else:
                         lb, ub = rv.domain.values[0]-20, rv.domain.values[1]+20
-                    z = quad(
-                        lambda val: e ** self.belief_rv_query(val, rv, self.sample),
-                        lb, ub
-                    )[0]
-                    shift = 0
-                    # z, shift = self.log_area(
-                    #     lambda val: self.belief_rv_query(val, rv, self.sample),
-                    #     rv.domain.values[0], rv.domain.values[1],
-                    #     20
-                    # )
+                    # z = quad(
+                    #     lambda val: e ** self.belief_rv_query(val, rv, self.sample),
+                    #     lb, ub
+                    # )[0]
+                    # shift = 0
+                    z, shift = self.log_area(
+                        lambda val: self.belief_rv_query(val, rv, self.sample),
+                        rv.domain.values[0], rv.domain.values[1],
+                        20
+                    )
                     self.query_cache[signature] = z, shift
 
-                return e ** (self.belief_rv_query(x, rv, self.sample) - shift -log(z))
+                return e ** (self.belief_rv_query(x, rv, self.sample) - shift - log(z))
 
             else:
                 if signature in self.query_cache:

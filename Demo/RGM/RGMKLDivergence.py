@@ -48,11 +48,11 @@ for i in range(num_test):
     # infer = LVI(g, num_mixtures=1, num_quadrature_points=3)
     # infer.run(100, lr=0.2)
 
-    infer = EPBP(g, n=20, proposal_approximation='simple')
-    infer.run(15)
+    # infer = EPBP(g, n=20, proposal_approximation='simple')
+    # infer.run(15)
 
-    # infer = HybridLBP(g, n=20, proposal_approximation='simple')
-    # infer.run(15, c2f=0, log_enable=False)
+    infer = HybridLBP(g, n=20, proposal_approximation='simple')
+    infer.run(15, c2f=0, log_enable=False)
 
     kl_temp = list()
     map_err_temp = list()
@@ -74,7 +74,7 @@ for i in range(num_test):
                 abs(infer.map(rv) - mu[rv_idx])
             )
 
-            print(idx)
+            print(idx, kl_temp[-1], map_err_temp[-1])
 
     kl.extend(kl_temp)
     map_err.extend(map_err_temp)
