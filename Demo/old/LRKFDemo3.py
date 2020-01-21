@@ -4,6 +4,7 @@ from VarInference import VarInference as VI
 from LiftedVarInference import VarInference as LVI
 from C2FVarInference import VarInference as C2FVI
 from EPBPLogVersion import EPBP
+from HybridLBPLogVersion import HybridLBP
 from GaBP import GaBP
 import numpy as np
 import scipy.io
@@ -12,10 +13,10 @@ import matplotlib.pyplot as plt
 from utils import kl_continuous
 
 
-cluster_mat = scipy.io.loadmat('Data/RKF/cluster_NcutDiscrete.mat')['NcutDiscrete']
-well_t = scipy.io.loadmat('Data/RKF/well_t.mat')['well_t']
-ans = scipy.io.loadmat('Data/RKF/LRKF_cycle.mat')['res']
-param = scipy.io.loadmat('Data/RKF/LRKF_cycle.mat')['param']
+cluster_mat = scipy.io.loadmat('Demo/Data/RKF/cluster_NcutDiscrete.mat')['NcutDiscrete']
+well_t = scipy.io.loadmat('Demo/Data/RKF/well_t.mat')['well_t']
+ans = scipy.io.loadmat('Demo/Data/RKF/LRKF_cycle.mat')['res']
+param = scipy.io.loadmat('Demo/Data/RKF/LRKF_cycle.mat')['param']
 print(well_t.shape)
 
 idx = np.where(cluster_mat[:, 1] == 1)[0]
@@ -58,6 +59,7 @@ for i in range(num_test):
 
     g, rvs_table = kmf.grounded_graph(t, data)
     # infer = EPBP(g, n=20, proposal_approximation='simple')
+    # infer = HybridLBP(g, n=20, proposal_approximation='simple')
     infer = C2FVI(g, 1, 3)
     print('number of vr', len(g.rvs))
     num_evidence = 0
@@ -68,6 +70,7 @@ for i in range(num_test):
 
     start_time = time.process_time()
     # infer.run(20, log_enable=False)
+    # infer.run(20, c2f=0, log_enable=False)
     infer.run(200, 0.1)
     time_cost.append(time.process_time() - start_time)
     print('time lapse', time.process_time() - start_time)

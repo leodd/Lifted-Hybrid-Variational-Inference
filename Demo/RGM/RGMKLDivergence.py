@@ -27,7 +27,7 @@ kl = list()
 map_err = list()
 
 for i in range(num_test):
-    data = load_data('Data/RGM/' + str(i))
+    data = load_data('Demo/Data/RGM/' + str(i))
     rel_g.data = data
     g, rvs_table = rel_g.grounded_graph()
     print('number of vr', len(g.rvs))
